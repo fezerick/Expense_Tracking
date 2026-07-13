@@ -7,13 +7,17 @@ struct HomeView: View {
     let year: Int
 
     @Environment(\.modelContext) private var context
+    // Modules choisis dans l'assistant de configuration.
+    @AppStorage(AppSetup.Keys.moduleTrips) private var moduleTrips = true
+    @AppStorage(AppSetup.Keys.moduleProperties) private var moduleProperties = true
+    @AppStorage(AppSetup.Keys.moduleRideshare) private var moduleRideshare = true
     // Ces @Query déclenchent le rafraîchissement des cartes quand les données changent.
     @Query private var allTrips: [Trip]
     @Query private var allEntries: [EntryAmount]
 
     // Formulaire rapide
     @State private var tripDate = Date()
-    @State private var destination = "p1090"          // p1090 | p470 | other
+    @State private var destination = "p1090"          // id de propriété | other
     @State private var km: Double = AppConfig.p1090.oneWayKm * 2
     @State private var roundTrip = true
     @State private var purpose = ""
@@ -28,39 +32,66 @@ struct HomeView: View {
         ScrollView {
             VStack(spacing: 16) {
                 summaryCards
-                quickTripForm
-                recentTrips
+                if moduleTrips {
+                    quickTripForm
+                    recentTrips
+                }
             }
             .padding()
         }
         .background(AppConfig.Palette.background)
         .navigationTitle("Accueil")
         .scrollDismissesKeyboard(.interactively)
+        .onAppear {
+            // Si la propriété par défaut n'est pas suivie, bascule sur la première active.
+            if destination != "other", !AppSetup.activeProperties.contains(where: { $0.id == destination }) {
+                destination = AppSetup.activeProperties.first?.id ?? "other"
+                applyPresetDistance()
+            }
+        }
     }
 
     // MARK: - Cartes résumé
 
     private var summaryCards: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                SummaryCard(title: "Revenus locatifs",
-                            value: AppConfig.currency(data.totalRevenueAll()),
-                            color: AppConfig.Palette.green,
-                            icon: "arrow.down.circle.fill")
-                SummaryCard(title: "Dépenses déductibles",
-                            value: AppConfig.currency(data.totalDeductibleAll()),
-                            color: AppConfig.Palette.orange,
-                            icon: "arrow.up.circle.fill")
+            if moduleProperties {
+                HStack(spacing: 10) {
+                    SummaryCard(title: "Revenus locatifs",
+                                value: AppConfig.currency(data.totalRevenueAll()),
+                                color: AppConfig.Palette.green,
+                                icon: "arrow.down.circle.fill")
+                    SummaryCard(title: "Dépenses déductibles",
+                                value: AppConfig.currency(data.totalDeductibleAll()),
+                                color: AppConfig.Palette.orange,
+                                icon: "arrow.up.circle.fill")
+                }
             }
             HStack(spacing: 10) {
-                SummaryCard(title: "Bénéfice net",
-                            value: AppConfig.currency(data.rentalNetGlobal()),
-                            color: data.rentalNetGlobal() >= 0 ? AppConfig.Palette.green : .red,
-                            icon: "chart.line.uptrend.xyaxis")
-                SummaryCard(title: "Déplacements \(String(year))",
-                            value: AppConfig.currency(data.totalTripsAmount()),
-                            color: AppConfig.Palette.blue,
-                            icon: "car.fill")
+                if moduleProperties {
+                    SummaryCard(title: "Bénéfice net",
+                                value: AppConfig.currency(data.rentalNetGlobal()),
+                                color: data.rentalNetGlobal() >= 0 ? AppConfig.Palette.green : .red,
+                                icon: "chart.line.uptrend.xyaxis")
+                }
+                if moduleTrips {
+                    SummaryCard(title: "Déplacements \(String(year))",
+                                value: AppConfig.currency(data.totalTripsAmount()),
+                                color: AppConfig.Palette.blue,
+                                icon: "car.fill")
+                }
+            }
+            if moduleRideshare {
+                HStack(spacing: 10) {
+                    SummaryCard(title: "Déduction véhicule Uber",
+                                value: AppConfig.currency(data.vehicleDeductionUber()),
+                                color: AppConfig.Palette.orange,
+                                icon: "car.2.fill")
+                    SummaryCard(title: "Déduction véhicule Lyft",
+                                value: AppConfig.currency(data.vehicleDeductionLyft()),
+                                color: AppConfig.Palette.pink,
+                                icon: "car.2.fill")
+                }
             }
         }
     }
@@ -77,8 +108,9 @@ struct HomeView: View {
                 .font(.subheadline)
 
             Picker("Destination", selection: $destination) {
-                Text(AppConfig.p1090.name).tag("p1090")
-                Text(AppConfig.p470.name).tag("p470")
+                ForEach(AppSetup.activeProperties) { prop in
+                    Text(AppSetup.displayName(prop.id)).tag(prop.id)
+                }
                 Text("Autre destination").tag("other")
             }
             .pickerStyle(.segmented)
@@ -185,10 +217,10 @@ struct HomeView: View {
 
     private func applyPresetDistance() {
         distanceError = nil
-        switch destination {
-        case "p1090": km = AppConfig.p1090.oneWayKm * (roundTrip ? 2 : 1)
-        case "p470": km = AppConfig.p470.oneWayKm * (roundTrip ? 2 : 1)
-        default: km = 0
+        if destination == "other" {
+            km = 0
+        } else {
+            km = (AppConfig.property(id: destination)?.oneWayKm ?? 0) * (roundTrip ? 2 : 1)
         }
     }
 
@@ -211,10 +243,10 @@ struct HomeView: View {
 
     private func saveTrip() {
         let label: String
-        switch destination {
-        case "p1090": label = AppConfig.p1090.name
-        case "p470": label = AppConfig.p470.name
-        default: label = customDestination.isEmpty ? "Autre destination" : customDestination
+        if destination == "other" {
+            label = customDestination.isEmpty ? "Autre destination" : customDestination
+        } else {
+            label = AppSetup.displayName(destination)
         }
         data.addTrip(date: tripDate, propertyId: destination, destinationLabel: label,
                      km: km, roundTrip: roundTrip, purpose: purpose)

@@ -10,45 +10,50 @@ struct CSVExportService {
         lines.append("Sommaire fiscal \(fy.year);;;")
         lines.append("Source;Revenus;Dépenses déductibles;Bénéfice")
 
-        for prop in AppConfig.properties {
+        // Seuls les modules/immeubles suivis (assistant de configuration) sont exportés.
+        for prop in AppSetup.activeProperties {
             let rev = data.sectionAnnualTotal(propertyId: prop.id, section: .revenue)
             let ded = data.sectionAnnualTotal(propertyId: prop.id, section: .deductible)
-            lines.append("\(escape(prop.name));\(number(rev));\(number(ded));\(number(rev - ded))")
+            lines.append("\(escape(AppSetup.displayName(prop.id)));\(number(rev));\(number(ded));\(number(rev - ded))")
         }
 
         let uberDed = data.vehicleDeductionUber()
         let lyftDed = data.vehicleDeductionLyft()
-        lines.append("Uber — véhicule;\(number(0));\(number(uberDed));\(number(-uberDed))")
-        lines.append("Lyft — véhicule;\(number(0));\(number(lyftDed));\(number(-lyftDed))")
+        if AppSetup.moduleRideshare {
+            lines.append("Uber — véhicule;\(number(0));\(number(uberDed));\(number(-uberDed))")
+            lines.append("Lyft — véhicule;\(number(0));\(number(lyftDed));\(number(-lyftDed))")
+        }
 
         let totalRev = data.totalRevenueAll()
-        let totalDed = data.totalDeductibleAll() + uberDed + lyftDed
+        let totalDed = data.totalDeductibleAll() + (AppSetup.moduleRideshare ? uberDed + lyftDed : 0)
         lines.append("TOTAL;\(number(totalRev));\(number(totalDed));\(number(data.globalNet()))")
 
         lines.append(";;;")
         lines.append("Détail par propriété et catégorie;;;")
         lines.append("Propriété;Section;Catégorie;Total annuel")
-        for prop in AppConfig.properties {
+        for prop in AppSetup.activeProperties {
             for (section, cats) in [(EntrySection.revenue, prop.revenueCategories),
                                     (.deductible, prop.deductibleCategories),
                                     (.capital, prop.capitalCategories)] {
                 for cat in cats {
                     let total = data.categoryAnnualTotal(propertyId: prop.id, section: section, category: cat)
                     if total != 0 {
-                        lines.append("\(escape(prop.name));\(sectionName(section));\(escape(cat));\(number(total))")
+                        lines.append("\(escape(AppSetup.displayName(prop.id)));\(sectionName(section));\(escape(cat));\(number(total))")
                     }
                 }
             }
         }
 
-        lines.append(";;;")
-        lines.append("Journal des trajets;;;")
-        lines.append("Date;Destination;Motif;Km")
-        let df = DateFormatter()
-        df.locale = AppConfig.locale
-        df.dateFormat = "yyyy-MM-dd"
-        for trip in data.trips().sorted(by: { $0.date < $1.date }) {
-            lines.append("\(df.string(from: trip.date));\(escape(trip.destinationLabel));\(escape(trip.purpose));\(number(trip.km))")
+        if AppSetup.moduleTrips {
+            lines.append(";;;")
+            lines.append("Journal des trajets;;;")
+            lines.append("Date;Destination;Motif;Km")
+            let df = DateFormatter()
+            df.locale = AppConfig.locale
+            df.dateFormat = "yyyy-MM-dd"
+            for trip in data.trips().sorted(by: { $0.date < $1.date }) {
+                lines.append("\(df.string(from: trip.date));\(escape(trip.destinationLabel));\(escape(trip.purpose));\(number(trip.km))")
+            }
         }
 
         return lines.joined(separator: "\n")

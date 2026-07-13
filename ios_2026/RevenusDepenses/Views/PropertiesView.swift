@@ -20,14 +20,23 @@ struct PropertiesView: View {
     private var data: DataService { DataService(context: context, year: year) }
     private var property: AppConfig.PropertyDef { AppConfig.property(id: propertyId) ?? AppConfig.p1090 }
 
+    /// Libellé compact pour le sélecteur segmenté (sans la parenthèse descriptive).
+    private func segmentLabel(_ id: String) -> String {
+        AppSetup.displayName(id)
+            .replacingOccurrences(of: #"\s*\(.*\)$"#, with: "", options: .regularExpression)
+    }
+
     var body: some View {
         List {
             Section {
-                Picker("Propriété", selection: $propertyId) {
-                    Text(AppConfig.p1090.shortName + " Oscar Benoît").tag("p1090")
-                    Text(AppConfig.p470.shortName + " Gélinas").tag("p470")
+                if AppSetup.activeProperties.count > 1 {
+                    Picker("Propriété", selection: $propertyId) {
+                        ForEach(AppSetup.activeProperties) { prop in
+                            Text(segmentLabel(prop.id)).tag(prop.id)
+                        }
+                    }
+                    .pickerStyle(.segmented)
                 }
-                .pickerStyle(.segmented)
 
                 Picker("Vue", selection: $showAnnual) {
                     Text("Vue mensuelle").tag(false)
@@ -56,7 +65,14 @@ struct PropertiesView: View {
                 monthlySections
             }
         }
-        .navigationTitle(property.name)
+        .navigationTitle(AppSetup.displayName(property.id))
+        .onAppear {
+            // Si l'immeuble sélectionné n'est plus suivi, bascule sur le premier actif.
+            if !AppSetup.activeProperties.contains(where: { $0.id == propertyId }),
+               let first = AppSetup.activeProperties.first {
+                propertyId = first.id
+            }
+        }
         .sheet(isPresented: $showRecurring) {
             RecurringAmountsSheet(year: year, propertyId: propertyId, currentMonth: month)
         }

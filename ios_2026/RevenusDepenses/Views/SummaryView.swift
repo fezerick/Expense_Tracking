@@ -8,6 +8,10 @@ struct SummaryView: View {
     let year: Int
 
     @Environment(\.modelContext) private var context
+    // Modules choisis dans l'assistant de configuration.
+    @AppStorage(AppSetup.Keys.moduleTrips) private var moduleTrips = true
+    @AppStorage(AppSetup.Keys.moduleProperties) private var moduleProperties = true
+    @AppStorage(AppSetup.Keys.moduleRideshare) private var moduleRideshare = true
     // Rafraîchissement automatique quand une donnée change.
     @Query private var allEntries: [EntryAmount]
     @Query private var allTrips: [Trip]
@@ -57,18 +61,26 @@ struct SummaryView: View {
 
     private var globalSummary: some View {
         Section("Résumé global") {
-            AmountRow(label: "Revenus locatifs totaux", amount: data.totalRevenueAll(),
-                      color: AppConfig.Palette.green)
-            AmountRow(label: "Dépenses déductibles", amount: data.totalDeductibleAll(),
-                      color: AppConfig.Palette.orange)
-            AmountRow(label: "Dépenses en capital", amount: data.totalCapitalAll(),
-                      color: AppConfig.Palette.brown)
-            AmountRow(label: "Bénéfice locatif net", amount: data.rentalNetGlobal(), bold: true,
-                      color: data.rentalNetGlobal() >= 0 ? AppConfig.Palette.green : .red)
-            AmountRow(label: "Déduction véhicule — Uber", amount: data.vehicleDeductionUber(),
-                      color: AppConfig.Palette.orange)
-            AmountRow(label: "Déduction véhicule — Lyft", amount: data.vehicleDeductionLyft(),
-                      color: AppConfig.Palette.pink)
+            if moduleProperties {
+                AmountRow(label: "Revenus locatifs totaux", amount: data.totalRevenueAll(),
+                          color: AppConfig.Palette.green)
+                AmountRow(label: "Dépenses déductibles", amount: data.totalDeductibleAll(),
+                          color: AppConfig.Palette.orange)
+                AmountRow(label: "Dépenses en capital", amount: data.totalCapitalAll(),
+                          color: AppConfig.Palette.brown)
+                AmountRow(label: "Bénéfice locatif net", amount: data.rentalNetGlobal(), bold: true,
+                          color: data.rentalNetGlobal() >= 0 ? AppConfig.Palette.green : .red)
+            }
+            if moduleTrips && !moduleProperties {
+                AmountRow(label: "Déplacements (journal km)", amount: data.totalTripsAmount(),
+                          color: AppConfig.Palette.blue)
+            }
+            if moduleRideshare {
+                AmountRow(label: "Déduction véhicule — Uber", amount: data.vehicleDeductionUber(),
+                          color: AppConfig.Palette.orange)
+                AmountRow(label: "Déduction véhicule — Lyft", amount: data.vehicleDeductionLyft(),
+                          color: AppConfig.Palette.pink)
+            }
             AmountRow(label: "Bénéfice global", amount: data.globalNet(), bold: true,
                       color: data.globalNet() >= 0 ? AppConfig.Palette.green : .red)
         }
@@ -78,17 +90,19 @@ struct SummaryView: View {
 
     private var sourceTable: some View {
         Section("Détail par source") {
-            sourceRow(name: AppConfig.p1090.name,
-                      revenue: data.sectionAnnualTotal(propertyId: "p1090", section: .revenue),
-                      expenses: data.sectionAnnualTotal(propertyId: "p1090", section: .deductible))
-            sourceRow(name: AppConfig.p470.name,
-                      revenue: data.sectionAnnualTotal(propertyId: "p470", section: .revenue),
-                      expenses: data.sectionAnnualTotal(propertyId: "p470", section: .deductible))
-            sourceRow(name: "Uber — véhicule", revenue: 0, expenses: data.vehicleDeductionUber())
-            sourceRow(name: "Lyft — véhicule", revenue: 0, expenses: data.vehicleDeductionLyft())
+            ForEach(AppSetup.activeProperties) { prop in
+                sourceRow(name: AppSetup.displayName(prop.id),
+                          revenue: data.sectionAnnualTotal(propertyId: prop.id, section: .revenue),
+                          expenses: data.sectionAnnualTotal(propertyId: prop.id, section: .deductible))
+            }
+            if moduleRideshare {
+                sourceRow(name: "Uber — véhicule", revenue: 0, expenses: data.vehicleDeductionUber())
+                sourceRow(name: "Lyft — véhicule", revenue: 0, expenses: data.vehicleDeductionLyft())
+            }
             sourceRow(name: "TOTAL",
                       revenue: data.totalRevenueAll(),
-                      expenses: data.totalDeductibleAll() + data.vehicleDeductionUber() + data.vehicleDeductionLyft(),
+                      expenses: data.totalDeductibleAll()
+                          + (moduleRideshare ? data.vehicleDeductionUber() + data.vehicleDeductionLyft() : 0),
                       bold: true)
         }
     }

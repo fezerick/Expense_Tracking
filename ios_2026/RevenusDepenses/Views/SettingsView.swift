@@ -9,6 +9,11 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @AppStorage("iCloudSyncPreference") private var syncPreferred = true
+    @AppStorage(AppSetup.Keys.appearance) private var appearanceRaw = AppSetup.Appearance.system.rawValue
+    @AppStorage(AppSetup.Keys.moduleTrips) private var moduleTrips = true
+    @AppStorage(AppSetup.Keys.moduleProperties) private var moduleProperties = true
+    @AppStorage(AppSetup.Keys.moduleRideshare) private var moduleRideshare = true
+    @AppStorage(AppSetup.Keys.onboardingDone) private var onboardingDone = false
 
     @State private var showEraseConfirmation = false
     @State private var eraseDone = false
@@ -22,6 +27,42 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Picker("Thème", selection: $appearanceRaw) {
+                        ForEach(AppSetup.Appearance.allCases) { appearance in
+                            Label(appearance.label, systemImage: appearance.icon)
+                                .tag(appearance.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("Apparence")
+                } footer: {
+                    Text("« Automatique » suit le réglage clair/sombre de l'iPhone.")
+                }
+
+                Section {
+                    Toggle(isOn: $moduleTrips) {
+                        Label("Déplacements (journal km)", systemImage: "car.fill")
+                    }
+                    Toggle(isOn: $moduleProperties) {
+                        Label("Logements locatifs", systemImage: "building.2.fill")
+                    }
+                    Toggle(isOn: $moduleRideshare) {
+                        Label("Uber / Lyft (travail autonome)", systemImage: "car.2.fill")
+                    }
+                    Button {
+                        onboardingDone = false
+                        dismiss()
+                    } label: {
+                        Label("Relancer l'assistant de configuration", systemImage: "wand.and.stars")
+                    }
+                } header: {
+                    Text("Modules affichés")
+                } footer: {
+                    Text("Masquer un module cache ses onglets et l'exclut du rapport PDF/CSV, sans effacer les données déjà saisies.")
+                }
+
                 Section("Année fiscale \(String(year))") {
                     CurrencyField(title: "Taux kilométrique ($/km)",
                                   value: Binding(
@@ -69,29 +110,16 @@ struct SettingsView: View {
                         .disabled(!cloudKitEnabled)
                 }
 
-                Section {
-                    ownershipRows(title: AppConfig.p1090.name,
-                                  pct: Binding(
-                                      get: { data.ensureFiscalYear().ownershipPct1090 },
-                                      set: { data.ensureFiscalYear().ownershipPct1090 = min(100, max(0, $0)) }
-                                  ),
-                                  coOwner: Binding(
-                                      get: { data.ensureFiscalYear().coOwner1090 },
-                                      set: { data.ensureFiscalYear().coOwner1090 = $0 }
-                                  ))
-                    ownershipRows(title: AppConfig.p470.name,
-                                  pct: Binding(
-                                      get: { data.ensureFiscalYear().ownershipPct470 },
-                                      set: { data.ensureFiscalYear().ownershipPct470 = min(100, max(0, $0)) }
-                                  ),
-                                  coOwner: Binding(
-                                      get: { data.ensureFiscalYear().coOwner470 },
-                                      set: { data.ensureFiscalYear().coOwner470 = $0 }
-                                  ))
-                } header: {
-                    Text("Propriété des immeubles (T776)")
-                } footer: {
-                    Text("Votre pourcentage de participation et le nom du copropriétaire figurent sur le rapport PDF ; le comptable en a besoin pour le formulaire T776 / TP-128.")
+                if moduleProperties {
+                    Section {
+                        ForEach(AppSetup.activeProperties) { prop in
+                            ownershipRows(propertyId: prop.id)
+                        }
+                    } header: {
+                        Text("Propriété des immeubles (T776)")
+                    } footer: {
+                        Text("Votre pourcentage de participation et le nom du copropriétaire figurent sur le rapport PDF ; le comptable en a besoin pour le formulaire T776 / TP-128.")
+                    }
                 }
 
                 Section("Profil") {
@@ -135,15 +163,31 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private func ownershipRows(title: String, pct: Binding<Double>, coOwner: Binding<String>) -> some View {
-        NumberField(title: "\(title) — % de propriété", value: pct, unit: "%")
+    private func ownershipRows(propertyId: String) -> some View {
+        let is470 = propertyId == AppConfig.p470.id
+        NumberField(title: "\(AppSetup.displayName(propertyId)) — % de propriété",
+                    value: Binding(
+                        get: { data.ensureFiscalYear().ownershipPct(propertyId: propertyId) },
+                        set: {
+                            let value = min(100, max(0, $0))
+                            if is470 { data.ensureFiscalYear().ownershipPct470 = value }
+                            else { data.ensureFiscalYear().ownershipPct1090 = value }
+                        }
+                    ),
+                    unit: "%")
         HStack {
             Text("Copropriétaire")
                 .font(.subheadline)
             Spacer()
-            TextField("Nom (vide si aucun)", text: coOwner)
-                .multilineTextAlignment(.trailing)
-                .font(.subheadline)
+            TextField("Nom (vide si aucun)", text: Binding(
+                get: { data.ensureFiscalYear().coOwner(propertyId: propertyId) },
+                set: {
+                    if is470 { data.ensureFiscalYear().coOwner470 = $0 }
+                    else { data.ensureFiscalYear().coOwner1090 = $0 }
+                }
+            ))
+            .multilineTextAlignment(.trailing)
+            .font(.subheadline)
         }
     }
 }

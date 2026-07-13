@@ -23,8 +23,13 @@ struct TripsView: View {
                 monthTotals
             }
 
-            tripGroup(title: AppConfig.p1090.name, propertyId: "p1090", color: AppConfig.Palette.blue)
-            tripGroup(title: AppConfig.p470.name, propertyId: "p470", color: AppConfig.Palette.green)
+            // Tous les immeubles (même désactivés dans l'assistant) : un trajet déjà
+            // saisi ne doit jamais disparaître ; le groupe est masqué seulement si vide.
+            let groupColors = [AppConfig.Palette.blue, AppConfig.Palette.green]
+            ForEach(Array(AppConfig.properties.enumerated()), id: \.element.id) { index, prop in
+                tripGroup(title: AppSetup.displayName(prop.id), propertyId: prop.id,
+                          color: groupColors[index % groupColors.count])
+            }
             tripGroup(title: "Autres destinations", propertyId: "other", color: AppConfig.Palette.brown)
 
             if monthTrips.isEmpty {

@@ -185,45 +185,70 @@ struct PDFReportGenerator {
             // ============================================================
             // 1. PAGE TITRE + RÉSUMÉ GLOBAL
             // ============================================================
+            // Modules retenus dans l'assistant de configuration : le rapport
+            // n'inclut que les sections des activités suivies.
+            let rentalProps = AppSetup.activeProperties
+            let includeRideshare = AppSetup.moduleRideshare
+            let includeTrips = AppSetup.moduleTrips
+
             newPage()
             drawText("Dossier fiscal \(fy.year)", font: .boldSystemFont(ofSize: 22), color: navy, spacing: 2)
-            drawText("Revenus locatifs (T776 / TP-128) et travail autonome (T2125 / TP-80)",
+            var scopeParts: [String] = []
+            if !rentalProps.isEmpty { scopeParts.append("Revenus locatifs (T776 / TP-128)") }
+            if includeRideshare { scopeParts.append("travail autonome (T2125 / TP-80)") }
+            if scopeParts.isEmpty { scopeParts.append("Journal de kilométrage") }
+            drawText(scopeParts.joined(separator: " et "),
                      font: .systemFont(ofSize: 11), color: .darkGray, spacing: 12)
 
             drawText("Contribuable : \(AppConfig.ownerName)", font: .systemFont(ofSize: 10.5), spacing: 3)
             drawText("Adresse : \(AppConfig.homeAddress)", font: .systemFont(ofSize: 10.5), spacing: 3)
-            drawText("Véhicule : \(fy.vehicleModel) — \(AppConfig.km(fy.vehicleTotalKm)) parcourus dans l'année",
-                     font: .systemFont(ofSize: 10.5), spacing: 3)
+            if includeTrips || includeRideshare {
+                drawText("Véhicule : \(fy.vehicleModel) — \(AppConfig.km(fy.vehicleTotalKm)) parcourus dans l'année",
+                         font: .systemFont(ofSize: 10.5), spacing: 3)
+            }
             drawText("Rapport généré le \(df.string(from: Date())) — montants en dollars canadiens",
                      font: .systemFont(ofSize: 9), color: .gray, spacing: 12)
 
             drawSectionTitle("Résumé global")
-            drawLine(label: "Revenus locatifs bruts (2 immeubles)", amount: data.totalRevenueAll())
-            drawLine(label: "Dépenses locatives déductibles", amount: data.totalDeductibleAll())
-            drawLine(label: "Bénéfice locatif net (avant part des copropriétaires)",
-                     amount: data.rentalNetGlobal(), bold: true, color: green)
-            drawLine(label: "Dépenses en capital (DPA à évaluer par le comptable)",
-                     amount: data.totalCapitalAll(), color: brown)
-            y += 4
-            drawLine(label: "Revenu net Uber (revenus − frais Uber)", amount: data.uberNetIncome())
-            drawLine(label: "Revenu taxable Lyft", amount: data.lyftTaxableTotal())
-            drawLine(label: "Déduction véhicule Uber (méthode dépenses réelles)",
-                     amount: -data.vehicleDeductionUber())
-            drawLine(label: "Déduction véhicule Lyft (méthode dépenses réelles)",
-                     amount: -data.vehicleDeductionLyft())
+            if !rentalProps.isEmpty {
+                let label = rentalProps.count > 1
+                    ? "Revenus locatifs bruts (\(rentalProps.count) immeubles)"
+                    : "Revenus locatifs bruts"
+                drawLine(label: label, amount: data.totalRevenueAll())
+                drawLine(label: "Dépenses locatives déductibles", amount: data.totalDeductibleAll())
+                drawLine(label: "Bénéfice locatif net (avant part des copropriétaires)",
+                         amount: data.rentalNetGlobal(), bold: true, color: green)
+                drawLine(label: "Dépenses en capital (DPA à évaluer par le comptable)",
+                         amount: data.totalCapitalAll(), color: brown)
+                y += 4
+            }
+            if includeTrips && rentalProps.isEmpty {
+                drawLine(label: "Frais de déplacement (journal de kilométrage, annexe A)",
+                         amount: data.totalTripsAmount(), bold: true, color: green)
+                y += 4
+            }
+            if includeRideshare {
+                drawLine(label: "Revenu net Uber (revenus − frais Uber)", amount: data.uberNetIncome())
+                drawLine(label: "Revenu taxable Lyft", amount: data.lyftTaxableTotal())
+                drawLine(label: "Déduction véhicule Uber (méthode dépenses réelles)",
+                         amount: -data.vehicleDeductionUber())
+                drawLine(label: "Déduction véhicule Lyft (méthode dépenses réelles)",
+                         amount: -data.vehicleDeductionLyft())
+            }
             y += 6
             drawNote("Les sections suivantes reprennent les lignes des formulaires fiscaux pour transcription directe. "
-                     + "Les annexes A à C fournissent les pièces justificatives (journal de kilométrage, détail mensuel, notes et reçus).")
+                     + "Les annexes fournissent les pièces justificatives (journal de kilométrage, détail mensuel, notes et reçus).")
 
             // ============================================================
             // 2. IMMEUBLES LOCATIFS — T776 / TP-128
             // ============================================================
-            for prop in AppConfig.properties {
+            for prop in rentalProps {
                 newPage()
                 let pct = fy.ownershipPct(propertyId: prop.id)
                 let coOwner = fy.coOwner(propertyId: prop.id)
 
-                drawText("Revenus de location — \(prop.name)", font: .boldSystemFont(ofSize: 16), color: blue, spacing: 2)
+                drawText("Revenus de location — \(AppSetup.displayName(prop.id))",
+                         font: .boldSystemFont(ofSize: 16), color: blue, spacing: 2)
                 drawText("Formulaire T776 (fédéral) / TP-128 (Québec)", font: .systemFont(ofSize: 9), color: .gray, spacing: 8)
 
                 drawText("Adresse : \(prop.address)", font: .systemFont(ofSize: 10), spacing: 3)
@@ -307,8 +332,10 @@ struct PDFReportGenerator {
             }
 
             // ============================================================
-            // 3. TRAVAIL AUTONOME — T2125 / TP-80
+            // 3. TRAVAIL AUTONOME — T2125 / TP-80 (module Rideshare)
+            // 4. VÉHICULE + 5. TPS/TVQ — mêmes activités, même condition
             // ============================================================
+            if includeRideshare {
             newPage()
             drawText("Travail autonome — transport rémunéré de personnes", font: .boldSystemFont(ofSize: 16), color: orange, spacing: 2)
             drawText("Formulaire T2125 (fédéral) / TP-80 (Québec)", font: .systemFont(ofSize: 9), color: .gray, spacing: 10)
@@ -424,10 +451,12 @@ struct PDFReportGenerator {
             drawNote("Les chauffeurs de transport rémunéré doivent être inscrits aux fichiers TPS/TVQ dès le premier dollar. "
                      + "Uber verse généralement les taxes perçues directement à Revenu Québec — les montants « versés en votre nom » "
                      + "doivent apparaître dans la déclaration de taxes annuelle.")
+            } // fin module Rideshare
 
             // ============================================================
-            // ANNEXE A — JOURNAL DE KILOMÉTRAGE
+            // ANNEXE A — JOURNAL DE KILOMÉTRAGE (module Déplacements)
             // ============================================================
+            if includeTrips {
             newPage()
             drawText("Annexe A — Journal de kilométrage \(fy.year)", font: .boldSystemFont(ofSize: 16), color: navy, spacing: 2)
             drawText("Taux appliqué : \(AppConfig.currency(fy.kmRate))/km — registre exigé par l'ARC et Revenu Québec en cas de vérification",
@@ -478,13 +507,14 @@ struct PDFReportGenerator {
                               (compact(totalTripKm * fy.kmRate), tripCols[4], true)],
                              bold: true, background: UIColor(white: 0.92, alpha: 1))
             }
+            } // fin module Déplacements
 
             // ============================================================
             // ANNEXE B — DÉTAIL MENSUEL PAR IMMEUBLE
             // ============================================================
-            for prop in AppConfig.properties {
+            for prop in rentalProps {
                 newPage()
-                drawText("Annexe B — Détail mensuel \(fy.year) : \(prop.name)",
+                drawText("Annexe B — Détail mensuel \(fy.year) : \(AppSetup.displayName(prop.id))",
                          font: .boldSystemFont(ofSize: 15), color: blue, spacing: 10)
 
                 let w = contentWidth
@@ -540,7 +570,7 @@ struct PDFReportGenerator {
             // ANNEXE C — NOTES ET REÇUS
             // ============================================================
             var annexCStarted = false
-            for prop in AppConfig.properties {
+            for prop in rentalProps {
                 let annotated = data.entries(propertyId: prop.id)
                     .filter { !$0.note.isEmpty || $0.receiptImage != nil }
                     .sorted { ($0.month, $0.category) < ($1.month, $1.category) }
@@ -550,7 +580,7 @@ struct PDFReportGenerator {
                     drawText("Annexe C — Notes et reçus", font: .boldSystemFont(ofSize: 16), color: navy, spacing: 10)
                     annexCStarted = true
                 }
-                drawSectionTitle(prop.name, color: blue)
+                drawSectionTitle(AppSetup.displayName(prop.id), color: blue)
                 for entry in annotated {
                     ensureSpace(40)
                     drawText("\(AppConfig.monthNames[entry.month]) — \(entry.category) : \(AppConfig.currency(entry.amount))",

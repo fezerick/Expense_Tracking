@@ -7,6 +7,10 @@ struct RootView: View {
 
     @Environment(\.modelContext) private var context
     @AppStorage("selectedYear") private var selectedYear = AppConfig.defaultYear
+    @AppStorage(AppSetup.Keys.onboardingDone) private var onboardingDone = false
+    @AppStorage(AppSetup.Keys.moduleTrips) private var moduleTrips = true
+    @AppStorage(AppSetup.Keys.moduleProperties) private var moduleProperties = true
+    @AppStorage(AppSetup.Keys.moduleRideshare) private var moduleRideshare = true
     @State private var showSettings = false
     @State private var showNewYearAlert = false
     @State private var newYearText = ""
@@ -18,21 +22,36 @@ struct RootView: View {
             tabWrapper { HomeView(year: selectedYear) }
                 .tabItem { Label("Accueil", systemImage: "house.fill") }
 
-            tabWrapper { TripsView(year: selectedYear) }
-                .tabItem { Label("Trajets", systemImage: "car.fill") }
+            if moduleTrips {
+                tabWrapper { TripsView(year: selectedYear) }
+                    .tabItem { Label("Trajets", systemImage: "car.fill") }
+            }
 
-            tabWrapper { PropertiesView(year: selectedYear) }
-                .tabItem { Label("Logements", systemImage: "building.2.fill") }
+            if moduleProperties {
+                tabWrapper { PropertiesView(year: selectedYear) }
+                    .tabItem { Label("Logements", systemImage: "building.2.fill") }
+            }
 
-            tabWrapper { RideshareView(year: selectedYear) }
-                .tabItem { Label("Rideshare", systemImage: "car.2.fill") }
+            if moduleRideshare {
+                tabWrapper { RideshareView(year: selectedYear) }
+                    .tabItem { Label("Rideshare", systemImage: "car.2.fill") }
+            }
 
             tabWrapper { SummaryView(year: selectedYear) }
                 .tabItem { Label("Sommaire", systemImage: "chart.bar.fill") }
         }
         .tint(AppConfig.Palette.blue)
+        .appliesAppearance()
         .sheet(isPresented: $showSettings) {
             SettingsView(year: selectedYear, cloudKitEnabled: cloudKitEnabled)
+                .appliesAppearance()
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { !onboardingDone },
+            set: { onboardingDone = !$0 }
+        )) {
+            OnboardingView(year: selectedYear)
+                .appliesAppearance()
         }
         .alert("Nouvelle année fiscale", isPresented: $showNewYearAlert) {
             TextField("Année (ex. 2027)", text: $newYearText)
