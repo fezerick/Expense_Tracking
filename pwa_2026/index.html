@@ -379,6 +379,81 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 }
 .divider{height:1px;background:var(--border);margin:12px 0}
 hr{border:none;border-top:1px solid var(--border);margin:10px 0}
+
+/* ── THÈME SOMBRE (html.theme-dark, appliqué par applyTheme()) ── */
+html.theme-dark{
+  --light-blue:#22334d;--light-green:#233220;--light-red:#3a2620;
+  --inp:#242c38;--gray:#242c38;--border:#3b4657;
+  --text:#e7eaf0;--text2:#9aa5b5;
+  --shadow:0 1px 4px rgba(0,0,0,.5);
+  background:#0f151d;
+}
+html.theme-dark body{background:#0f151d;color:var(--text)}
+html.theme-dark .card,
+html.theme-dark #bottom-nav,
+html.theme-dark .sheet,
+html.theme-dark .month-nav,
+html.theme-dark .cat-row{background:#1a222d}
+html.theme-dark .sub-tab.active{background:#2f3a4b;color:#fff;box-shadow:none}
+html.theme-dark .sum-card.green{color:#9ccb8b}
+html.theme-dark .sum-card.red{background:#3a2620;color:#ff8a80}
+html.theme-dark .sum-card.blue{color:#9db8e8}
+html.theme-dark .sum-card.orange{background:#39301a;color:#e0b064}
+html.theme-dark .sum-card.gray{color:var(--text)}
+html.theme-dark .inp:focus,html.theme-dark .inp-money:focus{background:#242c38}
+html.theme-dark .inp-money{color:#8ab4ff}
+html.theme-dark .inp-readonly,html.theme-dark .inp-money[readonly]{background:#161d26;border-color:#333c4a;color:var(--text2)}
+html.theme-dark .cat-row.readonly{background:#161d26}
+html.theme-dark .km-display .km-val,
+html.theme-dark .month-name,
+html.theme-dark .trip-money{color:#cfe0f5}
+html.theme-dark .km-display .km-money{color:#9ccb8b}
+html.theme-dark .month-nav button{background:#2f3a4b;color:var(--text)}
+html.theme-dark .btn-ghost{background:#2f3a4b;color:var(--text)}
+html.theme-dark .info-box{background:#22334d;color:#cfe0f5}
+html.theme-dark .warn-box{background:#39301a;color:#e0b064}
+html.theme-dark .trip-dot.p470{background:#7f9cc9}
+html.theme-dark .toggle-slider{background:#4a5568}
+html.theme-dark .trip-delete{color:#5a6575}
+html.theme-dark select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%239aa5b5'/%3E%3C/svg%3E")}
+html.theme-dark .annual-table td{border-color:var(--border)}
+html.theme-dark .sum-card[style*="fce4ec"]{background:#3a2331 !important;color:#f48fb1 !important}
+@media (min-width:768px){
+  html.theme-dark body{background:#000}
+  html.theme-dark #bottom-nav{border-color:var(--border)}
+}
+
+/* ── ASSISTANT DE CONFIGURATION (onboarding) ── */
+#onb-overlay{
+  display:none;position:fixed;inset:0;z-index:400;
+  background:#eef2f7;overflow-y:auto;
+  padding:calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom));
+}
+html.theme-dark #onb-overlay{background:#0f151d}
+#onb-overlay.open{display:block}
+#onb-card{max-width:520px;margin:0 auto}
+.onb-title{font-size:22px;font-weight:800;color:var(--text);margin:8px 0 4px}
+.onb-sub{font-size:14px;color:var(--text2);margin-bottom:16px;line-height:1.45}
+.onb-row{
+  display:flex;align-items:flex-start;gap:12px;
+  background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:14px;margin-bottom:10px;
+}
+html.theme-dark .onb-row{background:#1a222d}
+.onb-row .o-icon{font-size:24px;line-height:1;margin-top:2px}
+.onb-row .o-info{flex:1}
+.onb-row .o-title{font-size:15px;font-weight:700;color:var(--text)}
+.onb-row .o-desc{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.4}
+.onb-section{
+  background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:14px;margin-bottom:12px;
+}
+html.theme-dark .onb-section{background:#1a222d}
+.onb-dots{display:flex;justify-content:center;gap:6px;margin:18px 0 12px}
+.onb-dot{width:8px;height:8px;border-radius:50%;background:var(--border)}
+.onb-dot.active{background:var(--blue)}
+.onb-links{display:flex;justify-content:space-between;margin-top:10px}
+.onb-links button{background:none;border:none;color:var(--blue);font-size:14px;cursor:pointer;padding:6px 2px;font-family:inherit}
 </style>
 </head>
 <body>
@@ -660,6 +735,19 @@ hr{border:none;border-top:1px solid var(--border);margin:10px 0}
   </button>
 </nav>
 
+<!-- ASSISTANT DE CONFIGURATION -->
+<div id="onb-overlay">
+  <div id="onb-card">
+    <div id="onb-body"></div>
+    <div class="onb-dots" id="onb-dots"></div>
+    <button class="btn btn-primary btn-full" id="onb-next-btn" onclick="onbNext()">Continuer</button>
+    <div class="onb-links">
+      <button id="onb-prev-btn" onclick="onbPrev()">‹ Précédent</button>
+      <button id="onb-skip-btn" onclick="onbSkip()">Plus tard</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div id="toast"></div>
 
@@ -760,6 +848,36 @@ hr{border:none;border-top:1px solid var(--border);margin:10px 0}
         </button>
       </div>
       <div style="font-size:11px;color:var(--text2);margin-top:6px" id="sync-status-label"></div>
+    </div>
+    <hr>
+    <div class="field">
+      <label>🎨 Apparence</label>
+      <div class="sub-tabs" id="theme-picker" style="margin-bottom:0">
+        <button class="sub-tab" data-theme="system" onclick="setTheme('system')">Auto</button>
+        <button class="sub-tab" data-theme="light" onclick="setTheme('light')">☀️ Clair</button>
+        <button class="sub-tab" data-theme="dark" onclick="setTheme('dark')">🌙 Sombre</button>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px">« Auto » suit le réglage clair/sombre de l'appareil.</div>
+    </div>
+    <hr>
+    <div class="field">
+      <label>🧩 Modules affichés</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;padding:6px 0;cursor:pointer">
+        <input type="checkbox" id="module-trips-chk" onchange="setModule('trips',this.checked)" style="accent-color:var(--blue);width:18px;height:18px">
+        🚗 Déplacements (journal km)
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;padding:6px 0;cursor:pointer">
+        <input type="checkbox" id="module-props-chk" onchange="setModule('props',this.checked)" style="accent-color:var(--blue);width:18px;height:18px">
+        🏠 Logements locatifs
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;padding:6px 0;cursor:pointer">
+        <input type="checkbox" id="module-rideshare-chk" onchange="setModule('rideshare',this.checked)" style="accent-color:var(--blue);width:18px;height:18px">
+        🚕 Uber / Lyft (travail autonome)
+      </label>
+      <div style="font-size:11px;color:var(--text2);margin:4px 0 8px">
+        Masquer un module cache ses onglets sans effacer les données déjà saisies.
+      </div>
+      <button class="btn btn-ghost btn-sm btn-full" onclick="relaunchOnboarding()">🪄 Relancer l'assistant de configuration</button>
     </div>
     <hr>
     <button class="btn btn-danger btn-sm btn-full" onclick="clearAllData()">🗑️ Effacer toutes les données</button>
@@ -1046,6 +1164,357 @@ function saveMapsKey() {
 }
 
 // ════════════════════════════════════════════════════════════
+// CONFIGURATION — assistant de démarrage, modules, thème
+// Stockée dans une clé localStorage séparée (depenses_setup) :
+// jamais envoyée à Firestore et indépendante des données fiscales,
+// donc sans aucun risque pour les données synchronisées.
+// ════════════════════════════════════════════════════════════
+const SETUP_KEY = 'depenses_setup'
+
+function defaultSetup() {
+  return {
+    done: false,
+    theme: 'system',                       // system | light | dark
+    modules: { trips: true, props: true, rideshare: true },
+    props: {
+      p1090: { on: true, name: '', pct: 100, coOwner: '' },
+      p470:  { on: true, name: '', pct: 100, coOwner: '' }
+    }
+  }
+}
+
+let setup = (() => {
+  try {
+    const s = localStorage.getItem(SETUP_KEY)
+    if (s) {
+      const parsed = JSON.parse(s)
+      const d = defaultSetup()
+      return {
+        ...d, ...parsed,
+        modules: { ...d.modules, ...(parsed.modules || {}) },
+        props: {
+          p1090: { ...d.props.p1090, ...(parsed.props?.p1090 || {}) },
+          p470:  { ...d.props.p470,  ...(parsed.props?.p470  || {}) }
+        }
+      }
+    }
+  } catch(e) {}
+  return defaultSetup()
+})()
+
+function saveSetup() {
+  try { localStorage.setItem(SETUP_KEY, JSON.stringify(setup)) } catch(e) {}
+}
+
+function propName(id) {
+  return (setup.props[id]?.name || '').trim() || PROPS[id].label
+}
+
+function propShortName(id) {
+  return (setup.props[id]?.name || '').trim() || PROPS[id].shortLabel
+}
+
+function propActive(id) {
+  return setup.modules.props && setup.props[id]?.on !== false
+}
+
+function firstActivePropId() {
+  return ['p1090', 'p470'].find(propActive) || null
+}
+
+// ── Thème clair / sombre ──
+function applyTheme() {
+  const mode = setup.theme === 'system'
+    ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : setup.theme
+  document.documentElement.classList.toggle('theme-dark', mode === 'dark')
+  const picker = document.getElementById('theme-picker')
+  if (picker) picker.querySelectorAll('.sub-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.theme === setup.theme))
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme())
+
+function setTheme(t) {
+  setup.theme = t
+  saveSetup()
+  applyTheme()
+}
+
+// ── Modules affichés ──
+function setModule(key, val) {
+  setup.modules[key] = val
+  saveSetup()
+  applyModules()
+  if (currentTab === 'home') renderHome()
+  if (currentTab === 'summary') renderSummary()
+}
+
+function applyModules() {
+  const m = setup.modules
+  document.getElementById('nav-trips').style.display = m.trips ? '' : 'none'
+  document.getElementById('nav-property').style.display = m.props ? '' : 'none'
+  document.getElementById('nav-rideshare').style.display = m.rideshare ? '' : 'none'
+  document.getElementById('trip-form-card').style.display = m.trips ? '' : 'none'
+  const recentCard = document.getElementById('home-recent-trips')?.closest('.card')
+  if (recentCard) recentCard.style.display = m.trips ? '' : 'none'
+
+  // Sous-onglets Logements : noms personnalisés + immeubles non suivis masqués.
+  const b1090 = document.getElementById('subtab-p1090-btn')
+  const b470 = document.getElementById('subtab-p470-btn')
+  if (b1090) { b1090.style.display = propActive('p1090') ? '' : 'none'; b1090.textContent = '🏠 ' + propShortName('p1090') }
+  if (b470) { b470.style.display = propActive('p470') ? '' : 'none'; b470.textContent = '🏢 ' + propShortName('p470') }
+  if (!propActive(activePropTab)) {
+    const first = firstActivePropId()
+    if (first) activePropTab = first
+  }
+
+  // En-têtes des groupes de trajets (noms personnalisés).
+  const h1090 = document.querySelector('#trips-p1090-card .card-header')
+  if (h1090) h1090.textContent = '🏠 ' + propShortName('p1090')
+  const h470 = document.querySelector('#trips-p470-card .card-header')
+  if (h470) h470.textContent = '🏢 ' + propShortName('p470')
+
+  refreshTripPropertyOptions()
+
+  // Si l'onglet courant vient d'être masqué, retour à l'accueil.
+  if ((currentTab === 'trips' && !m.trips) ||
+      (currentTab === 'property' && !m.props) ||
+      (currentTab === 'rideshare' && !m.rideshare)) showTab('home')
+}
+
+function refreshTripPropertyOptions() {
+  const sel = document.getElementById('trip-property')
+  if (!sel) return
+  const icons = { p1090: '🏠', p470: '🏢' }
+  ;['p1090', 'p470'].forEach(id => {
+    const opt = sel.querySelector(`option[value="${id}"]`)
+    if (!opt) return
+    const active = propActive(id)
+    opt.hidden = !active
+    opt.disabled = !active
+    opt.textContent = `${icons[id]} ${propName(id)} (${fmt(PROPS[id].distanceKm, 1)} km)`
+  })
+  const cur = sel.value
+  if ((cur === 'p1090' || cur === 'p470') && !propActive(cur)) {
+    sel.value = firstActivePropId() || 'other'
+    updateTripPropertySelection()
+  }
+}
+
+// ── Assistant de configuration (onboarding) ──
+let onb = null
+let onbStep = 0
+
+const onbEsc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+
+function onbSteps() {
+  const list = ['modules']
+  if (onb.trips || onb.rideshare) list.push('vehicle')
+  if (onb.props) list.push('buildings')
+  list.push('final')
+  return list
+}
+
+function startOnboarding() {
+  onb = {
+    trips: setup.modules.trips,
+    props: setup.modules.props,
+    rideshare: setup.modules.rideshare,
+    vehicleModel: state.settings.vehicleModel || '',
+    rate: state.settings.mileageRate || 0.72,
+    kmTotal: state.settings.kmTotalAnnuel || 22000,
+    theme: setup.theme,
+    p: {
+      p1090: { ...setup.props.p1090 },
+      p470:  { ...setup.props.p470 }
+    }
+  }
+  onbStep = 0
+  renderOnb()
+  document.getElementById('onb-overlay').classList.add('open')
+}
+
+function onbSet(key, val) { onb[key] = val }
+function onbSetProp(id, key, val) { onb.p[id][key] = val }
+
+function renderOnb() {
+  const steps = onbSteps()
+  onbStep = Math.min(onbStep, steps.length - 1)
+  const step = steps[onbStep]
+  const body = document.getElementById('onb-body')
+
+  const toggleRow = (icon, title, desc, key) => `
+    <div class="onb-row">
+      <div class="o-icon">${icon}</div>
+      <div class="o-info"><div class="o-title">${title}</div><div class="o-desc">${desc}</div></div>
+      <label class="toggle"><input type="checkbox" ${onb[key] ? 'checked' : ''}
+        onchange="onbSet('${key}',this.checked);renderOnb()"><span class="toggle-slider"></span></label>
+    </div>`
+
+  if (step === 'modules') {
+    body.innerHTML = `
+      <div class="onb-title">Bienvenue 👋</div>
+      <div class="onb-sub">Quelques questions pour n'afficher que les modules dont vous avez besoin,
+        selon ce que votre comptable demandera. Vous pourrez changer ces réponses à tout moment dans ⚙️ Réglages.</div>
+      <div class="section-title">Que souhaitez-vous suivre ?</div>
+      ${toggleRow('🚗', 'Déplacements en véhicule',
+        "Journal de kilométrage avec montant automatique ($/km) — registre exigé par l'ARC et Revenu Québec.", 'trips')}
+      ${toggleRow('🏠', 'Logements locatifs',
+        'Revenus et dépenses par immeuble pour le formulaire T776 / TP-128.', 'props')}
+      ${toggleRow('🚕', 'Travail autonome Uber / Lyft',
+        'Relevés Uber/Lyft, dépenses du véhicule et TPS/TVQ pour le T2125 / TP-80.', 'rideshare')}`
+  } else if (step === 'vehicle') {
+    body.innerHTML = `
+      <div class="onb-title">Votre véhicule 🚙</div>
+      <div class="onb-sub">Utilisé pour le journal de kilométrage et la répartition des dépenses entre Uber, Lyft et le locatif.</div>
+      <div class="onb-section">
+        <div class="field">
+          <label>Marque et modèle</label>
+          <input type="text" class="inp" value="${onbEsc(onb.vehicleModel)}"
+            placeholder="ex: Mitsubishi Outlander 2025" oninput="onbSet('vehicleModel',this.value)">
+        </div>
+        <div class="field">
+          <label>Taux kilométrique ($/km)</label>
+          <input type="number" class="inp" step="0.01" min="0" max="2" value="${onb.rate}"
+            oninput="onbSet('rate',this.value)">
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Taux prescrit : 0,72 $/km.</div>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Km total estimé pour l'année</label>
+          <input type="number" class="inp" step="100" min="0" value="${onb.kmTotal}"
+            oninput="onbSet('kmTotal',this.value)">
+        </div>
+      </div>`
+  } else if (step === 'buildings') {
+    const propCard = id => {
+      const P = PROPS[id]
+      const o = onb.p[id]
+      const icon = id === 'p1090' ? '🏠' : '🏢'
+      return `
+      <div class="onb-section">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:${o.on ? '12px' : '0'}">
+          <div style="flex:1;font-weight:700;color:var(--text)">${icon} ${P.label}</div>
+          <label class="toggle"><input type="checkbox" ${o.on ? 'checked' : ''}
+            onchange="onbSetProp('${id}','on',this.checked);renderOnb()"><span class="toggle-slider"></span></label>
+        </div>
+        ${o.on ? `
+        <div class="field">
+          <label>Nom affiché</label>
+          <input type="text" class="inp" value="${onbEsc(o.name)}" placeholder="${onbEsc(P.label)}"
+            oninput="onbSetProp('${id}','name',this.value)">
+        </div>
+        <div class="field">
+          <label>Votre % de propriété</label>
+          <input type="number" class="inp" min="0" max="100" step="1" value="${o.pct}"
+            oninput="onbSetProp('${id}','pct',Math.min(100,Math.max(0,parseFloat(this.value)||0)))">
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Copropriétaire (vide si aucun)</label>
+          <input type="text" class="inp" value="${onbEsc(o.coOwner)}"
+            oninput="onbSetProp('${id}','coOwner',this.value)">
+        </div>` : `<div style="font-size:12px;color:var(--text2);margin-top:8px">Cet immeuble ne sera pas affiché.</div>`}
+      </div>`
+    }
+    body.innerHTML = `
+      <div class="onb-title">Vos immeubles 🏘️</div>
+      <div class="onb-sub">Le % de propriété et le nom du copropriétaire sont demandés par le comptable pour le formulaire T776 / TP-128.</div>
+      ${propCard('p1090')}${propCard('p470')}`
+  } else {
+    const themeBtn = (t, lbl) => `<button class="sub-tab ${onb.theme === t ? 'active' : ''}"
+      onclick="onbSet('theme','${t}');renderOnb()">${lbl}</button>`
+    const sumRow = (lbl, val) => `
+      <div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);font-size:14px">
+        <span>${lbl}</span><span style="color:var(--text2);text-align:right">${val}</span>
+      </div>`
+    const propsSummary = onb.props
+      ? (['p1090', 'p470'].filter(id => onb.p[id].on)
+          .map(id => (onb.p[id].name || '').trim() || PROPS[id].shortLabel)
+          .join(' • ') || 'Aucun immeuble')
+      : 'Masqué'
+    body.innerHTML = `
+      <div class="onb-title">Apparence et résumé 🎨</div>
+      <div class="onb-section">
+        <div class="field" style="margin-bottom:0">
+          <label>Thème</label>
+          <div class="sub-tabs" style="margin-bottom:0">
+            ${themeBtn('system', 'Auto')}${themeBtn('light', '☀️ Clair')}${themeBtn('dark', '🌙 Sombre')}
+          </div>
+        </div>
+      </div>
+      <div class="onb-section">
+        <div class="section-title">Votre configuration</div>
+        ${sumRow('🚗 Déplacements', onb.trips ? 'Activé' : 'Masqué')}
+        ${sumRow('🏠 Logements locatifs', propsSummary)}
+        ${sumRow('🚕 Uber / Lyft', onb.rideshare ? 'Activé' : 'Masqué')}
+        ${(onb.trips || onb.rideshare)
+          ? sumRow('🚙 Véhicule', `${onbEsc(onb.vehicleModel)} — ${fmt(parseFloat(onb.rate) || 0)} $/km`)
+          : ''}
+      </div>`
+  }
+
+  document.getElementById('onb-dots').innerHTML = steps
+    .map((_, i) => `<div class="onb-dot ${i === onbStep ? 'active' : ''}"></div>`).join('')
+  document.getElementById('onb-next-btn').textContent =
+    onbStep === steps.length - 1 ? 'Commencer' : 'Continuer'
+  document.getElementById('onb-prev-btn').style.visibility = onbStep > 0 ? 'visible' : 'hidden'
+  document.getElementById('onb-skip-btn').style.visibility = onbStep === 0 ? 'visible' : 'hidden'
+}
+
+function onbNext() {
+  const steps = onbSteps()
+  if (onbStep >= steps.length - 1) { finishOnboarding(); return }
+  onbStep++
+  renderOnb()
+  document.getElementById('onb-overlay').scrollTop = 0
+}
+
+function onbPrev() {
+  if (onbStep > 0) { onbStep--; renderOnb() }
+}
+
+function onbSkip() {
+  // Ferme sans rien changer : tout reste comme avant.
+  setup.done = true
+  saveSetup()
+  document.getElementById('onb-overlay').classList.remove('open')
+}
+
+function finishOnboarding() {
+  setup.modules = { trips: !!onb.trips, props: !!onb.props, rideshare: !!onb.rideshare }
+  ;['p1090', 'p470'].forEach(id => {
+    const o = onb.p[id]
+    const name = (o.name || '').trim()
+    setup.props[id] = {
+      on: !!o.on,
+      name: name === PROPS[id].label ? '' : name,
+      pct: Math.min(100, Math.max(0, parseFloat(o.pct) || 0)),
+      coOwner: (o.coOwner || '').trim()
+    }
+  })
+  setup.theme = onb.theme
+  setup.done = true
+  saveSetup()
+
+  if (onb.trips || onb.rideshare) {
+    state.settings.vehicleModel = onb.vehicleModel
+    state.settings.mileageRate = parseFloat(onb.rate) || 0.72
+    state.settings.kmTotalAnnuel = parseFloat(onb.kmTotal) || 0
+    save()
+  }
+
+  document.getElementById('onb-overlay').classList.remove('open')
+  applyTheme()
+  applyModules()
+  refreshAll()
+  toast('✅ Configuration enregistrée')
+}
+
+function relaunchOnboarding() {
+  closeSettingsSheet()
+  startOnboarding()
+}
+
+// ════════════════════════════════════════════════════════════
 // UTILITIES
 // ════════════════════════════════════════════════════════════
 function fmt(n, dec=2) {
@@ -1106,6 +1575,10 @@ function toast(msg, dur=2000) {
 let currentTab = 'home'
 
 function showTab(tab) {
+  // Un module masqué dans l'assistant redirige vers l'accueil.
+  if ((tab === 'trips' && !setup.modules.trips) ||
+      (tab === 'property' && !setup.modules.props) ||
+      (tab === 'rideshare' && !setup.modules.rideshare)) tab = 'home'
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'))
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
   document.getElementById('tab-' + tab).classList.add('active')
@@ -1133,7 +1606,10 @@ function renderHomeCards() {
   const tripsActive = state.trips.filter(t => yearOf(t.date) === activeYear)
   const tripTotal = tripsActive.reduce((s, t) => s + (parseFloat(t.km)||0) * rate(), 0)
 
-  document.getElementById('home-cards').innerHTML = `
+  // Cartes limitées aux modules choisis dans l'assistant.
+  let cards = ''
+  if (setup.modules.props) {
+    cards += `
     <div class="sum-card green">
       <div class="s-lbl">Revenus locatifs</div>
       <div class="s-val sm">${fmt(rev)} $</div>
@@ -1145,12 +1621,16 @@ function renderHomeCards() {
     <div class="sum-card ${net >= 0 ? 'blue' : 'red'}">
       <div class="s-lbl">Bénéfice net</div>
       <div class="s-val sm">${fmt(net)} $</div>
-    </div>
+    </div>`
+  }
+  if (setup.modules.trips) {
+    cards += `
     <div class="sum-card orange">
       <div class="s-lbl">Déplacements ${activeYear}</div>
       <div class="s-val sm">${fmt(tripTotal)} $</div>
-    </div>
-  `
+    </div>`
+  }
+  document.getElementById('home-cards').innerHTML = cards
 }
 
 function renderRecentTrips() {
@@ -1892,20 +2372,32 @@ function renderSummary() {
   const lyftNet  = Array.from({length:12},(_,mi)=>state.lyft[mi]||{})
     .reduce((s,m) => s+(parseFloat(m.taxable)||0)+(parseFloat(m.bonuses)||0)+(parseFloat(m.tips)||0)-(parseFloat(m.fees)||0), 0)
 
+  // Sections limitées aux modules choisis dans l'assistant.
+  const mProps = setup.modules.props
+  const mRide = setup.modules.rideshare
+  const dedUberShown = mRide ? uberDed : 0
+  const dedLyftShown = mRide ? lyftDed : 0
+
   const netLoc = totalRev - totalDep
-  const net = netLoc - uberDed - lyftDed
+  const net = netLoc - dedUberShown - dedLyftShown
 
   document.getElementById('summary-body').innerHTML = `
+    ${mProps ? `
     <div class="summary-row">
       <div class="sum-card green"><div class="s-lbl">Revenus locatifs totaux</div><div class="s-val sm">${fmt(totalRev)} $</div></div>
       <div class="sum-card red"><div class="s-lbl">Dépenses déductibles</div><div class="s-val sm">${fmt(totalDep)} $</div></div>
       <div class="sum-card orange"><div class="s-lbl">Dépenses en capital</div><div class="s-val sm">${fmt(totalCap)} $</div></div>
       <div class="sum-card ${netLoc>=0?'green':'red'}"><div class="s-lbl">Bénéfice locatif net</div><div class="s-val sm">${fmt(netLoc)} $</div></div>
-    </div>
+    </div>` : ''}
+    ${mRide ? `
     <div class="summary-row">
       <div class="sum-card orange"><div class="s-lbl">🟠 Déduction véhicule Uber</div><div class="s-val sm">${fmt(uberDed)} $</div></div>
       <div class="sum-card" style="background:#fce4ec;color:#880e4f"><div class="s-lbl">💗 Déduction véhicule Lyft</div><div class="s-val sm">${fmt(lyftDed)} $</div></div>
-    </div>`
+    </div>` : ''}
+    ${!mProps && setup.modules.trips ? `
+    <div class="summary-row">
+      <div class="sum-card blue"><div class="s-lbl">🚗 Déplacements (journal km)</div><div class="s-val sm">${fmt(state.trips.filter(t => yearOf(t.date) === activeYear).reduce((s, t) => s + (parseFloat(t.km)||0) * rate(), 0))} $</div></div>
+    </div>` : ''}`
 
   document.getElementById('summary-detail').innerHTML = `
     <table class="annual-table" style="font-size:12px">
@@ -1916,16 +2408,16 @@ function renderSummary() {
         <th style="text-align:right">Bénéfice</th>
       </tr></thead>
       <tbody>
-        ${summaryRow('🏠 1090 Oscar Benoît', t1090.rev, t1090.dep, t1090.net)}
-        ${summaryRow('🏢 470 Rue Gélinas', t470.rev, t470.dep, t470.net)}
-        ${summaryRow('🟠 Uber — véhicule', '-', uberDed, '-', true)}
-        ${summaryRow('💗 Lyft — véhicule', fmt(lyftNet)+' $', lyftDed, '-', true)}
+        ${mProps && propActive('p1090') ? summaryRow('🏠 ' + propShortName('p1090'), t1090.rev, t1090.dep, t1090.net) : ''}
+        ${mProps && propActive('p470') ? summaryRow('🏢 ' + propShortName('p470'), t470.rev, t470.dep, t470.net) : ''}
+        ${mRide ? summaryRow('🟠 Uber — véhicule', '-', uberDed, '-', true) : ''}
+        ${mRide ? summaryRow('💗 Lyft — véhicule', fmt(lyftNet)+' $', lyftDed, '-', true) : ''}
       </tbody>
       <tfoot>
         <tr class="total-tr">
           <td>TOTAL</td>
           <td style="text-align:right">${fmt(totalRev)} $</td>
-          <td style="text-align:right">${fmt(totalDep + uberDed + lyftDed)} $</td>
+          <td style="text-align:right">${fmt(totalDep + dedUberShown + dedLyftShown)} $</td>
           <td style="text-align:right">${fmt(net)} $</td>
         </tr>
       </tfoot>
@@ -2292,6 +2784,10 @@ function showSettingsSheet() {
   document.getElementById('setting-maps-key').value = state.settings.googleMapsApiKey || ''
   const syncAutoEl = document.getElementById('setting-sync-auto')
   if (syncAutoEl) syncAutoEl.checked = state.settings.syncAuto !== false
+  document.getElementById('module-trips-chk').checked = setup.modules.trips
+  document.getElementById('module-props-chk').checked = setup.modules.props
+  document.getElementById('module-rideshare-chk').checked = setup.modules.rideshare
+  applyTheme()   // met à jour le sélecteur de thème (bouton actif)
   updateSyncStatus()
   document.getElementById('settings-overlay').classList.add('open')
   document.getElementById('settings-sheet').classList.add('open')
@@ -2960,6 +3456,8 @@ if ('serviceWorker' in navigator) {
 // INIT
 // ════════════════════════════════════════════════════════════
 function init() {
+  applyTheme()
+  applyModules()
   initTripForm()
 
   document.getElementById('trip-property').addEventListener('change', updateTripPropertySelection)
@@ -2968,6 +3466,9 @@ function init() {
   updateYearLabels()
   renderHome()
   initFirebase()
+
+  // Premier lancement : l'assistant pose les questions de configuration.
+  if (!setup.done) startOnboarding()
 }
 
 init()

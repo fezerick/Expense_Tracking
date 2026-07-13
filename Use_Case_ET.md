@@ -148,6 +148,18 @@ Toujours mettre à jour ce fichier avec les features implémentés et toute autr
 - Sélecteur de mois (◀ ▶) réparé dans Logements/Trajets/Rideshare : les deux chevrons se déclenchaient ensemble dans les List (ajout `.buttonStyle(.borderless)`)
 - Bouton « Montants récurrents » déplacé de la barre du bas (masquée par la barre d'onglets) vers la liste, sous le sélecteur de mois
 
+### ✅ Assistant de configuration + modules + mode sombre — iOS **et** PWA (2026-07-13)
+- **Assistant au premier lancement** (relançable depuis Réglages) : questions pour le comptable —
+  modules à suivre (déplacements / logements / Uber-Lyft), véhicule (marque-modèle, taux $/km, km annuel),
+  immeubles (suivi oui/non, nom affiché, % de propriété, copropriétaire), thème. Bouton « Plus tard » = aucun changement.
+- **Modules** : seuls les onglets choisis sont affichés (ex. journal km seul → Accueil + Trajets + Sommaire).
+  Masquer un module cache ses onglets/cartes/sections et l'exclut des exports PDF/CSV **sans effacer les données**.
+- **Mode clair / sombre / automatique** dans Réglages (iOS : `preferredColorScheme` ; PWA : classe `theme-dark` + variables CSS).
+- iOS : `Models/AppSetup.swift` (UserDefaults, séparé des données SwiftData) + `Views/OnboardingView.swift` ;
+  PWA : clé localStorage `depenses_setup`, **jamais synchronisée vers Firestore** → aucun risque pour les données Firebase.
+- **Rollback** : dépôt git initialisé à la racine du projet. Revenir à l'état d'avant ces changements :
+  `git checkout cbb35df -- ios_2026 pwa_2026` (ou `git revert` des commits suivants). Les données (localStorage, Firestore, SwiftData) ne sont pas dans git et ne sont jamais touchées par un rollback de code.
+
 ---
 
 ## À faire / prochaines étapes
