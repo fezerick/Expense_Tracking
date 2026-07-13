@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Outil de Saisie — Revenus & Dépenses Locatifs 2025</title>
+<style>
+  :root {
+    --dark: #1F3864; --blue: #0070C0; --green: #375623; --brown: #7B3F00;
+    --light-blue: #D9E1F2; --light-green: #E2EFDA; --light-red: #FCE4D6;
+    --orange-input: #FFF2CC; --gray: #F2F2F2; --white: #FFFFFF;
+    --text: #1a1a1a; --border: #b0b8c1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #eef2f7; color: var(--text); font-size: 14px; }
+
+  /* ── HEADER ── */
+  .app-header { background: var(--dark); color: white; padding: 18px 28px; display: flex; align-items: center; gap: 14px; }
+  .app-header h1 { font-size: 20px; font-weight: 700; }
+  .app-header span { font-size: 13px; opacity: 0.75; margin-left: auto; }
+
+  /* ── TABS ── */
+  .tabs { display: flex; background: #1a2d52; overflow-x: auto; }
+  .tab-btn {
+    padding: 13px 22px; cursor: pointer; color: rgba(255,255,255,0.65);
+    font-size: 13px; font-weight: 600; border: none; background: none;
+    border-bottom: 3px solid transparent; white-space: nowrap; transition: all .2s;
+  }
+  .tab-btn:hover { color: white; background: rgba(255,255,255,0.07); }
+  .tab-btn.active { color: white; border-bottom-color: #4FC3F7; background: rgba(255,255,255,0.1); }
+
+  /* ── PANELS ── */
+  .panel { display: none; padding: 24px 28px; }
+  .panel.active { display: block; }
+
+  /* ── SECTION CARD ── */
+  .card { background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12); margin-bottom: 22px; overflow: hidden; }
+  .card-header {
+    padding: 12px 18px; font-weight: 700; font-size: 13px; color: white;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-header.blue   { background: var(--blue); }
+  .card-header.dark   { background: var(--dark); }
+  .card-header.green  { background: var(--green); }
+  .card-header.brown  { background: var(--brown); }
+  .card-body { padding: 0; }
+
+  /* ── MONTH TABLE ── */
+  .month-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .month-table th {
+    background: var(--dark); color: white; padding: 7px 6px;
+    text-align: center; border: 1px solid #3a5080; white-space: nowrap; font-size: 11px;
+  }
+  .month-table th.label-col { text-align: left; min-width: 220px; }
+  .month-table th.total-col { background: var(--blue); }
+  .month-table td { border: 1px solid #dde3ea; padding: 0; }
+  .month-table td.row-label {
+    padding: 6px 10px; font-size: 12px; background: var(--white);
+    vertical-align: middle; min-width: 220px;
+  }
+  .month-table td.total-cell {
+    background: var(--gray); text-align: center; font-weight: 700;
+    padding: 4px 6px; color: var(--dark); font-size: 12px; min-width: 80px;
+  }
+  .month-table tr.total-row td {
+    background: var(--dark); color: white; font-weight: 700;
+    text-align: center; padding: 6px 4px; font-size: 12px;
+  }
+  .month-table tr.total-row td.row-label { text-align: left; padding-left: 10px; }
+
+  /* ── INPUTS ── */
+  .month-input {
+    width: 100%; padding: 5px 4px; border: none; outline: none;
+    background: var(--orange-input); text-align: center; font-size: 12px;
+    font-family: Arial, sans-serif; color: #0000FF;
+    min-width: 72px; height: 30px;
+  }
+  .month-input:focus { background: #FFE066; outline: 2px solid var(--blue); }
+  .text-input {
+    width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px;
+    font-size: 13px; font-family: Arial, sans-serif;
+  }
+  .text-input:focus { outline: 2px solid var(--blue); border-color: var(--blue); }
+
+  /* ── SUMMARY SECTION ── */
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; padding: 18px; }
+  .summary-card {
+    border-radius: 8px; padding: 16px 18px; text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  }
+  .summary-card .s-label { font-size: 11px; opacity: .8; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; }
+  .summary-card .s-value { font-size: 22px; font-weight: 700; }
+  .summary-card.green  { background: var(--light-green); color: var(--green); }
+  .summary-card.red    { background: var(--light-red);   color: #C00000; }
+  .summary-card.blue   { background: var(--light-blue);  color: var(--dark); }
+  .summary-card.orange { background: var(--orange-input); color: var(--brown); }
+
+  /* ── VEHICLE SECTION ── */
+  .vehicle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .vehicle-info { padding: 16px 18px; background: var(--gray); border-right: 1px solid var(--border); }
+  .vehicle-info h3 { font-size: 12px; color: var(--dark); font-weight: 700; margin-bottom: 12px; text-transform: uppercase; }
+  .field-row { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+  .field-row label { font-size: 11px; font-weight: 600; color: #555; }
+  .ratio-display {
+    background: var(--light-green); border-radius: 6px; padding: 10px;
+    text-align: center; font-size: 18px; font-weight: 700; color: var(--green);
+    margin-top: 8px;
+  }
+  .ratio-display small { display: block; font-size: 11px; opacity: .7; }
+
+  /* ── FUEL LOG ── */
+  .fuel-log { padding: 0 18px 16px; }
+  .fuel-log h3 { font-size: 12px; color: var(--dark); font-weight: 700; margin: 14px 0 8px; text-transform: uppercase; }
+  .fuel-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .fuel-table th { background: var(--dark); color: white; padding: 7px 8px; text-align: left; border: 1px solid #3a5080; }
+  .fuel-table td { border: 1px solid #dde3ea; padding: 2px; }
+  .fuel-table td input {
+    width: 100%; padding: 5px 6px; border: none; background: var(--orange-input);
+    font-size: 12px; font-family: Arial; color: #0000FF;
+  }
+  .fuel-table td input:focus { background: #FFE066; outline: 1px solid var(--blue); }
+  .fuel-table tr.fuel-total td { background: var(--dark); color: white; font-weight: 700; padding: 6px 8px; }
+  .add-row-btn {
+    margin-top: 8px; padding: 6px 14px; background: var(--blue); color: white;
+    border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;
+  }
+  .add-row-btn:hover { background: var(--dark); }
+
+  /* ── EXPENSE TABLE (Vehicle) ── */
+  .dep-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .dep-table th { background: var(--dark); color: white; padding: 7px 8px; border: 1px solid #3a5080; text-align: center; }
+  .dep-table th:first-child { text-align: left; }
+  .dep-table td { border: 1px solid #dde3ea; padding: 0; }
+  .dep-table td.dep-label { padding: 6px 10px; background: white; min-width: 240px; }
+  .dep-table td.dep-input input {
+    width: 100%; padding: 6px; border: none; background: var(--orange-input);
+    text-align: center; font-size: 12px; color: #0000FF; font-family: Arial;
+  }
+  .dep-table td.dep-formula { background: var(--gray); padding: 6px; text-align: center; font-weight: 700; }
+  .dep-table tr.dep-total td { background: var(--dark); color: white; font-weight: 700; padding: 7px 8px; text-align: center; }
+  .dep-table tr.dep-total td:first-child { text-align: left; }
+
+  /* ── EXPORT BTN ── */
+  .export-bar { padding: 16px 28px; background: white; border-top: 1px solid var(--border); display: flex; gap: 12px; align-items: center; }
+  .btn-export {
+    padding: 10px 22px; background: var(--green); color: white;
+    border: none; border-radius: 5px; font-size: 13px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; gap: 7px;
+  }
+  .btn-export:hover { background: #2a4a1c; }
+  .btn-save {
+    padding: 10px 22px; background: var(--blue); color: white;
+    border: none; border-radius: 5px; font-size: 13px; font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-save:hover { background: var(--dark); }
+  .btn-clear {
+    padding: 10px 18px; background: #e0e0e0; color: #555;
+    border: none; border-radius: 5px; font-size: 13px; font-weight: 600;
+    cursor: pointer; margin-left: auto;
+  }
+  .export-note { font-size: 11px; color: #888; }
+
+  /* ── LEGEND ── */
+  .legend { font-size: 11px; color: #666; padding: 8px 18px; background: var(--gray); border-bottom: 1px solid var(--border); }
+  .legend span { display: inline-block; margin-right: 16px; }
+  .leg-blue { color: #0000FF; font-weight: 700; }
+  .leg-black { color: #000; font-weight: 700; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; background: var(--dark); color: white;
+    padding: 12px 22px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 999;
+  }
+  #toast.show { opacity: 1; }
+
+  @media (max-width: 900px) {
+    .vehicle-grid { grid-template-columns: 1fr; }
+    .panel { padding: 14px; }
+  }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.122/pdf.min.js"></script>
+</head>
+<body>
+
+<div class="app-header">
+  <div>
+    <h1>📋 Revenus &amp; Dépenses Locatifs — 2025</h1>
+  </div>
+  <span>Données sauvegardées automatiquement dans le navigateur</span>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('tab-home')">🏡 Accueil</button>
+  <button class="tab-btn" onclick="showTab('tab-1090')">🏠 1090 Oscar Benoît</button>
+  <button class="tab-btn" onclick="showTab('tab-470')">🏢 470 Gélinas (Triplex)</button>
+  <button class="tab-btn" onclick="showTab('tab-vehicule')">🚗 Véhicule (Commun)</button>
+  <button class="tab-btn" onclick="showTab('tab-uber')">🟠 Uber (Revenus)</button>
+  <button class="tab-btn" onclick="showTab('tab-lyft')">💗 Lyft (Revenus)</button>
+  <button class="tab-btn" onclick="showTab('tab-sommaire')">📊 Sommaire global</button>
+</div>
+
+<div id="tab-home" class="panel active">
+  <div class="card">
+    <div class="card-header dark">🏡 Accueil — Synthèse & kilométrage</div>
+    <div class="card-body" style="padding:24px;">
+      <div class="summary-grid" id="home-summary"></div>
+
+      <div class="card" style="margin-top:22px;border:1px solid #b0c4de;">
+        <div class="card-header blue">📍 Calcul kilométrage</div>
+        <div class="card-body" style="padding:18px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;align-items:end;">
+            <div class="field-row">
+              <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;">Km total annuel</label>
+              <input class="text-input" id="home-kmTotal" type="number" step="1" value="" placeholder="ex: 22000" style="margin-top:6px;">
+            </div>
+            <div class="field-row">
+              <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;">Taux kilométrage</label>
+              <input class="text-input" id="home-mileage-rate" type="number" step="0.01" value="0.68" placeholder="0.68" style="margin-top:6px;">
+            </div>
+            <div class="field-row">
+              <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;">Montant calculé</label>
+              <div class="text-input" id="home-mileage-amount" style="margin-top:6px;background:#D9E1F2;color:#1a1a1a;font-weight:700;min-height:38px;display:flex;align-items:center;">-</div>
+            </div>
+          </div>
+          <p style="margin-top:14px;color:#555;font-size:12px;line-height:1.5;">Ce calcul reprend le taux de <strong>0,68 $/km</strong> observé dans le fichier Excel. C’est un résumé rapide pour comparer la valeur kilométrique aux déplacements vers les logements.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:20px;border:1px solid #b0c4de;">
+        <div class="card-header blue">🚕 Enregistrer un déplacement</div>
+        <div class="card-body" style="padding:18px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
+            <div class="field-row">
+              <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;">Date du déplacement</label>
+              <input class="text-input" id="trip-date" type="date" style="margin-top:6px;">
+            </div>
+            <div class="field-row">
+              <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;">Logement</label>
+              <select class="text-input" id="trip-property" style="margin-top:6px;">
+                <option value="p1090">1090 Oscar Benoît</option>
+                <option value="p470">470 Gélinas (Triplex)</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;">Raison / motif</label>
+              <input class="text-input" id="trip-reason" type="text" placeholder="Ex: visite, inspection" style="margin-top:6px;">
+            </div>
+            <div class="field-row">
+              <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;">Km</label>
+              <input class="text-input" id="trip-km" type="number" step="0.1" placeholder="ex: 18.5" style="margin-top:6px;">
+            </div>
+          </div>
+          <button class="btn-save" id="trip-add-btn" style="margin-top:14px;">➕ Ajouter le déplacement</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:20px;border:1px solid #b0c4de;">
+        <div class="card-header dark">📝 Journal des déplacements</div>
+        <div class="card-body" style="padding:18px;overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead>
+              <tr>
+                <th style="background:var(--dark);color:white;padding:7px 10px;text-align:left;border:1px solid #3a5080;">Date</th>
+                <th style="background:var(--dark);color:white;padding:7px 10px;text-align:left;border:1px solid #3a5080;">Logement</th>
+                <th style="background:var(--dark);color:white;padding:7px 10px;text-align:left;border:1px solid #3a5080;">Raison</th>
+                <th style="background:var(--dark);color:white;padding:7px 10px;text-align:right;border:1px solid #3a5080;">Km</th>
+                <th style="background:var(--dark);color:white;padding:7px 10px;text-align:right;border:1px solid #3a5080;">Montant</th>
+              </tr>
+            </thead>
+            <tbody id="trip-log-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:20px;border:1px solid #b0c4de;">
+        <div class="card-header green">📥 Import PDF Uber / Lyft</div>
+        <div class="card-body" style="padding:18px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+            <div class="field-row">
+              <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;">Importer relevé Uber</label>
+              <input class="text-input" id="uber-file" type="file" accept=".pdf" style="margin-top:6px;">
+            </div>
+            <div class="field-row">
+              <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;">Importer relevé Lyft</label>
+              <input class="text-input" id="lyft-file" type="file" accept=".pdf" style="margin-top:6px;">
+            </div>
+          </div>
+          <p style="margin-top:14px;color:#555;font-size:12px;line-height:1.5;">Le fichier PDF est analysé pour extraire les montants et kilométrages. Si l’import n’est pas reconnu, tu peux toujours corriger les données manuellement dans les onglets Uber ou Lyft.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB 1 — 1090 OSCAR BENOÎT
+══════════════════════════════════════════ -->
+<div id="tab-1090" class="panel">
+  <div class="card">
+    <div class="card-header blue">🏠 1090 Oscar Benoît, Pointe-aux-Trembles — Appartement avec 3 colocataires</div>
+    <div class="legend">
+      <span class="leg-blue">■ Bleu</span> = saisie manuelle &nbsp;|&nbsp;
+      <span class="leg-black">■ Noir</span> = calcul automatique
+    </div>
+    <div class="card-body" style="padding:16px;">
+
+      <!-- REVENUS -->
+      <div class="card" style="border:1px solid #b0c4de;">
+        <div class="card-header blue">💰 Revenus de location</div>
+        <div class="card-body" style="overflow-x:auto;">
+          <table class="month-table" id="rev-1090">
+            <thead>
+              <tr>
+                <th class="label-col">Locataire</th>
+                <th>Jan</th><th>Fév</th><th>Mar</th><th>Avr</th><th>Mai</th><th>Jun</th>
+                <th>Jul</th><th>Aoû</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Déc</th>
+                <th class="total-col">Total Annuel</th>
+              </tr>
+            </thead>
+            <tbody id="rev-1090-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DÉPENSES DÉDUCTIBLES -->
+      <div class="card" style="border:1px solid #c6d9b5; margin-top:14px;">
+        <div class="card-header green">📄 Dépenses déductibles</div>
+        <div class="card-body" style="overflow-x:auto;">
+          <table class="month-table" id="dep-1090">
+            <thead>
+              <tr>
+                <th class="label-col">Catégorie</th>
+                <th>Jan</th><th>Fév</th><th>Mar</th><th>Avr</th><th>Mai</th><th>Jun</th>
+                <th>Jul</th><th>Aoû</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Déc</th>
+                <th class="total-col">Total Annuel</th>
+              </tr>
+            </thead>
+            <tbody id="dep-1090-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DÉPENSES EN CAPITAL -->
+      <div class="card" style="border:1px solid #d9b89c; margin-top:14px;">
+        <div class="card-header brown">🔨 Dépenses en capital (non déductibles)</div>
+        <div class="card-body" style="overflow-x:auto;">
+          <table class="month-table" id="cap-1090">
+            <thead>
+              <tr>
+                <th class="label-col">Description travaux</th>
+                <th>Jan</th><th>Fév</th><th>Mar</th><th>Avr</th><th>Mai</th><th>Jun</th>
+                <th>Jul</th><th>Aoû</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Déc</th>
+                <th class="total-col">Total Annuel</th>
+              </tr>
+            </thead>
+            <tbody id="cap-1090-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SOMMAIRE 1090 -->
+      <div class="summary-grid" id="summary-1090"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB 2 — 470 GÉLINAS
+══════════════════════════════════════════ -->
+<div id="tab-470" class="panel">
+  <div class="card">
+    <div class="card-header dark">🏢 468-470 Rue Gélinas, Trois-Rivières — Triplex</div>
+    <div class="legend">
+      <span class="leg-blue">■ Bleu</span> = saisie manuelle &nbsp;|&nbsp;
+      <span class="leg-black">■ Noir</span> = calcul automatique
+    </div>
+    <div class="card-body" style="padding:16px;">
+
+      <!-- REVENUS -->
+      <div class="card" style="border:1px solid #b0c4de;">
+        <div class="card-header blue">💰 Revenus de location</div>
+        <div class="card-body" style="overflow-x:auto;">
+          <table class="month-table">
+            <thead><tr>
+              <th class="label-col">Logement</th>
+              <th>Jan</th><th>Fév</th><th>Mar</th><th>Avr</th><th>Mai</th><th>Jun</th>
+              <th>Jul</th><th>Aoû</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Déc</th>
+              <th class="total-col">Total Annuel</th>
+            </tr></thead>
+            <tbody id="rev-470-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DÉPENSES DÉDUCTIBLES -->
+      <div class="card" style="border:1px solid #c6d9b5; margin-top:14px;">
+        <div class="card-header green">📄 Dépenses déductibles au prorata (Triplex)</div>
+        <div class="card-body" style="overflow-x:auto;">
+          <table class="month-table">
+            <thead><tr>
+              <th class="label-col">Catégorie</th>
+              <th>Jan</th><th>Fév</th><th>Mar</th><th>Avr</th><th>Mai</th><th>Jun</th>
+              <th>Jul</th><th>Aoû</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Déc</th>
+              <th class="total-col">Total Annuel</th>
+            </tr></thead>
+            <tbody id="dep-470-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DÉPENSES EN CAPITAL -->
+      <div class="card" style="border:1px solid #d9b89c; margin-top:14px;">
+        <div class="card-header brown">🔨 Dépenses en capital (non déductibles)</div>
+        <div class="card-body" style="overflow-x:auto;">
+          <table class="month-table">
+            <thead><tr>
+              <th class="label-col">Description travaux</th>
+              <th>Jan</th><th>Fév</th><th>Mar</th><th>Avr</th><th>Mai</th><th>Jun</th>
+              <th>Jul</th><th>Aoû</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Déc</th>
+              <th class="total-col">Total Annuel</th>
+            </tr></thead>
+            <tbody id="cap-470-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="summary-grid" id="summary-470"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB 3 — VÉHICULE (COMMUN)
+══════════════════════════════════════════ -->
+<div id="tab-vehicule" class="panel">
+  <div id="vehicule-panel"></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB 4 — UBER (REVENUS)
+══════════════════════════════════════════ -->
+<div id="tab-uber" class="panel">
+  <div id="uber-revenus-panel"></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB 5 — LYFT (REVENUS)
+══════════════════════════════════════════ -->
+<div id="tab-lyft" class="panel">
+  <div id="lyft-revenus-panel"></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB 5 — SOMMAIRE GLOBAL
+══════════════════════════════════════════ -->
+<div id="tab-sommaire" class="panel">
+  <div class="card">
+    <div class="card-header dark">📊 Sommaire Global 2025</div>
+    <div class="summary-grid" id="global-summary"></div>
+  </div>
+  <div class="card" style="margin-top:16px;">
+    <div class="card-header dark">📋 Détail par source</div>
+    <div style="padding:18px; overflow-x:auto;" id="global-detail"></div>
+  </div>
+</div>
+
+<!-- EXPORT BAR -->
+<div class="export-bar">
+  <button class="btn-save" onclick="saveData()">💾 Sauvegarder les données</button>
+  <button class="btn-export" onclick="exportCSV()">⬇️ Exporter CSV</button>
+  <span class="export-note">Les données sont aussi sauvegardées automatiquement dans votre navigateur</span>
+  <button class="btn-clear" onclick="clearAllData()">🗑️ Effacer tout</button>
+</div>
+
+<div id="toast">✅ Sauvegardé!</div>
+
+<script>
+// ══════════════════════════════════════════
+// DATA DEFINITIONS
+// ══════════════════════════════════════════
+const MONTHS = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+const MONTH_FULL = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+
+const DEF_1090 = {
+  revenus: ["Coloc 1 (Salon)","Coloc 2 (Ch.Princ)","Coloc 3 (Ch. Bur)"],
+  deductibles: [
+    "Taxes municipales","Taxe scolaire","Électricité",
+    "Chauffage (mazout / plan d'entretien)","Frais de condo","Internet",
+    "Assurance habitation",
+    "Système d'alarme","Frais de déplacement",
+    "Entretien / Réparations courantes",
+    "Honoraires professionnels (comptable, notaire…)",
+    "Frais de gestion","Frais de bureau (papeterie, clés…)",
+    "Publicité","Outils / Matériel",
+    "Intérêts sur hypothèque / frais bancaires","Autres dépenses déductibles"
+  ],
+  capital: [
+    "Rénovation / Amélioration majeure",
+    "Remplacement d'équipements (chauffe-eau, fournaise…)",
+    "Autres travaux majeurs"
+  ]
+};
+
+const DEF_470 = {
+  revenus: ["Logement 470","Logement 468","Logement 468 A"],
+  deductibles: [
+    "Taxes municipales","Taxe scolaire","Électricité (parties communes)",
+    "Chauffage (mazout / plan d'entretien)","Frais de déneigement","Assurance habitation",
+    "Système d'alarme","Frais de déplacement",
+    "Entretien / Réparations courantes (parties communes)",
+    "Honoraires professionnels (comptable, notaire…)",
+    "Frais de gestion","Frais de bureau (papeterie, clés…)",
+    "Publicité","Outils / Matériel",
+    "Intérêts sur hypothèque / frais bancaires","Autres dépenses déductibles"
+  ],
+  capital: [
+    "Rénovation / Amélioration — Logement 1",
+    "Rénovation / Amélioration — Logement 2",
+    "Rénovation / Amélioration — Logement 3",
+    "Rénovation / Amélioration — Parties communes",
+    "Remplacement d'équipements (chauffe-eau, fournaise…)",
+    "Autres travaux majeurs"
+  ]
+};
+
+const DEP_VEHICLE = [
+  "Frais de plaque / immatriculation",
+  "Frais de carburant (total annuel)",
+  "Frais d'assurance",
+  "Frais de permis de conduire",
+  "Changement d'huile",
+  "Achat et changement de pneus",
+  "Frais de réparation",
+  "Autres réparations / accessoires",
+  "Forfait annuel téléphone",
+  "Autres dépenses véhicule"
+];
+
+// PDF data pre-filled from official Lyft monthly statements
+const LYFT_PDF_DEFAULTS = {
+  6:  { taxable: 100.51, bonuses: 0.00,  tips: 7.00,  fees: 29.02, km: 87.702 },
+  7:  { taxable: 387.59, bonuses: 21.26, tips: 10.00, fees: 46.32, km: 393.101 },
+  8:  { taxable: 212.88, bonuses: 23.80, tips: 9.40,  fees: 37.73, km: 208.015 },
+  9:  { taxable: 268.22, bonuses: 17.59, tips: 10.00, fees: 17.10, km: 238.990 },
+  10: { taxable: 178.08, bonuses: 27.40, tips: 2.00,  fees: 17.39, km: 149.085 },
+  11: { taxable: 229.98, bonuses: 4.48,  tips: 2.00,  fees: 38.38, km: 155.364 }
+};
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let state = loadState();
+
+function loadState() {
+  try {
+    const s = localStorage.getItem('depenses2025');
+    if (s) {
+      const parsed = JSON.parse(s);
+      // Migrate old uber/lyft structure if needed
+      if (parsed.uber && !parsed.vehicule) {
+        delete parsed.uber;
+        delete parsed.lyft;
+      }
+      return parsed;
+    }
+  } catch(e) {}
+  // Build default lyft_mois from PDF defaults
+  const lyft_mois = {};
+  for (let mi = 0; mi < 12; mi++) {
+    const d = LYFT_PDF_DEFAULTS[mi];
+    lyft_mois[mi] = d
+      ? { taxable: d.taxable, bonuses: d.bonuses, tips: d.tips, fees: d.fees, km: d.km }
+      : { taxable: '', bonuses: '', tips: '', fees: '', km: '' };
+  }
+  return {
+    p1090: { revenus: {}, deductibles: {}, capital: {} },
+    p470:  { revenus: {}, deductibles: {}, capital: {} },
+    vehicule: { kmTotalAnnuel: 22000, kmUber: 15286, depenses: {} },
+    lyft_mois,
+    homeMileageRate: 0.68,
+    tripLogs: []
+  };
+}
+
+function saveState() {
+  localStorage.setItem('depenses2025', JSON.stringify(state));
+  showToast('✅ Sauvegardé !');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ══════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════
+function fmt(n) {
+  if (!n || isNaN(n)) return '-';
+  return Number(n).toLocaleString('fr-CA', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function rowTotal(vals) {
+  return vals.reduce((s,v) => s + (parseFloat(v)||0), 0);
+}
+
+function colTotals(rows, keys) {
+  return MONTHS.map((_,mi) =>
+    keys.reduce((s,k) => s + (parseFloat((rows[k]||[])[mi])||0), 0)
+  );
+}
+
+function grandTotal(rows, keys) {
+  return keys.reduce((s,k) => s + rowTotal(rows[k]||[]), 0);
+}
+
+function getRowValues(cat, stateSection, propertyId) {
+  if (cat === 'Frais de déplacement' && (propertyId === 'p1090' || propertyId === 'p470')) {
+    return Array.from({ length: 12 }, (_, mi) => getTripAmountForMonth(propertyId, mi));
+  }
+  return stateSection[cat] || Array(12).fill('');
+}
+
+function buildMonthTable(tbodyId, cats, stateObj, stateKey, canEditLabel=false, propertyId='') {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  cats.forEach(cat => {
+    if (!stateObj[stateKey][cat]) stateObj[stateKey][cat] = Array(12).fill('');
+    const isTripCategory = (cat === 'Frais de déplacement' && (propertyId === 'p1090' || propertyId === 'p470'));
+    const tr = document.createElement('tr');
+    const tdLabel = document.createElement('td');
+    tdLabel.className = 'row-label';
+    if (canEditLabel) {
+      tdLabel.innerHTML = `<input class="text-input" value="${cat}" style="font-size:12px;" placeholder="Description…">`;
+    } else {
+      tdLabel.textContent = cat;
+    }
+    tr.appendChild(tdLabel);
+
+    const rowValues = getRowValues(cat, stateObj[stateKey], propertyId);
+
+    MONTHS.forEach((m, mi) => {
+      const td = document.createElement('td');
+      const inp = document.createElement('input');
+      inp.className = 'month-input';
+      inp.type = 'number';
+      inp.step = '0.01';
+      inp.min = '0';
+      inp.placeholder = '-';
+      if (isTripCategory) {
+        inp.value = fmt(rowValues[mi]) === '-' ? '' : rowValues[mi].toFixed(2);
+        inp.readOnly = true;
+        inp.style.background = '#f5f5f5';
+        inp.style.color = '#333';
+      } else {
+        inp.value = rowValues[mi] || '';
+      }
+      inp.dataset.cat = cat;
+      inp.dataset.mi = mi;
+      if (!isTripCategory) {
+        inp.addEventListener('input', function() {
+          stateObj[stateKey][cat][mi] = this.value;
+          updateRowTotal(tr, stateObj[stateKey][cat]);
+          updateColTotals(tbody, cats, stateObj[stateKey], propertyId);
+          updateSummaries();
+          autoSave();
+        });
+      }
+      td.appendChild(inp);
+      tr.appendChild(td);
+    });
+
+    const tdTotal = document.createElement('td');
+    tdTotal.className = 'total-cell';
+    tdTotal.textContent = fmt(rowTotal(rowValues));
+    tr.appendChild(tdTotal);
+    tbody.appendChild(tr);
+  });
+
+  // Total row
+  const trTot = document.createElement('tr');
+  trTot.className = 'total-row';
+  const tdTotLabel = document.createElement('td');
+  tdTotLabel.className = 'row-label';
+  tdTotLabel.textContent = 'TOTAL';
+  trTot.appendChild(tdTotLabel);
+  const colTots = MONTHS.map((_, mi) => {
+    return cats.reduce((sum, cat) => {
+      const vals = getRowValues(cat, stateObj[stateKey], propertyId);
+      return sum + (parseFloat(vals[mi]) || 0);
+    }, 0);
+  });
+  colTots.forEach(v => {
+    const td = document.createElement('td');
+    td.textContent = fmt(v);
+    trTot.appendChild(td);
+  });
+  const tdGrand = document.createElement('td');
+  const grand = cats.reduce((sum, cat) => sum + rowTotal(getRowValues(cat, stateObj[stateKey], propertyId)), 0);
+  tdGrand.textContent = fmt(grand);
+  trTot.appendChild(tdGrand);
+  tbody.appendChild(trTot);
+}
+
+function updateRowTotal(tr, vals) {
+  const tot = tr.querySelector('.total-cell');
+  if (tot) tot.textContent = fmt(rowTotal(vals));
+}
+
+function updateColTotals(tbody, cats, stateSection, propertyId='') {
+  const totRow = tbody.querySelector('tr.total-row');
+  if (!totRow) return;
+  const tds = totRow.querySelectorAll('td');
+  const colTots = MONTHS.map((_, mi) => {
+    return cats.reduce((sum, cat) => {
+      const vals = getRowValues(cat, stateSection, propertyId);
+      return sum + (parseFloat(vals[mi]) || 0);
+    }, 0);
+  });
+  colTots.forEach((v,i) => { if (tds[i+1]) tds[i+1].textContent = fmt(v); });
+  if (tds[13]) {
+    const grand = cats.reduce((sum, cat) => sum + rowTotal(getRowValues(cat, stateSection, propertyId)), 0);
+    tds[13].textContent = fmt(grand);
+  }
+}
+
+// ══════════════════════════════════════════
+// SUMMARIES
+// ══════════════════════════════════════════
+function calcMileageAmount(km, rate) {
+  return (parseFloat(km) || 0) * (parseFloat(rate) || 0);
+}
+
+function buildHomeSummary() {
+  const rev1090 = grandTotal(state.p1090.revenus, DEF_1090.revenus);
+  const dep1090 = grandTotal(state.p1090.deductibles, DEF_1090.deductibles);
+  const cap1090 = grandTotal(state.p1090.capital, DEF_1090.capital);
+  const rev470  = grandTotal(state.p470.revenus, DEF_470.revenus);
+  const dep470  = grandTotal(state.p470.deductibles, DEF_470.deductibles);
+  const cap470  = grandTotal(state.p470.capital, DEF_470.capital);
+  const totalVeh = calcVehicleDed('uber') + calcVehicleDed('lyft');
+  const kmTotal = parseFloat(document.getElementById('home-kmTotal')?.value || state.vehicule.kmTotalAnnuel) || 0;
+  const rate = parseFloat(document.getElementById('home-mileage-rate')?.value || 0.68) || 0;
+  const mileageAmount = calcMileageAmount(kmTotal, rate);
+  const net = rev1090 + rev470 - dep1090 - dep470 - totalVeh;
+
+  const el = document.getElementById('home-summary');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="summary-card green"><div class="s-label">Revenus locatifs totaux</div><div class="s-value">${fmt(rev1090 + rev470)} $</div></div>
+    <div class="summary-card red"><div class="s-label">Dépenses locatives</div><div class="s-value">${fmt(dep1090 + dep470 + cap1090 + cap470)} $</div></div>
+    <div class="summary-card orange"><div class="s-label">Dépenses véhicule totales</div><div class="s-value">${fmt(totalVeh)} $</div></div>
+    <div class="summary-card blue"><div class="s-label">Valeur kilométrage</div><div class="s-value">${fmt(mileageAmount)} $</div></div>
+    <div class="summary-card ${net>=0?'green':'red'}"><div class="s-label">Bénéfice net estimé</div><div class="s-value">${fmt(net)} $</div></div>
+  `;
+}
+
+function updateMileageCalc() {
+  const kmTotal = parseFloat(document.getElementById('home-kmTotal')?.value || state.vehicule.kmTotalAnnuel) || 0;
+  const rate = parseFloat(document.getElementById('home-mileage-rate')?.value || 0.68) || 0;
+  const amount = calcMileageAmount(kmTotal, rate);
+  const display = document.getElementById('home-mileage-amount');
+  if (display) display.textContent = fmt(amount) + ' $';
+}
+
+function parsePdfText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async event => {
+      try {
+        const data = event.target.result;
+        const loadingTask = pdfjsLib.getDocument({ data });
+        const pdf = await loadingTask.promise;
+        let text = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map(item => item.str).join(' ') + '\n';
+        }
+        resolve(text);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function parseUberPdfText(text) {
+  const result = {};
+  const netMatch = text.match(/Net\s+vers[eé]\s+\(?hors\s+taxes\)?\s*[:\$]?\s*([0-9\.,\(\)\-]+)/i);
+  const kmMatch = text.match(/(?:Online|Online km|km Online)\s*[:\s]*([0-9\.,]+)/i);
+  if (netMatch) result.net = parseFloat(netMatch[1].replace(/[^0-9\.-]/g, '')) || 0;
+  if (kmMatch) result.kmOnline = parseFloat(kmMatch[1].replace(/[^0-9\.-]/g, '')) || 0;
+  return result;
+}
+
+function parseLyftPdfText(text) {
+  const result = { totalKm: 0, totalNet: 0 };
+  const kmMatches = [...text.matchAll(/([0-9]{1,3}(?:[\.,][0-9]{1,3})*)\s*km/gi)];
+  const amounts = [...text.matchAll(/([0-9\.,]+)\s*\$/g)];
+  if (kmMatches.length) {
+    result.totalKm = kmMatches.reduce((sum, m) => sum + (parseFloat(m[1].replace(',', '.')) || 0), 0);
+  }
+  if (amounts.length) {
+    result.totalNet = parseFloat(amounts[amounts.length - 1][1].replace(',', '.')) || 0;
+  }
+  return result;
+}
+
+function handlePdfImport(file, type) {
+  parsePdfText(file).then(text => {
+    if (type === 'uber') {
+      const parsed = parseUberPdfText(text);
+      if (parsed.net || parsed.kmOnline) {
+        showToast('✅ Uber PDF importé (résumé)');
+      } else {
+        showToast('⚠️ Uber PDF non reconnu');
+      }
+    } else if (type === 'lyft') {
+      const parsed = parseLyftPdfText(text);
+      if (parsed.totalKm) {
+        showToast('✅ Lyft PDF importé (résumé)');
+      } else {
+        showToast('⚠️ Lyft PDF non reconnu');
+      }
+    }
+  }).catch(() => showToast('❌ Erreur durant l’import PDF'));
+}
+
+function getTripAmountForMonth(propertyId, monthIndex) {
+  const rate = parseFloat(state.homeMileageRate || 0.68) || 0;
+  return state.tripLogs.reduce((sum, trip) => {
+    if (trip.property === propertyId) {
+      const date = new Date(trip.date);
+      if (!isNaN(date) && date.getMonth() === monthIndex) {
+        return sum + ((parseFloat(trip.km) || 0) * rate);
+      }
+    }
+    return sum;
+  }, 0);
+}
+
+function buildTripLogTable() {
+  const body = document.getElementById('trip-log-body');
+  if (!body) return;
+  const rows = (state.tripLogs || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="5" style="padding:10px;text-align:center;color:#555;">Aucun déplacement enregistré.</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = rows.map(trip => {
+    const amount = (parseFloat(trip.km) || 0) * (parseFloat(state.homeMileageRate || 0.68) || 0);
+    const propertyLabel = trip.property === 'p470' ? '470 Gélinas (Triplex)' : '1090 Oscar Benoît';
+    return `
+      <tr>
+        <td style="padding:8px 10px;">${trip.date || '-'}</td>
+        <td style="padding:8px 10px;">${propertyLabel}</td>
+        <td style="padding:8px 10px;">${trip.reason || '-'}</td>
+        <td style="padding:8px 10px;text-align:right;">${fmt(parseFloat(trip.km) || 0)} km</td>
+        <td style="padding:8px 10px;text-align:right;">${fmt(amount)} $</td>
+      </tr>`;
+  }).join('');
+}
+
+function saveTripEntry() {
+  const dateInput = document.getElementById('trip-date');
+  const propertyInput = document.getElementById('trip-property');
+  const reasonInput = document.getElementById('trip-reason');
+  const kmInput = document.getElementById('trip-km');
+  if (!dateInput || !propertyInput || !reasonInput || !kmInput) return;
+
+  const date = dateInput.value;
+  const property = propertyInput.value;
+  const reason = reasonInput.value.trim();
+  const km = parseFloat(kmInput.value);
+  if (!date || isNaN(km) || km <= 0) {
+    showToast('⚠️ Vérifie la date et le kilométrage.');
+    return;
+  }
+
+  state.tripLogs = state.tripLogs || [];
+  state.tripLogs.push({ date, property, reason, km: km.toFixed(1) });
+  dateInput.value = '';
+  reasonInput.value = '';
+  kmInput.value = '';
+
+  buildTripLogTable();
+  buildMonthTable('dep-1090-body', DEF_1090.deductibles, state.p1090, 'deductibles', false, 'p1090');
+  buildMonthTable('dep-470-body', DEF_470.deductibles, state.p470, 'deductibles', false, 'p470');
+  updateSummaries();
+  autoSave();
+  showToast('✅ Déplacement ajouté.');
+}
+
+function buildPropertySummary(containerId, stateKey, defObj) {
+  const rev = grandTotal(state[stateKey].revenus, defObj.revenus);
+  const dep = grandTotal(state[stateKey].deductibles, defObj.deductibles);
+  const cap = grandTotal(state[stateKey].capital, defObj.capital);
+  const net = rev - dep;
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = `
+    <div class="summary-card green"><div class="s-label">Revenus</div><div class="s-value">${fmt(rev)} $</div></div>
+    <div class="summary-card red"><div class="s-label">Dépenses déductibles</div><div class="s-value">${fmt(dep)} $</div></div>
+    <div class="summary-card orange"><div class="s-label">Dépenses en capital</div><div class="s-value">${fmt(cap)} $</div></div>
+    <div class="summary-card ${net >= 0 ? 'green' : 'red'}"><div class="s-label">Résultat net</div><div class="s-value">${fmt(net)} $</div></div>
+  `;
+}
+
+function buildGlobalSummary() {
+  const rev1090 = grandTotal(state.p1090.revenus, DEF_1090.revenus);
+  const dep1090 = grandTotal(state.p1090.deductibles, DEF_1090.deductibles);
+  const cap1090 = grandTotal(state.p1090.capital, DEF_1090.capital);
+  const rev470 = grandTotal(state.p470.revenus, DEF_470.revenus);
+  const dep470 = grandTotal(state.p470.deductibles, DEF_470.deductibles);
+  const cap470 = grandTotal(state.p470.capital, DEF_470.capital);
+  const totalRev = rev1090 + rev470;
+  const totalDep = dep1090 + dep470;
+  const totalCap = cap1090 + cap470;
+  const uberDed = calcVehicleDed('uber');
+  const lyftDed = calcVehicleDed('lyft');
+  const totalVeh = uberDed + lyftDed;
+  const lyftRevTotal = getLyftRevTotal();
+  const net = totalRev - totalDep - totalVeh;
+
+  const gs = document.getElementById('global-summary');
+  if (gs) {
+    gs.innerHTML = `
+      <div class="summary-card green"><div class="s-label">Revenus totaux</div><div class="s-value">${fmt(totalRev)} $</div></div>
+      <div class="summary-card red"><div class="s-label">Dépenses déductibles (immobilier)</div><div class="s-value">${fmt(totalDep)} $</div></div>
+      <div class="summary-card red"><div class="s-label">Dépenses déductibles (véhicule)</div><div class="s-value">${fmt(totalVeh)} $</div></div>
+      <div class="summary-card orange"><div class="s-label">Dépenses en capital</div><div class="s-value">${fmt(totalCap)} $</div></div>
+      <div class="summary-card ${net >= 0 ? 'green' : 'red'}"><div class="s-label">Bénéfice net estimé</div><div class="s-value">${fmt(net)} $</div></div>
+    `;
+  }
+
+  const gd = document.getElementById('global-detail');
+  if (!gd) return;
+  gd.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tr style="background:var(--dark);color:white;">
+        <th style="padding:8px 12px;text-align:left;">Source</th>
+        <th style="padding:8px 12px;text-align:right;">Revenus</th>
+        <th style="padding:8px 12px;text-align:right;">Dép. déductibles</th>
+        <th style="padding:8px 12px;text-align:right;">Dép. capital</th>
+        <th style="padding:8px 12px;text-align:right;">Bénéfice (perte)</th>
+      </tr>
+      <tr style="border-bottom:1px solid #dde3ea;">
+        <td style="padding:8px 12px;">1090 Oscar Benoît</td>
+        <td style="padding:8px;text-align:right;">${fmt(rev1090)} $</td>
+        <td style="padding:8px;text-align:right;">${fmt(dep1090)} $</td>
+        <td style="padding:8px;text-align:right;">${fmt(cap1090)} $</td>
+        <td style="padding:8px;text-align:right;font-weight:700;color:${rev1090-dep1090 >= 0 ? 'var(--green)' : '#C00000'}">${fmt(rev1090-dep1090)} $</td>
+      </tr>
+      <tr style="border-bottom:1px solid #dde3ea;">
+        <td style="padding:8px 12px;">470 Rue Gélinas (Triplex)</td>
+        <td style="padding:8px;text-align:right;">${fmt(rev470)} $</td>
+        <td style="padding:8px;text-align:right;">${fmt(dep470)} $</td>
+        <td style="padding:8px;text-align:right;">${fmt(cap470)} $</td>
+        <td style="padding:8px;text-align:right;font-weight:700;color:${rev470-dep470 >= 0 ? 'var(--green)' : '#C00000'}">${fmt(rev470-dep470)} $</td>
+      </tr>
+      <tr style="border-bottom:1px solid #dde3ea;">
+        <td style="padding:8px 12px;">🟠 Uber — part véhicule déductible</td>
+        <td style="padding:8px;text-align:right;">10 019,13 $</td>
+        <td style="padding:8px;text-align:right;">${fmt(uberDed)} $</td>
+        <td style="padding:8px;text-align:right;">-</td>
+        <td style="padding:8px;text-align:right;">-</td>
+      </tr>
+      <tr style="border-bottom:1px solid #dde3ea;">
+        <td style="padding:8px 12px;">💗 Lyft — part véhicule déductible</td>
+        <td style="padding:8px;text-align:right;">${fmt(lyftRevTotal)} $</td>
+        <td style="padding:8px;text-align:right;">${fmt(lyftDed)} $</td>
+        <td style="padding:8px;text-align:right;">-</td>
+        <td style="padding:8px;text-align:right;">-</td>
+      </tr>
+      <tr style="background:var(--dark);color:white;font-weight:700;">
+        <td style="padding:9px 12px;">TOTAL</td>
+        <td style="padding:9px;text-align:right;">${fmt(totalRev)} $</td>
+        <td style="padding:9px;text-align:right;">${fmt(totalDep + totalVeh)} $</td>
+        <td style="padding:9px;text-align:right;">${fmt(totalCap)} $</td>
+        <td style="padding:9px;text-align:right;">${fmt(net)} $</td>
+      </tr>
+    </table>
+  `;
+}
+
+function updateSummaries() {
+  state.tripLogs = state.tripLogs || [];
+  state.homeMileageRate = parseFloat(state.homeMileageRate || 0.68) || 0.68;
+  buildHomeSummary();
+  buildTripLogTable();
+  buildPropertySummary('summary-1090', 'p1090', DEF_1090);
+  buildPropertySummary('summary-470', 'p470', DEF_470);
+  buildGlobalSummary();
+}
+
+// ══════════════════════════════════════════
+// VEHICLE HELPERS
+// ══════════════════════════════════════════
+
+function getLyftKmTotal() {
+  let km = 0;
+  for (let mi = 0; mi < 12; mi++) {
+    const m = state.lyft_mois[mi];
+    if (m) km += parseFloat(m.km) || 0;
+  }
+  return km;
+}
+
+function getLyftRevTotal() {
+  let rev = 0;
+  for (let mi = 0; mi < 12; mi++) {
+    const m = state.lyft_mois[mi];
+    if (m) {
+      rev += (parseFloat(m.taxable)||0) + (parseFloat(m.bonuses)||0) + (parseFloat(m.tips)||0);
+    }
+  }
+  return rev;
+}
+
+function calcVehicleDed(platform) {
+  const v = state.vehicule;
+  const kmTotal = parseFloat(v.kmTotalAnnuel) || 0;
+  const kmUber  = parseFloat(v.kmUber) || 0;
+  const kmLyft  = getLyftKmTotal();
+  const ratio = platform === 'uber'
+    ? (kmTotal > 0 ? kmUber / kmTotal : 0)
+    : (kmTotal > 0 ? kmLyft / kmTotal : 0);
+  return DEP_VEHICLE.reduce((sum, cat) => {
+    return sum + (parseFloat(v.depenses[cat]) || 0) * ratio;
+  }, 0);
+}
+
+// ══════════════════════════════════════════
+// VÉHICULE (COMMUN) PANEL
+// ══════════════════════════════════════════
+function buildVehiculeCommun() {
+  const el = document.getElementById('vehicule-panel');
+  if (!el) return;
+  const v = state.vehicule;
+  const kmTotal = parseFloat(v.kmTotalAnnuel) || 0;
+  const kmUber  = parseFloat(v.kmUber) || 0;
+  const kmLyft  = getLyftKmTotal();
+  const pctUber = kmTotal > 0 ? (kmUber / kmTotal * 100).toFixed(2) : '0.00';
+  const pctLyft = kmTotal > 0 ? (kmLyft / kmTotal * 100).toFixed(2) : '0.00';
+
+  let depRows = '';
+  let totalMontant = 0, totalUber = 0, totalLyft = 0;
+  DEP_VEHICLE.forEach((cat, i) => {
+    const montant = parseFloat(v.depenses[cat]) || 0;
+    const rUber   = kmTotal > 0 ? kmUber / kmTotal : 0;
+    const rLyft   = kmTotal > 0 ? kmLyft / kmTotal : 0;
+    const partUber = montant * rUber;
+    const partLyft = montant * rLyft;
+    totalMontant += montant; totalUber += partUber; totalLyft += partLyft;
+    depRows += `
+      <tr>
+        <td class="dep-label">${cat}</td>
+        <td class="dep-input"><input type="number" step="0.01" id="veh-dep-${i}" value="${v.depenses[cat]||''}" placeholder="-" style="width:100%;padding:6px;border:none;background:var(--orange-input);text-align:center;font-size:12px;color:#0000FF;font-family:Arial;"></td>
+        <td class="dep-formula" id="veh-uber-pct-${i}">${pctUber}%</td>
+        <td class="dep-formula" id="veh-uber-ded-${i}">${fmt(partUber)} $</td>
+        <td class="dep-formula" id="veh-lyft-pct-${i}">${pctLyft}%</td>
+        <td class="dep-formula" id="veh-lyft-ded-${i}">${fmt(partLyft)} $</td>
+      </tr>`;
+  });
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-header" style="background:#2d6a4f;">🚗 Véhicule (Commun) — Dépenses partagées Uber / Lyft 2025</div>
+      <div class="legend">
+        <span class="leg-blue">■ Bleu</span> = saisie manuelle &nbsp;|&nbsp;
+        <span class="leg-black">■ Noir</span> = calcul automatique &nbsp;|&nbsp;
+        <span style="color:#1A4731;font-weight:700;">■ Vert foncé</span> = données depuis PDF Lyft
+      </div>
+      <div class="card-body" style="padding:16px;">
+
+        <div style="background:#e8f5e9;border-left:4px solid #2d6a4f;padding:12px 16px;border-radius:4px;margin-bottom:16px;font-size:12px;color:#1b5e20;">
+          💡 <strong>Logique de partage :</strong> Les dépenses du véhicule sont saisies <em>une seule fois</em> ici.
+          Elles sont réparties automatiquement entre Uber et Lyft au prorata des kilomètres parcourus pour chaque plateforme
+          par rapport au total annuel.<br>
+          <strong>Formule :</strong> Montant déductible Uber = Dépense × (Km Uber ÷ Km total annuel)
+        </div>
+
+        <!-- KM section -->
+        <div class="card" style="border:1px solid #b0c4de;margin-bottom:16px;">
+          <div class="card-header blue">📍 Kilométrage annuel 2025</div>
+          <div class="card-body" style="padding:16px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+
+              <div class="field-row">
+                <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;">Km total annuel (toutes utilisations)</label>
+                <input class="text-input" id="veh-kmTotal" type="number" value="${v.kmTotalAnnuel||22000}" placeholder="ex: 22000" style="margin-top:4px;">
+                <small style="font-size:11px;color:#888;">Valeur par défaut : 22 000 km</small>
+              </div>
+
+              <div class="field-row">
+                <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;">Km Uber Online (Online km)</label>
+                <input class="text-input" id="veh-kmUber" type="number" value="${v.kmUber||15286}" placeholder="ex: 15286" style="margin-top:4px;">
+                <small style="font-size:11px;color:#888;">Depuis relevé Uber annuel : 15 286 km ✅</small>
+              </div>
+
+              <div class="field-row">
+                <label style="font-size:11px;font-weight:700;color:#1A4731;text-transform:uppercase;">Km Lyft (calculé depuis l'onglet Lyft)</label>
+                <div class="text-input" id="veh-kmLyft-display" style="margin-top:4px;background:#D9EAD3;color:#1A4731;font-weight:700;padding:7px 8px;">${kmLyft.toFixed(1)} km</div>
+                <small style="font-size:11px;color:#888;">Somme des km mensuels Lyft (Jul–Déc PDF)</small>
+              </div>
+
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px;">
+              <div class="summary-card blue">
+                <div class="s-label">Km total annuel</div>
+                <div class="s-value" id="veh-total-disp">${fmt(kmTotal)} km</div>
+              </div>
+              <div class="summary-card orange">
+                <div class="s-label">🟠 Part Uber</div>
+                <div class="s-value" id="veh-pct-uber-disp">${pctUber}%</div>
+              </div>
+              <div class="summary-card" style="background:#fce4ec;color:#880e4f;">
+                <div class="s-label">💗 Part Lyft</div>
+                <div class="s-value" id="veh-pct-lyft-disp">${pctLyft}%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Expense table -->
+        <div class="card" style="border:1px solid #c6d9b5;">
+          <div class="card-header green">💰 Dépenses du véhicule (saisie unique — répartition automatique)</div>
+          <div class="card-body" style="overflow-x:auto;padding:0;">
+            <table class="dep-table" style="width:100%;">
+              <thead><tr>
+                <th style="min-width:240px;">Catégorie de dépense</th>
+                <th style="min-width:130px;">Montant total ($)</th>
+                <th style="min-width:90px;">🟠 % Uber</th>
+                <th style="min-width:120px;">🟠 Déduc. Uber ($)</th>
+                <th style="min-width:90px;">💗 % Lyft</th>
+                <th style="min-width:120px;">💗 Déduc. Lyft ($)</th>
+              </tr></thead>
+              <tbody id="veh-dep-tbody">${depRows}</tbody>
+              <tfoot>
+                <tr class="dep-total">
+                  <td>TOTAL DES DÉPENSES</td>
+                  <td id="veh-total-montant">${fmt(totalMontant)} $</td>
+                  <td></td>
+                  <td id="veh-total-uber">${fmt(totalUber)} $</td>
+                  <td></td>
+                  <td id="veh-total-lyft">${fmt(totalLyft)} $</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>`;
+
+  // Bind km inputs
+  document.getElementById('veh-kmTotal').addEventListener('input', function() {
+    state.vehicule.kmTotalAnnuel = this.value;
+    refreshVehiculeCalcs();
+    updateSummaries();
+    autoSave();
+  });
+  document.getElementById('veh-kmUber').addEventListener('input', function() {
+    state.vehicule.kmUber = this.value;
+    refreshVehiculeCalcs();
+    updateSummaries();
+    autoSave();
+  });
+
+  // Bind expense inputs
+  DEP_VEHICLE.forEach((cat, i) => {
+    const inp = document.getElementById(`veh-dep-${i}`);
+    if (inp) inp.addEventListener('input', function() {
+      state.vehicule.depenses[cat] = this.value;
+      refreshVehiculeCalcs();
+      updateSummaries();
+      autoSave();
+    });
+  });
+}
+
+function refreshVehiculeCalcs() {
+  const v = state.vehicule;
+  const kmTotal = parseFloat(v.kmTotalAnnuel) || 0;
+  const kmUber  = parseFloat(v.kmUber) || 0;
+  const kmLyft  = getLyftKmTotal();
+  const rUber   = kmTotal > 0 ? kmUber / kmTotal : 0;
+  const rLyft   = kmTotal > 0 ? kmLyft / kmTotal : 0;
+  const pctUber = (rUber * 100).toFixed(2);
+  const pctLyft = (rLyft * 100).toFixed(2);
+
+  const totalDisp = document.getElementById('veh-total-disp');
+  const pctUberDisp = document.getElementById('veh-pct-uber-disp');
+  const pctLyftDisp = document.getElementById('veh-pct-lyft-disp');
+  const kmLyftDisp  = document.getElementById('veh-kmLyft-display');
+  if (totalDisp)   totalDisp.textContent   = fmt(kmTotal) + ' km';
+  if (pctUberDisp) pctUberDisp.textContent = pctUber + '%';
+  if (pctLyftDisp) pctLyftDisp.textContent = pctLyft + '%';
+  if (kmLyftDisp)  kmLyftDisp.textContent  = kmLyft.toFixed(1) + ' km';
+
+  let totalMontant = 0, totalUber = 0, totalLyft = 0;
+  DEP_VEHICLE.forEach((cat, i) => {
+    const montant  = parseFloat(v.depenses[cat]) || 0;
+    const partUber = montant * rUber;
+    const partLyft = montant * rLyft;
+    totalMontant += montant; totalUber += partUber; totalLyft += partLyft;
+    const uPct = document.getElementById(`veh-uber-pct-${i}`);
+    const uDed = document.getElementById(`veh-uber-ded-${i}`);
+    const lPct = document.getElementById(`veh-lyft-pct-${i}`);
+    const lDed = document.getElementById(`veh-lyft-ded-${i}`);
+    if (uPct) uPct.textContent = pctUber + '%';
+    if (uDed) uDed.textContent = fmt(partUber) + ' $';
+    if (lPct) lPct.textContent = pctLyft + '%';
+    if (lDed) lDed.textContent = fmt(partLyft) + ' $';
+  });
+  const tm = document.getElementById('veh-total-montant');
+  const tu = document.getElementById('veh-total-uber');
+  const tl = document.getElementById('veh-total-lyft');
+  if (tm) tm.textContent = fmt(totalMontant) + ' $';
+  if (tu) tu.textContent = fmt(totalUber) + ' $';
+  if (tl) tl.textContent = fmt(totalLyft) + ' $';
+}
+
+// ══════════════════════════════════════════
+// UBER (REVENUS) PANEL — static PDF display
+// ══════════════════════════════════════════
+function buildUberRevenus() {
+  const el = document.getElementById('uber-revenus-panel');
+  if (!el) return;
+  const rows = [
+    ['Revenus courses brut', '8 423,35', false],
+    ['Supplément vert (Green surcharge)', '10,50', false],
+    ['Frais de réservation (Booking fee)', '1 009,84', false],
+    ['Contribution MTQ', '404,82', false],
+    ['Frais aéroport', '170,62', false],
+    ['Péages', '28,86', false],
+    ['Pourboires courses', '425,49', false],
+    ['TPS (perçue des passagers)', '501,06', false],
+    ['TVQ (perçue des passagers)', '999,36', false],
+    ['TOTAL BRUT', '11 973,90', true],
+    ['', '', false],
+    ['Frais de service Uber', '(2 103,05)', false],
+    ['Autres frais Uber', '(1 180,46)', false],
+    ['Remise sur frais', '13,05', false],
+    ['TPS payée à Uber', '(164,16)', false],
+    ['TVQ payée à Uber', '(325,95)', false],
+    ['TOTAL FRAIS UBER', '(3 760,57)', true],
+    ['', '', false],
+    ['Revenus Uber Eats', '600,00', false],
+    ['Pourboires Eats', '610,98', false],
+    ['Autres revenus', '592,94', false],
+    ['NET VERSÉ (hors taxes)', '10 019,13', true],
+    ['TPS remise à Revenu Canada', '(273,52)', false],
+    ['TVQ remise à Revenu Québec', '(617,18)', false],
+  ];
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-header" style="background:#E65100;">🟠 Uber — Revenus 2025 (relevé annuel officiel)</div>
+      <div class="legend">
+        <span style="color:#1A4731;font-weight:700;">■ Vert foncé</span> = données officielles pré-remplies depuis le relevé annuel Uber PDF
+      </div>
+      <div class="card-body" style="padding:18px;">
+
+        <div style="background:#FFF3E0;border-left:4px solid #E65100;padding:12px 16px;border-radius:4px;margin-bottom:16px;font-size:12px;color:#7B3F00;">
+          ⚠️ Le relevé Uber fournit des totaux <strong>annuels uniquement</strong> (pas de détail mensuel).
+          Ces données sont pré-remplies dans le fichier Excel. Elles sont affichées ici à titre de référence.
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+          <div class="summary-card green"><div class="s-label">Total brut (avec taxes)</div><div class="s-value">11 973,90 $</div></div>
+          <div class="summary-card green"><div class="s-label">Net versé (hors taxes)</div><div class="s-value">10 019,13 $</div></div>
+          <div class="summary-card orange"><div class="s-label">Uber Eats + Pourboires Eats</div><div class="s-value">1 210,98 $</div></div>
+          <div class="summary-card red"><div class="s-label">Total frais Uber</div><div class="s-value">(3 760,57) $</div></div>
+          <div class="summary-card blue"><div class="s-label">Km Online (Revenu Qc)</div><div class="s-value">15 286 km</div></div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;max-width:600px;">
+            <thead>
+              <tr>
+                <th style="background:var(--dark);color:white;padding:8px 12px;text-align:left;border:1px solid #3a5080;">Description</th>
+                <th style="background:var(--dark);color:white;padding:8px 10px;text-align:right;border:1px solid #3a5080;min-width:130px;">Montant ($)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(([desc, val, isTot]) => {
+                if (!desc) return `<tr><td colspan="2" style="padding:3px;background:var(--gray);border:1px solid #dde3ea;"></td></tr>`;
+                const bg = isTot ? '#D9EAD3' : 'white';
+                const fw = isTot ? '700' : 'normal';
+                return `<tr style="border-bottom:1px solid #dde3ea;">
+                  <td style="padding:6px 12px;background:${bg};font-weight:${fw};border:1px solid #dde3ea;">${desc}</td>
+                  <td style="padding:6px 10px;text-align:right;background:${bg};font-weight:${fw};border:1px solid #dde3ea;color:#1A4731;">${val} $</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:16px;background:var(--light-blue);padding:12px 16px;border-radius:6px;font-size:12px;">
+          <strong>Kilométrage Uber 2025 :</strong><br>
+          Km "En course" (On Trip) : <strong>6 581 km</strong> &nbsp;|&nbsp;
+          Km "En ligne" (Online) : <strong>15 286 km</strong> &nbsp;|&nbsp;
+          <span style="color:var(--green);font-weight:700;">✅ Revenu Québec : km Online utilisés (recommandé)</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════
+// LYFT (REVENUS) PANEL — monthly table
+// ══════════════════════════════════════════
+function buildLyftRevenus() {
+  const el = document.getElementById('lyft-revenus-panel');
+  if (!el) return;
+
+  let bodyRows = '';
+  let totTaxable=0, totBonuses=0, totTips=0, totFees=0, totNet=0, totKm=0;
+
+  MONTHS.forEach((mLabel, mi) => {
+    const m = state.lyft_mois[mi] || { taxable:'', bonuses:'', tips:'', fees:'', km:'' };
+    const isPdf  = LYFT_PDF_DEFAULTS[mi] !== undefined;  // Jul-Dec: pre-filled from PDF
+    const isEmpty = mi < 6; // Jan-Jun: service not started
+    const bg = isPdf ? '#D9EAD3' : (isEmpty ? '#f5f5f5' : 'var(--orange-input)');
+    const color = isPdf ? '#1A4731' : (isEmpty ? '#aaa' : '#0000FF');
+    const readonly = isEmpty ? 'readonly' : '';
+
+    const taxable = parseFloat(m.taxable)||0;
+    const bonuses = parseFloat(m.bonuses)||0;
+    const tips    = parseFloat(m.tips)||0;
+    const fees    = parseFloat(m.fees)||0;
+    const km      = parseFloat(m.km)||0;
+    const net     = taxable + bonuses + tips - fees;
+
+    totTaxable+=taxable; totBonuses+=bonuses; totTips+=tips;
+    totFees+=fees; totNet+=net; totKm+=km;
+
+    const fmtInp = (field, val) => {
+      if (isEmpty) {
+        return `<td style="background:#f5f5f5;text-align:center;border:1px solid #dde3ea;color:#ccc;padding:5px;">-</td>`;
+      }
+      return `<td style="padding:0;border:1px solid #dde3ea;">
+        <input type="number" step="0.01" value="${val||''}" placeholder="-"
+          data-mi="${mi}" data-field="${field}"
+          style="width:100%;padding:5px 4px;border:none;background:${bg};text-align:center;
+                 font-size:12px;color:${color};font-family:Arial;min-width:80px;height:28px;">
+      </td>`;
+    };
+
+    const netBg    = net > 0 ? '#e8f5e9' : (net < 0 ? '#fce4d6' : 'white');
+    const netColor = net > 0 ? '#2d6a4f' : (net < 0 ? '#c00000' : '#333');
+
+    bodyRows += `
+      <tr>
+        <td style="padding:6px 10px;font-size:12px;background:white;border:1px solid #dde3ea;white-space:nowrap;font-weight:${isPdf?'700':'normal'};color:${isPdf?'#1A4731':'inherit'};">
+          ${isPdf?'🟢 ':''}${MONTH_FULL[mi]}
+        </td>
+        ${fmtInp('taxable', m.taxable)}
+        ${fmtInp('bonuses', m.bonuses)}
+        ${fmtInp('tips',    m.tips)}
+        ${fmtInp('fees',    m.fees)}
+        <td style="background:${netBg};text-align:center;font-weight:700;color:${netColor};padding:5px 4px;border:1px solid #dde3ea;font-size:12px;">${net !== 0 ? fmt(net)+' $' : '-'}</td>
+        ${fmtInp('km',      m.km)}
+      </tr>`;
+  });
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-header" style="background:#AD1457;">💗 Lyft — Revenus 2025 (relevés mensuels officiels)</div>
+      <div class="legend">
+        <span style="color:#1A4731;font-weight:700;">■ Vert foncé</span> = données officielles pré-remplies depuis les relevés Lyft PDF (Juil–Déc) &nbsp;|&nbsp;
+        <span class="leg-blue">■ Bleu</span> = saisie manuelle
+      </div>
+      <div class="card-body" style="padding:18px;">
+
+        <div style="background:#fce4ec;border-left:4px solid #AD1457;padding:12px 16px;border-radius:4px;margin-bottom:16px;font-size:12px;color:#880e4f;">
+          ⚠️ Service Lyft démarré en <strong>Juillet 2025</strong> uniquement.
+          Jan–Juin = 0 $. Les données Jul–Déc sont pré-remplies depuis les 6 relevés PDF mensuels Lyft.
+          Vous pouvez les ajuster si nécessaire.
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;">
+          <div class="summary-card green"><div class="s-label">Total net reçu</div><div class="s-value">${fmt(totNet)} $</div></div>
+          <div class="summary-card blue"><div class="s-label">Base taxable</div><div class="s-value">${fmt(totTaxable)} $</div></div>
+          <div class="summary-card orange"><div class="s-label">Primes</div><div class="s-value">${fmt(totBonuses)} $</div></div>
+          <div class="summary-card red"><div class="s-label">Frais Lyft</div><div class="s-value">${fmt(totFees)} $</div></div>
+          <div class="summary-card blue"><div class="s-label">Total km Lyft</div><div class="s-value">${totKm.toFixed(1)} km</div></div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead>
+              <tr>
+                <th style="background:var(--dark);color:white;padding:7px 10px;text-align:left;border:1px solid #3a5080;min-width:120px;">Mois</th>
+                <th style="background:var(--dark);color:white;padding:7px 6px;border:1px solid #3a5080;min-width:90px;">Base taxable ($)</th>
+                <th style="background:var(--dark);color:white;padding:7px 6px;border:1px solid #3a5080;min-width:80px;">Primes ($)</th>
+                <th style="background:var(--dark);color:white;padding:7px 6px;border:1px solid #3a5080;min-width:80px;">Pourboires ($)</th>
+                <th style="background:var(--dark);color:white;padding:7px 6px;border:1px solid #3a5080;min-width:90px;">Frais Lyft ($)</th>
+                <th style="background:#2d6a4f;color:white;padding:7px 6px;border:1px solid #3a5080;min-width:90px;">Net reçu ($)</th>
+                <th style="background:var(--dark);color:white;padding:7px 6px;border:1px solid #3a5080;min-width:80px;">Km</th>
+              </tr>
+            </thead>
+            <tbody id="lyft-monthly-body">
+              ${bodyRows}
+            </tbody>
+            <tfoot>
+              <tr style="background:var(--dark);color:white;font-weight:700;">
+                <td style="padding:7px 10px;border:1px solid #3a5080;">TOTAL ANNUEL</td>
+                <td style="padding:7px 6px;text-align:center;border:1px solid #3a5080;">${fmt(totTaxable)} $</td>
+                <td style="padding:7px 6px;text-align:center;border:1px solid #3a5080;">${fmt(totBonuses)} $</td>
+                <td style="padding:7px 6px;text-align:center;border:1px solid #3a5080;">${fmt(totTips)} $</td>
+                <td style="padding:7px 6px;text-align:center;border:1px solid #3a5080;">${fmt(totFees)} $</td>
+                <td style="padding:7px 6px;text-align:center;border:1px solid #3a5080;background:#1A4731;">${fmt(totNet)} $</td>
+                <td style="padding:7px 6px;text-align:center;border:1px solid #3a5080;">${totKm.toFixed(1)} km</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>`;
+
+  // Bind all Lyft monthly inputs
+  el.querySelectorAll('input[data-mi]').forEach(inp => {
+    inp.addEventListener('input', function() {
+      const mi    = parseInt(this.dataset.mi);
+      const field = this.dataset.field;
+      if (!state.lyft_mois[mi]) state.lyft_mois[mi] = {};
+      state.lyft_mois[mi][field] = this.value;
+      // Refresh net display for this row
+      const row = this.closest('tr');
+      const m = state.lyft_mois[mi];
+      const net = (parseFloat(m.taxable)||0) + (parseFloat(m.bonuses)||0) + (parseFloat(m.tips)||0) - (parseFloat(m.fees)||0);
+      const netCell = row.querySelectorAll('td')[5];
+      if (netCell) {
+        netCell.textContent = net !== 0 ? fmt(net)+' $' : '-';
+        netCell.style.color = net > 0 ? '#2d6a4f' : (net < 0 ? '#c00000' : '#333');
+        netCell.style.background = net > 0 ? '#e8f5e9' : (net < 0 ? '#fce4d6' : 'white');
+      }
+      // If km changed, update Véhicule panel Lyft km display
+      if (field === 'km') refreshVehiculeCalcs();
+      updateSummaries();
+      autoSave();
+    });
+  });
+}
+
+// ══════════════════════════════════════════
+// TAB NAVIGATION
+// ══════════════════════════════════════════
+function showTab(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+  updateSummaries();
+}
+
+// ══════════════════════════════════════════
+// AUTO SAVE
+// ══════════════════════════════════════════
+let saveTimer = null;
+function autoSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    localStorage.setItem('depenses2025', JSON.stringify(state));
+  }, 800);
+}
+
+function saveData() {
+  saveState();
+}
+
+function clearAllData() {
+  if (confirm('Effacer toutes les données saisies ? Cette action est irréversible.')) {
+    localStorage.removeItem('depenses2025');
+    location.reload();
+  }
+}
+
+// ══════════════════════════════════════════
+// CSV EXPORT
+// ══════════════════════════════════════════
+function exportCSV() {
+  let csv = 'Section,Catégorie,' + MONTH_FULL.join(',') + ',Total Annuel\n';
+
+  const addSection = (label, rows, cats) => {
+    cats.forEach(cat => {
+      const vals = rows[cat] || Array(12).fill('');
+      const total = rowTotal(vals);
+      csv += `"${label}","${cat}",` + vals.map(v => v||0).join(',') + `,${total.toFixed(2)}\n`;
+    });
+  };
+
+  addSection('1090 - Revenus', state.p1090.revenus, DEF_1090.revenus);
+  addSection('1090 - Dépenses déductibles', state.p1090.deductibles, DEF_1090.deductibles);
+  addSection('1090 - Dépenses capital', state.p1090.capital, DEF_1090.capital);
+  addSection('470 - Revenus', state.p470.revenus, DEF_470.revenus);
+  addSection('470 - Dépenses déductibles', state.p470.deductibles, DEF_470.deductibles);
+  addSection('470 - Dépenses capital', state.p470.capital, DEF_470.capital);
+
+  // Vehicle shared expenses
+  const v = state.vehicule;
+  const kmTotal = parseFloat(v.kmTotalAnnuel)||0;
+  const kmUber  = parseFloat(v.kmUber)||0;
+  const kmLyft  = getLyftKmTotal();
+  DEP_VEHICLE.forEach(cat => {
+    const montant = parseFloat(v.depenses[cat]||0);
+    const uberDed = kmTotal > 0 ? montant * kmUber / kmTotal : 0;
+    const lyftDed = kmTotal > 0 ? montant * kmLyft / kmTotal : 0;
+    csv += `"Véhicule (Commun) - Dépenses","${cat}",,,,,,,,,,,, ${montant.toFixed(2)}\n`;
+    csv += `"Véhicule - Part Uber déductible","${cat}",,,,,,,,,,,, ${uberDed.toFixed(2)}\n`;
+    csv += `"Véhicule - Part Lyft déductible","${cat}",,,,,,,,,,,, ${lyftDed.toFixed(2)}\n`;
+  });
+  // Lyft monthly revenues
+  MONTHS.forEach((_, mi) => {
+    const m = state.lyft_mois[mi];
+    if (m) {
+      const net = (parseFloat(m.taxable)||0)+(parseFloat(m.bonuses)||0)+(parseFloat(m.tips)||0)-(parseFloat(m.fees)||0);
+      csv += `"Lyft - Revenus","${MONTH_FULL[mi]}",,,,,,,,,,,, ${net.toFixed(2)}\n`;
+    }
+  });
+
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Depenses_2025.csv';
+  a.click();
+  showToast('✅ CSV exporté !');
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+function init() {
+  // Ensure lyft_mois exists and is populated with PDF defaults for Jul-Dec
+  if (!state.lyft_mois) {
+    state.lyft_mois = {};
+    for (let mi = 0; mi < 12; mi++) {
+      const d = LYFT_PDF_DEFAULTS[mi];
+      state.lyft_mois[mi] = d
+        ? { taxable: d.taxable, bonuses: d.bonuses, tips: d.tips, fees: d.fees, km: d.km }
+        : { taxable: '', bonuses: '', tips: '', fees: '', km: '' };
+    }
+  }
+  if (!state.vehicule) {
+    state.vehicule = { kmTotalAnnuel: 22000, kmUber: 15286, depenses: {} };
+  }
+
+  buildMonthTable('rev-1090-body',  DEF_1090.revenus,      state.p1090, 'revenus');
+  buildMonthTable('dep-1090-body',  DEF_1090.deductibles,  state.p1090, 'deductibles', false, 'p1090');
+  buildMonthTable('cap-1090-body',  DEF_1090.capital,      state.p1090, 'capital');
+  buildMonthTable('rev-470-body',   DEF_470.revenus,       state.p470,  'revenus');
+  buildMonthTable('dep-470-body',   DEF_470.deductibles,   state.p470,  'deductibles', false, 'p470');
+  buildMonthTable('cap-470-body',   DEF_470.capital,       state.p470,  'capital');
+  buildVehiculeCommun();
+  buildUberRevenus();
+  buildLyftRevenus();
+  updateMileageCalc();
+  buildTripLogTable();
+  buildHomeSummary();
+  updateSummaries();
+
+  const homeKmTotal = document.getElementById('home-kmTotal');
+  const homeRate = document.getElementById('home-mileage-rate');
+  const tripAddBtn = document.getElementById('trip-add-btn');
+  const uberFile = document.getElementById('uber-file');
+  const lyftFile = document.getElementById('lyft-file');
+
+  if (homeKmTotal) {
+    homeKmTotal.value = state.vehicule.kmTotalAnnuel || '';
+    homeKmTotal.addEventListener('input', () => {
+      updateMileageCalc();
+      buildHomeSummary();
+      updateSummaries();
+      state.vehicule.kmTotalAnnuel = homeKmTotal.value;
+      autoSave();
+    });
+  }
+  if (homeRate) {
+    homeRate.addEventListener('input', () => {
+      state.homeMileageRate = homeRate.value;
+      updateMileageCalc();
+      buildHomeSummary();
+      updateSummaries();
+      autoSave();
+    });
+  }
+  if (tripAddBtn) {
+    tripAddBtn.addEventListener('click', function() {
+      saveTripEntry();
+    });
+  }
+  if (uberFile) {
+    uberFile.addEventListener('change', function() {
+      if (this.files && this.files[0]) handlePdfImport(this.files[0], 'uber');
+    });
+  }
+  if (lyftFile) {
+    lyftFile.addEventListener('change', function() {
+      if (this.files && this.files[0]) handlePdfImport(this.files[0], 'lyft');
+    });
+  }
+}
+
+init();
+</script>
+</body>
+</html>

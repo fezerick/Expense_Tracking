@@ -1,0 +1,19 @@
+{
+  "name": "Revenus & Dépenses 2026",
+  "short_name": "Dépenses 2026",
+  "description": "Suivi des revenus et dépenses locatifs et rideshare pour la déclaration fiscale 2026",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1F3864",
+  "theme_color": "#1F3864",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='%231F3864' rx='24'/><text y='130' x='96' font-size='110' text-anchor='middle'>📊</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}

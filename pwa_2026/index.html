@@ -1,0 +1,2976 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dépenses 2026">
+<meta name="theme-color" content="#1F3864">
+<title>Revenus &amp; Dépenses 2026</title>
+<link rel="manifest" href="manifest.json">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+/* ── RESET & ROOT ─────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --dark:#1F3864;--blue:#0070C0;--green:#375623;--brown:#7B3F00;
+  --pink:#AD1457;--orange:#E65100;
+  --light-blue:#D9E1F2;--light-green:#E2EFDA;--light-red:#FCE4D6;
+  --inp:#FFF9E6;--gray:#F2F2F2;--border:#D0D7DE;
+  --text:#1a1a1a;--text2:#555;--white:#fff;
+  --radius:10px;--shadow:0 1px 4px rgba(0,0,0,.12);
+  --nav-h:60px;--header-h:56px;
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+  --safe-top:env(safe-area-inset-top,0px);
+}
+html{height:100%;background:#eef2f7}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-size:15px;color:var(--text);
+  height:100%;background:#eef2f7;
+  overflow-x:hidden;
+}
+
+/* ── HEADER ───────────────────────────────────────────────────── */
+#app-header{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  height:calc(var(--header-h) + var(--safe-top));
+  padding-top:var(--safe-top);
+  background:var(--dark);color:var(--white);
+  display:flex;align-items:center;padding-left:16px;padding-right:16px;
+  gap:10px;
+}
+#app-header h1{font-size:17px;font-weight:700;flex:1}
+#app-header .year-badge{
+  background:rgba(255,255,255,.15);border-radius:20px;
+  padding:4px 10px;font-size:13px;font-weight:600;
+}
+#sync-btn{
+  background:none;border:none;color:rgba(255,255,255,.7);
+  font-size:20px;cursor:pointer;padding:4px;
+}
+
+/* ── MAIN CONTENT ─────────────────────────────────────────────── */
+#app-main{
+  padding-top:calc(var(--header-h) + var(--safe-top));
+  padding-bottom:calc(var(--nav-h) + var(--safe-bottom) + 8px);
+  min-height:100vh;
+}
+
+/* ── BOTTOM NAV ───────────────────────────────────────────────── */
+#bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:100;
+  height:calc(var(--nav-h) + var(--safe-bottom));
+  padding-bottom:var(--safe-bottom);
+  background:var(--white);border-top:1px solid var(--border);
+  display:flex;
+}
+.nav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:2px;border:none;background:none;
+  color:var(--text2);cursor:pointer;font-size:10px;font-weight:500;
+  padding:6px 2px;transition:color .15s;
+}
+.nav-btn .nav-icon{font-size:22px;line-height:1}
+.nav-btn.active{color:var(--blue)}
+.nav-btn.active .nav-icon{transform:scale(1.08)}
+
+/* ── TAB PANELS ───────────────────────────────────────────────── */
+.tab-panel{display:none;padding:12px 12px 4px}
+.tab-panel.active{display:block}
+
+/* ── CARDS ────────────────────────────────────────────────────── */
+.card{
+  background:var(--white);border-radius:var(--radius);
+  box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden;
+}
+.card-header{
+  padding:11px 14px;font-weight:700;font-size:13px;
+  color:var(--white);display:flex;align-items:center;gap:8px;
+}
+.card-header.blue{background:var(--blue)}
+.card-header.dark{background:var(--dark)}
+.card-header.green{background:var(--green)}
+.card-header.brown{background:var(--brown)}
+.card-header.pink{background:var(--pink)}
+.card-header.orange{background:var(--orange)}
+.card-body{padding:12px 14px}
+
+/* ── SUMMARY CARDS ────────────────────────────────────────────── */
+.summary-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+.summary-row.three{grid-template-columns:repeat(3,1fr)}
+.sum-card{
+  border-radius:var(--radius);padding:12px;text-align:center;
+}
+.sum-card .s-lbl{font-size:10px;font-weight:600;text-transform:uppercase;opacity:.8;margin-bottom:4px}
+.sum-card .s-val{font-size:18px;font-weight:700}
+.sum-card .s-val.sm{font-size:15px}
+.sum-card.green{background:var(--light-green);color:var(--green)}
+.sum-card.red{background:var(--light-red);color:#C00000}
+.sum-card.blue{background:var(--light-blue);color:var(--dark)}
+.sum-card.orange{background:#FFF2CC;color:var(--brown)}
+.sum-card.gray{background:var(--gray);color:var(--text)}
+
+/* ── FORM ELEMENTS ────────────────────────────────────────────── */
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
+.inp{
+  width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:8px;
+  font-size:16px;font-family:inherit;color:var(--text);background:var(--inp);
+  -webkit-appearance:none;appearance:none;
+}
+.inp:focus{outline:2px solid var(--blue);border-color:var(--blue);background:#fff}
+select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%23555'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.inp-readonly{
+  width:100%;padding:11px 12px;border:1px solid #ddd;border-radius:8px;
+  font-size:16px;background:var(--gray);color:var(--text2);
+}
+.inp-money{
+  width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:6px;
+  font-size:15px;font-family:inherit;color:#0000CC;background:var(--inp);
+  text-align:right;-webkit-appearance:none;
+}
+.inp-money:focus{outline:2px solid var(--blue);background:#fff}
+.inp-money[readonly]{background:var(--gray);color:var(--text2);border-color:#ddd}
+
+/* ── TOGGLE ────────────────────────────────────────────────────── */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0}
+.toggle-row label{font-size:14px;font-weight:500}
+.toggle{position:relative;width:48px;height:28px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{
+  position:absolute;inset:0;background:#ccc;border-radius:28px;cursor:pointer;
+  transition:.25s;
+}
+.toggle-slider::before{
+  content:'';position:absolute;left:3px;top:3px;
+  width:22px;height:22px;background:var(--white);border-radius:50%;
+  transition:.25s;box-shadow:0 1px 3px rgba(0,0,0,.3);
+}
+.toggle input:checked+.toggle-slider{background:var(--blue)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(20px)}
+
+/* ── BUTTONS ───────────────────────────────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  border:none;border-radius:8px;font-size:15px;font-weight:600;
+  cursor:pointer;padding:12px 18px;font-family:inherit;
+  -webkit-appearance:none;transition:opacity .15s;
+}
+.btn:active{opacity:.75}
+.btn-primary{background:var(--blue);color:var(--white)}
+.btn-green{background:var(--green);color:var(--white)}
+.btn-danger{background:#C00000;color:var(--white)}
+.btn-ghost{background:var(--gray);color:var(--text)}
+.btn-full{width:100%}
+.btn-sm{padding:8px 14px;font-size:13px;border-radius:6px}
+
+/* ── SUB-TABS ──────────────────────────────────────────────────── */
+.sub-tabs{display:flex;background:var(--gray);border-radius:10px;padding:3px;margin-bottom:12px}
+.sub-tab{
+  flex:1;padding:8px 4px;text-align:center;font-size:13px;font-weight:600;
+  border:none;background:none;border-radius:8px;cursor:pointer;color:var(--text2);
+  transition:all .15s;
+}
+.sub-tab.active{background:var(--white);color:var(--dark);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+
+/* ── MONTH NAV ─────────────────────────────────────────────────── */
+.month-nav{
+  display:flex;align-items:center;gap:8px;margin-bottom:12px;
+  background:var(--white);border-radius:var(--radius);
+  padding:10px 12px;box-shadow:var(--shadow);
+}
+.month-nav button{
+  background:var(--gray);border:none;border-radius:6px;
+  padding:6px 14px;font-size:18px;cursor:pointer;color:var(--dark);font-weight:700;
+}
+.month-nav button:active{background:var(--border)}
+.month-name{flex:1;text-align:center;font-weight:700;font-size:16px;color:var(--dark)}
+.month-total{font-size:12px;color:var(--text2);text-align:center}
+
+/* ── CATEGORY ROWS ─────────────────────────────────────────────── */
+.cat-section{margin-bottom:8px}
+.cat-section-hdr{
+  padding:8px 12px;font-size:12px;font-weight:700;color:var(--white);
+  border-radius:6px 6px 0 0;
+}
+.cat-section-hdr.blue{background:var(--blue)}
+.cat-section-hdr.green{background:var(--green)}
+.cat-section-hdr.brown{background:var(--brown)}
+.cat-row{
+  display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--border);padding:6px 10px;
+  background:var(--white);
+}
+.cat-row:last-child{border-bottom:none}
+.cat-row.readonly{background:var(--gray)}
+.cat-label{flex:1;font-size:13px;line-height:1.3;color:var(--text)}
+.cat-label.auto{color:var(--text2);font-style:italic}
+.cat-input-wrap{min-width:110px}
+.cat-total-row{
+  display:flex;justify-content:space-between;
+  background:var(--dark);color:var(--white);
+  padding:8px 12px;font-weight:700;font-size:13px;
+  border-radius:0 0 6px 6px;
+}
+
+/* ── TRIP LIST ─────────────────────────────────────────────────── */
+.trip-item{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+}
+.trip-item:last-child{border-bottom:none}
+.trip-dot{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;
+}
+.trip-dot.p1090{background:var(--blue)}
+.trip-dot.p470{background:var(--dark)}
+.trip-dot.other{background:var(--text2)}
+.trip-info{flex:1}
+.trip-date{font-size:12px;color:var(--text2)}
+.trip-label{font-weight:600;font-size:14px}
+.trip-reason{font-size:12px;color:var(--text2)}
+.trip-amounts{text-align:right;flex-shrink:0}
+.trip-km{font-size:12px;color:var(--text2)}
+.trip-money{font-weight:700;color:var(--dark);font-size:14px}
+.trip-delete{
+  background:none;border:none;color:#ccc;font-size:18px;cursor:pointer;
+  padding:0 0 0 4px;
+}
+.trip-delete:active{color:#C00000}
+.empty-state{
+  text-align:center;padding:32px 16px;color:var(--text2);
+}
+.empty-state .e-icon{font-size:40px;margin-bottom:8px}
+
+/* ── QUICK ADD FORM ────────────────────────────────────────────── */
+#trip-form-card{margin-bottom:12px}
+.km-display{
+  display:flex;align-items:center;gap:8px;
+  background:var(--light-blue);border-radius:8px;padding:10px 12px;
+  margin-top:8px;
+}
+.km-display .km-val{font-size:20px;font-weight:700;color:var(--dark);flex:1}
+.km-display .km-lbl{font-size:11px;color:var(--text2)}
+.km-display .km-money{font-size:14px;font-weight:700;color:var(--green)}
+
+/* ── SECTION TITLE ─────────────────────────────────────────────── */
+.section-title{
+  font-size:13px;font-weight:700;color:var(--text2);
+  text-transform:uppercase;letter-spacing:.5px;
+  padding:4px 0 6px;
+}
+
+/* ── ANNUAL TOTAL TABLE ────────────────────────────────────────── */
+.annual-table{width:100%;border-collapse:collapse;font-size:13px}
+.annual-table th{background:var(--dark);color:var(--white);padding:7px 10px;text-align:left}
+.annual-table th:last-child{text-align:right}
+.annual-table td{padding:7px 10px;border-bottom:1px solid var(--border)}
+.annual-table td:last-child{text-align:right;font-weight:600}
+.annual-table tr.total-tr td{background:var(--dark);color:var(--white);font-weight:700}
+.annual-table tr:last-child td{border-bottom:none}
+
+/* ── SETTINGS ──────────────────────────────────────────────────── */
+.setting-row{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 0;border-bottom:1px solid var(--border);
+}
+.setting-row:last-child{border-bottom:none}
+.setting-info{flex:1}
+.setting-info .s-title{font-size:14px;font-weight:600}
+.setting-info .s-desc{font-size:12px;color:var(--text2);margin-top:2px}
+.setting-val{font-size:14px;font-weight:700;color:var(--blue)}
+
+/* ── MODALS / SHEETS ───────────────────────────────────────────── */
+.sheet-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;
+}
+.sheet-overlay.open{display:block}
+.sheet{
+  position:fixed;bottom:0;left:0;right:0;z-index:201;
+  background:var(--white);border-radius:16px 16px 0 0;
+  padding:0 0 var(--safe-bottom);
+  max-height:90vh;overflow-y:auto;
+  transform:translateY(100%);transition:transform .3s ease;
+}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{
+  width:36px;height:4px;background:var(--border);
+  border-radius:2px;margin:10px auto 4px;
+}
+.sheet-title{
+  font-size:17px;font-weight:700;padding:8px 16px 14px;
+  border-bottom:1px solid var(--border);
+}
+.sheet-body{padding:16px}
+
+/* ── TOAST ─────────────────────────────────────────────────────── */
+#toast{
+  position:fixed;bottom:calc(var(--nav-h) + var(--safe-bottom) + 12px);
+  left:50%;transform:translateX(-50%) translateY(8px);
+  background:rgba(30,30,30,.92);color:var(--white);
+  padding:10px 20px;border-radius:20px;font-size:14px;font-weight:500;
+  opacity:0;pointer-events:none;transition:all .25s;z-index:300;
+  white-space:nowrap;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── RESPONSIVE — TABLETTE / LAPTOP ───────────────────────── */
+@media (min-width: 768px) {
+  body { background: #7a8898; }
+
+  #app-header {
+    left: 50%; right: auto;
+    width: min(100vw, 720px);
+    transform: translateX(-50%);
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 2px 20px rgba(0,0,0,.3);
+  }
+
+  #bottom-nav {
+    left: 50%; right: auto;
+    width: min(100vw, 720px);
+    transform: translateX(-50%);
+    border-radius: 16px 16px 0 0;
+    border: 1px solid var(--border);
+    box-shadow: 0 -2px 12px rgba(0,0,0,.1);
+  }
+
+  #app-main {
+    max-width: 720px;
+    margin: 0 auto;
+    min-height: 100vh;
+    box-shadow: -1px 0 0 rgba(0,0,0,.08), 1px 0 0 rgba(0,0,0,.08);
+  }
+
+  .sheet {
+    left: 50%; right: auto;
+    width: min(100vw, 720px);
+    transform: translateX(-50%) translateY(100%);
+  }
+  .sheet.open { transform: translateX(-50%) translateY(0); }
+
+  .tab-panel { padding: 16px 20px 8px; }
+  .card-body { padding: 14px 18px; }
+  .cat-row   { padding: 8px 16px; }
+
+  .summary-row { grid-template-columns: repeat(4, 1fr); }
+  .summary-row.three { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 1100px) {
+  #app-header, #bottom-nav, .sheet { width: 820px; }
+  #app-main { max-width: 820px; }
+}
+
+/* ── MISC ───────────────────────────────────────────────────────── */
+.info-box{
+  background:var(--light-blue);border-left:3px solid var(--blue);
+  border-radius:6px;padding:10px 12px;font-size:13px;color:var(--dark);
+  margin-bottom:10px;
+}
+.warn-box{
+  background:#FFF3E0;border-left:3px solid var(--orange);
+  border-radius:6px;padding:10px 12px;font-size:13px;color:#7B3F00;
+  margin-bottom:10px;
+}
+.divider{height:1px;background:var(--border);margin:12px 0}
+hr{border:none;border-top:1px solid var(--border);margin:10px 0}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header id="app-header">
+  <h1>📋 Revenus &amp; Dépenses</h1>
+  <button class="year-badge" onclick="showYearSheet()" style="cursor:pointer;border:none;background:rgba(255,255,255,.18);border-radius:20px;padding:4px 10px;font-size:13px;font-weight:600;color:#fff;" title="Changer d'année">2026 ▾</button>
+  <button onclick="showSettingsSheet()" style="background:none;border:none;color:rgba(255,255,255,.85);font-size:22px;cursor:pointer;padding:4px 2px;line-height:1;margin-left:4px" title="Réglages">⚙️</button>
+</header>
+
+<!-- MAIN CONTENT -->
+<main id="app-main">
+
+  <!-- ══════════ TAB: ACCUEIL ══════════ -->
+  <section id="tab-home" class="tab-panel active">
+    <div class="summary-row" id="home-cards"></div>
+
+    <!-- Quick add trip -->
+    <div class="card" id="trip-form-card">
+      <div class="card-header blue">🚗 Enregistrer un déplacement</div>
+      <div class="card-body">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" class="inp" id="trip-date">
+        </div>
+        <div class="field">
+          <label>Propriété</label>
+          <select class="inp" id="trip-property">
+            <option value="p1090">🏠 1090 Oscar Benoît (55,4 km)</option>
+            <option value="p470">🏢 470 Rue Gélinas, Trois-Rivières (165 km)</option>
+            <option value="other">📍 Autre destination</option>
+          </select>
+        </div>
+
+        <div class="field" id="custom-dest-field" style="display:none">
+          <label>Lieu de départ</label>
+          <input type="text" class="inp" id="trip-custom-origin" placeholder="ex: 505 rue du Muscat, Sainte-Marthe-sur-le-Lac">
+          <label style="margin-top:10px">Adresse de destination</label>
+          <input type="text" class="inp" id="trip-custom-dest" placeholder="ex: 123 rue Exemple, Montréal" style="margin-top:4px">
+          <button class="btn btn-ghost btn-sm" id="maps-calc-btn" style="margin-top:6px;width:100%" onclick="calcMapsDistance()">
+            📍 Calculer distance (Google Maps)
+          </button>
+        </div>
+
+        <div class="field">
+          <label>Kilométrage</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="number" class="inp" id="trip-km" step="0.1" min="0" placeholder="km" style="flex:1">
+            <label class="toggle" title="Aller-retour">
+              <input type="checkbox" id="trip-roundtrip" checked onchange="updateTripKm()">
+              <span class="toggle-slider"></span>
+            </label>
+            <span style="font-size:12px;color:var(--text2);white-space:nowrap">A/R</span>
+          </div>
+          <div class="km-display" id="km-preview">
+            <div>
+              <div class="km-lbl">Total km</div>
+              <div class="km-val" id="km-preview-km">110,8 km</div>
+            </div>
+            <div style="text-align:right">
+              <div class="km-lbl">Montant estimé</div>
+              <div class="km-money" id="km-preview-money">79,78 $</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Motif du déplacement</label>
+          <input type="text" class="inp" id="trip-reason" placeholder="ex: Inspection, réparation, visite…">
+        </div>
+
+        <button class="btn btn-primary btn-full" onclick="addTrip()">➕ Ajouter le déplacement</button>
+      </div>
+    </div>
+
+    <!-- Recent trips -->
+    <div class="card">
+      <div class="card-header dark">📝 Déplacements récents</div>
+      <div id="home-recent-trips"></div>
+    </div>
+  </section>
+
+  <!-- ══════════ TAB: TRAJETS ══════════ -->
+  <section id="tab-trips" class="tab-panel">
+    <div class="month-nav">
+      <button onclick="tripMonthPrev()">‹</button>
+      <div>
+        <div class="month-name" id="trips-month-label">Janvier 2026</div>
+        <div class="month-total" id="trips-month-total">0 trajet · 0 km · 0,00 $</div>
+      </div>
+      <button onclick="tripMonthNext()">›</button>
+    </div>
+
+    <div id="trips-p1090-card" class="card">
+      <div class="card-header blue">🏠 1090 Oscar Benoît</div>
+      <div id="trips-p1090-list"></div>
+      <div id="trips-p1090-total" style="padding:8px 12px;background:var(--light-blue);font-size:13px;font-weight:600;color:var(--dark)"></div>
+    </div>
+
+    <div id="trips-p470-card" class="card">
+      <div class="card-header dark">🏢 470 Rue Gélinas</div>
+      <div id="trips-p470-list"></div>
+      <div id="trips-p470-total" style="padding:8px 12px;background:var(--light-blue);font-size:13px;font-weight:600;color:var(--dark)"></div>
+    </div>
+
+    <div id="trips-other-card" class="card">
+      <div class="card-header" style="background:var(--text2)">📍 Autres destinations</div>
+      <div id="trips-other-list"></div>
+    </div>
+  </section>
+
+  <!-- ══════════ TAB: LOGEMENTS ══════════ -->
+  <section id="tab-property" class="tab-panel">
+    <div class="sub-tabs">
+      <button class="sub-tab active" id="subtab-p1090-btn" onclick="switchPropertyTab('p1090')">🏠 1090 Oscar Benoît</button>
+      <button class="sub-tab" id="subtab-p470-btn" onclick="switchPropertyTab('p470')">🏢 470 Gélinas</button>
+    </div>
+
+    <div class="month-nav">
+      <button onclick="propMonthPrev()">‹</button>
+      <div>
+        <div class="month-name" id="prop-month-label">Janvier 2026</div>
+        <div class="month-total" id="prop-month-net">Net: 0,00 $</div>
+      </div>
+      <button onclick="propMonthNext()">›</button>
+    </div>
+
+    <!-- Annual toggle + recurring -->
+    <div style="display:flex;justify-content:space-between;margin-bottom:8px;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="showRecurringSheet()" id="recurring-btn">⟳ Récurrents</button>
+      <button class="btn btn-ghost btn-sm" onclick="toggleAnnualView()" id="annual-toggle-btn">📊 Vue annuelle</button>
+    </div>
+
+    <!-- Monthly view -->
+    <div id="prop-monthly-view">
+      <div id="prop-content"></div>
+    </div>
+
+    <!-- Annual view -->
+    <div id="prop-annual-view" style="display:none">
+      <div id="prop-annual-content"></div>
+    </div>
+  </section>
+
+  <!-- ══════════ TAB: REVENUS AUTO ══════════ -->
+  <section id="tab-rideshare" class="tab-panel">
+    <div class="sub-tabs">
+      <button class="sub-tab active" id="subtab-uber-btn" onclick="switchRideTab('uber')">🟠 Uber</button>
+      <button class="sub-tab" id="subtab-lyft-btn" onclick="switchRideTab('lyft')">💗 Lyft</button>
+      <button class="sub-tab" id="subtab-veh-btn" onclick="switchRideTab('veh')">🚗 Véhicule</button>
+    </div>
+
+    <!-- UBER -->
+    <div id="ride-uber" class="ride-panel">
+      <div class="warn-box">⚠️ Uber fournit des <strong>totaux annuels</strong> uniquement (pas de détail mensuel). Saisir les données depuis ton relevé annuel Uber.</div>
+      <div style="margin-bottom:10px">
+        <button class="btn btn-ghost btn-sm btn-full" onclick="importUberPDF()">📥 Importer le relevé annuel PDF Uber</button>
+        <input type="file" id="uber-pdf-input" accept=".pdf" style="display:none" onchange="handleUberPDF(event)">
+      </div>
+      <div class="card">
+        <div class="card-header orange" id="uber-card-yr">🟠 Uber — Revenus annuels 2026</div>
+        <div class="card-body" id="uber-form-body"></div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="background:var(--green)" id="uber-km-yr">📍 Kilométrage Uber 2026</div>
+        <div class="card-body">
+          <div class="field">
+            <label>Km "En course" (On Trip)</label>
+            <input type="number" class="inp" id="uber-km-trip" step="1" min="0" placeholder="ex: 6581" oninput="saveUber()">
+          </div>
+          <div class="field">
+            <label>Km "En ligne" (Online — utilisé pour déduction)</label>
+            <input type="number" class="inp" id="uber-km-online" step="1" min="0" placeholder="ex: 15286" oninput="saveUber();refreshVehicleCalcs()">
+          </div>
+          <div class="info-box">✅ Revenu Québec recommande d'utiliser les km <strong>Online</strong> pour le calcul de déduction.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LYFT -->
+    <div id="ride-lyft" class="ride-panel" style="display:none">
+      <div class="info-box">💗 Lyft fournit des relevés <strong>mensuels</strong>. Saisir les données mois par mois.</div>
+      <div style="margin-bottom:10px">
+        <button class="btn btn-ghost btn-sm btn-full" onclick="importLyftPDF()">📥 Importer le relevé mensuel PDF Lyft</button>
+        <input type="file" id="lyft-pdf-input" accept=".pdf" style="display:none" onchange="handleLyftPDF(event)">
+      </div>
+      <div class="month-nav">
+        <button onclick="lyftMonthPrev()">‹</button>
+        <div>
+          <div class="month-name" id="lyft-month-label">Janvier 2026</div>
+          <div class="month-total" id="lyft-month-total">Net: 0,00 $</div>
+        </div>
+        <button onclick="lyftMonthNext()">›</button>
+      </div>
+      <div class="card">
+        <div class="card-header pink">💗 Lyft — Détail mensuel</div>
+        <div class="card-body" id="lyft-month-form"></div>
+      </div>
+      <div class="card" style="margin-top:0">
+        <div class="card-header dark">📊 Totaux Lyft annuels</div>
+        <div id="lyft-annual-summary" class="card-body"></div>
+      </div>
+    </div>
+
+    <!-- VEHICLE -->
+    <div id="ride-veh" class="ride-panel" style="display:none">
+      <div class="info-box">🚗 Le même véhicule est utilisé pour Uber, Lyft <em>et</em> les visites aux logements. Les dépenses sont saisies une seule fois et réparties automatiquement au prorata des km.</div>
+      <div class="card">
+        <div class="card-header dark" id="veh-km-yr">📍 Kilométrage annuel 2026</div>
+        <div class="card-body" id="veh-km-form"></div>
+      </div>
+      <div class="card">
+        <div class="card-header green">💰 Dépenses du véhicule (saisie unique)</div>
+        <div class="card-body" id="veh-dep-form"></div>
+      </div>
+      <div class="card" style="margin-top:0">
+        <div class="card-header blue">📊 Répartition Uber / Lyft</div>
+        <div class="card-body" id="veh-proration-summary"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ TAB: SOMMAIRE ══════════ -->
+  <section id="tab-summary" class="tab-panel">
+    <!-- Global summary -->
+    <div class="card">
+      <div class="card-header dark" id="summary-yr">📊 Sommaire fiscal 2026</div>
+      <div class="card-body" id="summary-body"></div>
+    </div>
+
+    <!-- Detail table -->
+    <div class="card">
+      <div class="card-header blue">📋 Détail par source</div>
+      <div style="overflow-x:auto;padding:0" id="summary-detail"></div>
+    </div>
+
+    <!-- Export -->
+    <div class="card">
+      <div class="card-header green">⬇️ Exporter les données</div>
+      <div class="card-body">
+        <button class="btn btn-primary btn-sm btn-full" onclick="generatePDF()" style="margin-bottom:10px">📄 Rapport PDF — comptable</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-green btn-sm" onclick="exportCSV()" style="flex:1">📊 Exporter CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportJSON()" style="flex:1">💾 Sauvegarder JSON</button>
+        </div>
+        <hr>
+        <button class="btn btn-ghost btn-sm btn-full" style="margin-top:4px" onclick="importJSON()">📥 Restaurer JSON</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
+      </div>
+    </div>
+
+    <!-- Checklist -->
+    <div class="card">
+      <div class="card-header" style="background:#5c6bc0">☑️ Checklist — Déclaration <span class="year-badge">2026</span></div>
+      <div class="card-body" id="checklist-body"></div>
+    </div>
+
+  </section>
+
+</main>
+
+<!-- BOTTOM NAV -->
+<nav id="bottom-nav">
+  <button class="nav-btn active" onclick="showTab('home')" id="nav-home">
+    <span class="nav-icon">🏠</span><span>Accueil</span>
+  </button>
+  <button class="nav-btn" onclick="showTab('trips')" id="nav-trips">
+    <span class="nav-icon">🚗</span><span>Trajets</span>
+  </button>
+  <button class="nav-btn" onclick="showTab('property')" id="nav-property">
+    <span class="nav-icon">🏘</span><span>Logements</span>
+  </button>
+  <button class="nav-btn" onclick="showTab('rideshare')" id="nav-rideshare">
+    <span class="nav-icon">🚕</span><span>Rideshare</span>
+  </button>
+  <button class="nav-btn" onclick="showTab('summary')" id="nav-summary">
+    <span class="nav-icon">📊</span><span>Sommaire</span>
+  </button>
+</nav>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- YEAR PICKER SHEET -->
+<div class="sheet-overlay" id="year-overlay" onclick="closeYearSheet()"></div>
+<div class="sheet" id="year-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">📅 Changer d'année fiscale</div>
+  <div class="sheet-body" id="year-sheet-body"></div>
+</div>
+
+<!-- PDF REVIEW SHEET -->
+<div class="sheet-overlay" id="pdf-overlay" onclick="closePDFSheet()"></div>
+<div class="sheet" id="pdf-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title" id="pdf-sheet-title">📄 Données extraites du PDF</div>
+  <div class="sheet-body" id="pdf-sheet-body"></div>
+</div>
+
+<!-- RECURRING SHEET -->
+<div class="sheet-overlay" id="recurring-overlay" onclick="closeRecurringSheet()"></div>
+<div class="sheet" id="recurring-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title" id="recurring-sheet-title">⟳ Montants récurrents</div>
+  <div class="sheet-body" id="recurring-sheet-body"></div>
+</div>
+
+<!-- SETTINGS SHEET -->
+<div class="sheet-overlay" id="settings-overlay" onclick="closeSettingsSheet()"></div>
+<div class="sheet" id="settings-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">⚙️ Réglages</div>
+  <div class="sheet-body">
+    <div class="field">
+      <label id="taux-yr-label">Taux kilométrique 2026 ($/km)</label>
+      <input type="number" class="inp" id="setting-rate" step="0.01" min="0" max="2"
+        placeholder="ex: 0.72" oninput="saveSetting('mileageRate',this.value);refreshAll()">
+      <div style="font-size:11px;color:var(--text2);margin-top:4px" id="taux-yr-hint">Taux ARC 2025 : 0,72 $/km (2026 à confirmer)</div>
+    </div>
+    <div class="field">
+      <label>Km total annuel du véhicule</label>
+      <input type="number" class="inp" id="setting-km-total" step="100" min="0"
+        placeholder="ex: 22000" oninput="saveSetting('kmTotalAnnuel',this.value);refreshVehicleCalcs()">
+    </div>
+    <div class="field">
+      <label>Modèle du véhicule</label>
+      <input type="text" class="inp" id="setting-vehicle" placeholder="ex: Mitsubishi Outlander 2025"
+        oninput="saveSetting('vehicleModel',this.value)">
+    </div>
+    <hr>
+    <div class="field">
+      <label>Clé API Google Maps (optionnel)</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" class="inp" id="setting-maps-key" placeholder="AIzaSy..." style="flex:1">
+        <button class="btn btn-primary btn-sm" onclick="saveMapsKey()" style="white-space:nowrap">Sauvegarder</button>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px">
+        Permet de calculer la distance vers des destinations personnalisées.<br>
+        Les distances pour 1090 et 470 Gélinas sont pré-configurées (sans clé API).
+      </div>
+    </div>
+    <hr>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:6px">
+        ☁️ Synchronisation multi-appareils
+        <span id="sync-status-dot" style="width:8px;height:8px;border-radius:50%;background:#ccc;display:inline-block"></span>
+      </label>
+      <!-- Signed out -->
+      <div id="sync-signed-out">
+        <button onclick="signInWithGoogle()"
+          style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:14px;font-weight:500">
+          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C34 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 20-8 20-20 0-1.3-.1-2.7-.4-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 12 24 12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C34 6.5 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5L31.8 34C29.9 35.3 27.1 36 24 36c-5.2 0-9.7-3-11.3-7.3L6 33.4C9.4 39.5 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.4-2.5 4.4-4.5 5.8l5.7 4.5C40 34.7 44 29.8 44 24c0-1.3-.1-2.7-.4-4z"/></svg>
+          Se connecter avec Google
+        </button>
+        <div style="font-size:11px;color:var(--text2);margin-top:6px;text-align:center">
+          Connectez-vous pour synchroniser automatiquement entre tous vos appareils.
+        </div>
+      </div>
+      <!-- Signed in -->
+      <div id="sync-signed-in" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <img id="sync-user-photo" src="" width="32" height="32" style="border-radius:50%;display:none">
+          <div>
+            <div style="font-size:13px;font-weight:600" id="sync-user-name"></div>
+            <div style="font-size:11px;color:var(--text2)" id="sync-user-email"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button class="btn btn-primary btn-sm" onclick="syncPush(true)" style="flex:1">🔼 Envoyer</button>
+          <button class="btn btn-ghost btn-sm" onclick="syncPull(true)" style="flex:1">🔽 Récupérer</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-bottom:8px">
+          <input type="checkbox" id="setting-sync-auto" onchange="saveSyncAuto(this.checked)" style="accent-color:var(--blue)" checked>
+          Synchronisation automatique
+        </label>
+        <button onclick="signOutGoogle()" style="font-size:11px;color:var(--text2);background:none;border:none;cursor:pointer;text-decoration:underline">
+          Déconnexion
+        </button>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-top:6px" id="sync-status-label"></div>
+    </div>
+    <hr>
+    <button class="btn btn-danger btn-sm btn-full" onclick="clearAllData()">🗑️ Effacer toutes les données</button>
+  </div>
+</div>
+
+<!-- NOTE SHEET -->
+<div class="sheet-overlay" id="note-overlay" onclick="closeNoteSheet()"></div>
+<div class="sheet" id="note-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title" id="note-sheet-title">📝 Note</div>
+  <div class="sheet-body" style="padding-top:8px">
+    <textarea id="note-textarea" rows="5"
+      style="width:100%;resize:none;border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:14px;color:var(--text1);background:var(--bg);outline:none;line-height:1.5;transition:border-color .15s"
+      placeholder="Ajouter une note…"
+      onfocus="this.style.borderColor='var(--blue)'"
+      onblur="this.style.borderColor='var(--border)'"></textarea>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-ghost btn-sm" onclick="closeNoteSheet()" style="flex:1">Annuler</button>
+      <button class="btn btn-primary btn-sm" onclick="saveNote()" style="flex:1">Sauvegarder</button>
+    </div>
+    <button id="note-delete-btn" onclick="deleteNote()"
+      style="display:none;width:100%;margin-top:8px;background:none;border:none;cursor:pointer;font-size:12px;color:var(--text2);text-decoration:underline;padding:4px">
+      Supprimer la note
+    </button>
+  </div>
+</div>
+
+<!-- RECEIPT MODAL -->
+<div id="receipt-modal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.85);align-items:center;justify-content:center;flex-direction:column;gap:12px" onclick="closeReceiptModal()">
+  <img id="receipt-modal-img" src="" style="max-width:90vw;max-height:80vh;border-radius:8px;object-fit:contain">
+  <div style="display:flex;gap:10px" onclick="event.stopPropagation()">
+    <button onclick="downloadReceipt()" style="background:rgba(74,127,193,.7);color:#fff;border:1px solid rgba(74,127,193,.9);border-radius:20px;padding:8px 18px;font-size:14px;cursor:pointer">⬇️ Télécharger</button>
+    <button onclick="deleteReceipt();event.stopPropagation()" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:20px;padding:8px 18px;font-size:14px;cursor:pointer">🗑️ Supprimer</button>
+  </div>
+</div>
+
+<!-- CAMERA INPUT -->
+<input type="file" id="receipt-camera" accept="image/*" capture="environment" style="display:none" onchange="handleReceiptPhoto(event)">
+
+<script>
+// ════════════════════════════════════════════════════════════
+// CONSTANTS
+// ════════════════════════════════════════════════════════════
+const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
+const MONTHS_FR    = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
+
+const HOME_ADDRESS = '505 rue du Muscat, Sainte-Marthe-sur-le-Lac, QC'
+
+const PROPS = {
+  p1090: {
+    id: 'p1090', label: '1090 Oscar Benoît', shortLabel: '1090 Oscar Benoît',
+    address: '1090 Oscar-Benoît, Pointe-aux-Trembles, Montréal, QC',
+    distanceKm: 55.4, color: '#0070C0', dotClass: 'p1090',
+    revenus: ['Coloc 1 (Salon)', 'Coloc 2 (Ch.Princ)', 'Coloc 3 (Ch. Bur)'],
+    deductibles: [
+      'Taxes municipales','Taxe scolaire','Électricité',
+      'Chauffage (mazout / plan entretien)','Frais de condo','Internet',
+      'Assurance habitation','Système d\'alarme','Frais de déplacement',
+      'Entretien / Réparations courantes',
+      'Honoraires professionnels (comptable, notaire)',
+      'Frais de gestion','Frais de bureau (papeterie, clés)',
+      'Publicité','Outils / Matériel',
+      'Intérêts sur hypothèque / frais bancaires',
+      'Autres dépenses déductibles'
+    ],
+    capital: [
+      'Rénovation / Amélioration majeure',
+      'Remplacement équipements (chauffe-eau, fournaise)',
+      'Autres travaux majeurs'
+    ]
+  },
+  p470: {
+    id: 'p470', label: '470 Rue Gélinas (Triplex)', shortLabel: '470 Gélinas',
+    address: '470 Rue Gélinas, Trois-Rivières, QC',
+    distanceKm: 165, color: '#1F3864', dotClass: 'p470',
+    revenus: ['Logement 470', 'Logement 468', 'Logement 468 A'],
+    deductibles: [
+      'Taxes municipales','Taxe scolaire','Électricité (parties communes)',
+      'Chauffage (mazout / plan entretien)','Frais de déneigement',
+      'Assurance habitation','Système d\'alarme','Frais de déplacement',
+      'Entretien / Réparations courantes (parties communes)',
+      'Honoraires professionnels (comptable, notaire)',
+      'Frais de gestion','Frais de bureau (papeterie, clés)',
+      'Publicité','Outils / Matériel',
+      'Intérêts sur hypothèque / frais bancaires',
+      'Autres dépenses déductibles'
+    ],
+    capital: [
+      'Rénovation / Amélioration — Logement 1',
+      'Rénovation / Amélioration — Logement 2',
+      'Rénovation / Amélioration — Logement 3',
+      'Rénovation / Amélioration — Parties communes',
+      'Remplacement équipements (chauffe-eau, fournaise)',
+      'Autres travaux majeurs'
+    ]
+  }
+}
+
+const VEH_CATS = [
+  'Frais de plaque / immatriculation',
+  'Frais de carburant (total annuel)',
+  'Frais d\'assurance',
+  'Frais de permis de conduire',
+  'Changement d\'huile',
+  'Achat et changement de pneus',
+  'Frais de réparation',
+  'Autres réparations / accessoires',
+  'Forfait annuel téléphone',
+  'Autres dépenses véhicule'
+]
+
+const UBER_FIELDS = [
+  { key:'rides_gross',     label:'Tarifs bruts courses (Gross Fares)' },
+  { key:'green_surcharge', label:'Surtaxe verte (Green Surcharge)' },
+  { key:'booking_fee',     label:'Frais de réservation (Booking Fee)' },
+  { key:'mtq_dues',        label:'Droits MTQ' },
+  { key:'airport_fee',     label:'Frais d\'aéroport' },
+  { key:'tolls',           label:'Péages' },
+  { key:'tips_rides',      label:'Pourboires courses' },
+  { key:'gst_riders',      label:'TPS collectée des passagers' },
+  { key:'qst_riders',      label:'TVQ collectée des passagers' },
+  { key:'sep1', label:'──── Frais payés à Uber ────', sep:true },
+  { key:'service_fee',     label:'Frais de service Uber' },
+  { key:'other_fees',      label:'Autres frais Uber' },
+  { key:'fee_discount',    label:'Remise sur frais (Fee Discount)' },
+  { key:'gst_paid_uber',   label:'TPS payée à Uber' },
+  { key:'qst_paid_uber',   label:'TVQ payée à Uber' },
+  { key:'sep2', label:'──── Autres revenus ────', sep:true },
+  { key:'eats_gross',      label:'Tarif brut Uber Eats' },
+  { key:'eats_tips',       label:'Pourboires Uber Eats' },
+  { key:'other_income',    label:'Autres revenus' },
+  { key:'sep3', label:'──── Pour déclaration TPS/TVQ ────', sep:true },
+  { key:'gst_remitted',    label:'TPS versée par Uber en votre nom' },
+  { key:'qst_remitted',    label:'TVQ versée par Uber en votre nom' }
+]
+
+// ════════════════════════════════════════════════════════════
+// GESTION DES ANNÉES
+// ════════════════════════════════════════════════════════════
+const STORE_PREFIX = 'depenses_'
+let activeYear = parseInt(localStorage.getItem('depenses_active_year')) || new Date().getFullYear()
+function storeKey() { return STORE_PREFIX + activeYear }
+
+function getAvailableYears() {
+  const years = new Set([activeYear])
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)
+    if (k && /^depenses_\d{4}$/.test(k)) years.add(parseInt(k.slice(9)))
+  }
+  return [...years].sort((a, b) => b - a)
+}
+
+function switchYear(year) {
+  year = parseInt(year)
+  activeYear = year
+  localStorage.setItem('depenses_active_year', year)
+  try {
+    const s = localStorage.getItem(storeKey())
+    state = s ? Object.assign(defaultState(), JSON.parse(s)) : defaultState()
+  } catch(e) { state = defaultState() }
+  updateYearLabels()
+  refreshAll()
+  closeYearSheet()
+  toast('✅ Année ' + year + ' activée')
+}
+
+function showYearSheet() {
+  const years = getAvailableYears()
+  const nextYear = activeYear + 1
+  let html = '<div style="padding-bottom:4px">'
+  years.forEach(y => {
+    const cur = y === activeYear
+    html += `<button onclick="switchYear(${y})" style="width:100%;text-align:left;
+      padding:15px 18px;border:none;cursor:pointer;font-size:16px;font-weight:${cur?700:500};
+      font-family:inherit;background:${cur?'var(--light-blue)':'var(--white)'};
+      color:${cur?'var(--dark)':'var(--text)'};border-bottom:1px solid var(--border);
+      display:flex;align-items:center;gap:10px;">
+      <span style="font-size:22px">${cur?'✓':'○'}</span>
+      <span>Année ${y}</span>
+      ${cur?'<span style="margin-left:auto;font-size:12px;background:var(--blue);color:#fff;padding:2px 8px;border-radius:10px">active</span>':''}
+    </button>`
+  })
+  if (!years.includes(nextYear)) {
+    html += `<button onclick="createNewYear(${nextYear})" style="width:100%;text-align:left;
+      padding:15px 18px;border:none;cursor:pointer;font-size:15px;font-weight:600;
+      font-family:inherit;background:var(--light-green);color:var(--green);
+      display:flex;align-items:center;gap:10px;">
+      <span style="font-size:22px">➕</span>
+      <span>Nouvelle année ${nextYear}</span>
+    </button>`
+  }
+  html += '</div>'
+  document.getElementById('year-sheet-body').innerHTML = html
+  document.getElementById('year-overlay').classList.add('open')
+  requestAnimationFrame(() => document.getElementById('year-sheet').classList.add('open'))
+}
+
+function closeYearSheet() {
+  document.getElementById('year-sheet').classList.remove('open')
+  setTimeout(() => document.getElementById('year-overlay').classList.remove('open'), 300)
+}
+
+function createNewYear(year) {
+  if (!confirm(`Créer une nouvelle année ${year} ?\n\nLes données de ${activeYear} seront conservées.\nVous pourrez y revenir à tout moment.`)) return
+  switchYear(year)
+}
+
+function updateYearLabels() {
+  document.querySelectorAll('.year-badge').forEach(el => el.textContent = activeYear)
+  document.title = 'Revenus & Dépenses ' + activeYear
+  const labels = {
+    'uber-card-yr':  '🟠 Uber — Revenus annuels ' + activeYear,
+    'uber-km-yr':    '📍 Kilométrage Uber ' + activeYear,
+    'veh-km-yr':     '📍 Kilométrage annuel ' + activeYear,
+    'summary-yr':    '📊 Sommaire fiscal ' + activeYear,
+    'taux-yr-label': 'Taux kilométrique ' + activeYear + ' ($/km)',
+    'taux-yr-hint':  'Taux ARC ' + (activeYear - 1) + ' : 0,72 $/km (' + activeYear + ' à confirmer)'
+  }
+  Object.entries(labels).forEach(([id, txt]) => {
+    const el = document.getElementById(id)
+    if (el) el.textContent = txt
+  })
+}
+
+// ════════════════════════════════════════════════════════════
+// STATE — load / save
+// ════════════════════════════════════════════════════════════
+function defaultState() {
+  return {
+    version: 1,
+    settings: {
+      mileageRate: 0.72,
+      kmTotalAnnuel: 22000,
+      vehicleModel: 'Mitsubishi Outlander 2025',
+      googleMapsApiKey: '',
+      syncAuto: true
+    },
+    p1090: { revenus: {}, deductibles: {}, capital: {} },
+    p470:  { revenus: {}, deductibles: {}, capital: {} },
+    vehicule: { depenses: {} },
+    uber: {},
+    lyft: {},
+    trips: [],
+    recurring: { p1090: {}, p470: {} },
+    checklist: null,
+    receipts: {},
+    notes: {}
+  }
+}
+
+let state = (() => {
+  try {
+    const s = localStorage.getItem(storeKey())
+    if (s) return Object.assign(defaultState(), JSON.parse(s))
+  } catch(e) {}
+  return defaultState()
+})()
+
+function save() {
+  try { localStorage.setItem(storeKey(), JSON.stringify(state)) } catch(e) {}
+  if (state.settings.syncAuto !== false && window._fbAuth?.currentUser) {
+    clearTimeout(save._syncT)
+    save._syncT = setTimeout(() => syncPush(false), 5000)
+  }
+}
+
+function autoSave() {
+  clearTimeout(autoSave._t)
+  autoSave._t = setTimeout(save, 600)
+}
+
+function saveSetting(key, val) {
+  state.settings[key] = isNaN(val) || val === '' ? val : Number(val)
+  autoSave()
+}
+
+function saveMapsKey() {
+  const val = document.getElementById('setting-maps-key').value.trim()
+  state.settings.googleMapsApiKey = val
+  save()
+  mapsLoaded = false
+  toast(val ? '✅ Clé Google Maps sauvegardée' : '🗑️ Clé Google Maps supprimée')
+}
+
+// ════════════════════════════════════════════════════════════
+// UTILITIES
+// ════════════════════════════════════════════════════════════
+function fmt(n, dec=2) {
+  if (n === '' || n == null || isNaN(+n)) return '-'
+  return Number(n).toLocaleString('fr-CA', {minimumFractionDigits:dec, maximumFractionDigits:dec})
+}
+
+function rate() { return parseFloat(state.settings.mileageRate) || 0.72 }
+
+function propData(propId) { return state[propId] }
+
+function getMonthlyVal(propId, section, cat, mi) {
+  const d = state[propId]?.[section]?.[cat]
+  return parseFloat((Array.isArray(d) ? d[mi] : 0) || 0) || 0
+}
+
+function setMonthlyVal(propId, section, cat, mi, val) {
+  if (!state[propId][section][cat]) state[propId][section][cat] = Array(12).fill('')
+  state[propId][section][cat][mi] = val
+  autoSave()
+}
+
+function getTripAmount(propId, mi) {
+  return state.trips
+    .filter(t => t.property === propId && monthOf(t.date) === mi)
+    .reduce((s, t) => s + (parseFloat(t.km) || 0) * rate(), 0)
+}
+
+function monthOf(dateStr) {
+  if (!dateStr) return -1
+  return new Date(dateStr + 'T12:00:00').getMonth()
+}
+
+function yearOf(dateStr) {
+  if (!dateStr) return 0
+  return new Date(dateStr + 'T12:00:00').getFullYear()
+}
+
+function fmtDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr + 'T12:00:00')
+  return d.toLocaleDateString('fr-CA', {day:'numeric', month:'short'})
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6) }
+
+function toast(msg, dur=2000) {
+  const el = document.getElementById('toast')
+  el.textContent = msg
+  el.classList.add('show')
+  clearTimeout(toast._t)
+  toast._t = setTimeout(() => el.classList.remove('show'), dur)
+}
+
+// ════════════════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════════════════
+let currentTab = 'home'
+
+function showTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'))
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
+  document.getElementById('tab-' + tab).classList.add('active')
+  document.getElementById('nav-' + tab).classList.add('active')
+  currentTab = tab
+  if (tab === 'home') renderHome()
+  if (tab === 'trips') renderTrips()
+  if (tab === 'property') renderProperty()
+  if (tab === 'rideshare') renderRideshare()
+  if (tab === 'summary') { renderSummary(); renderChecklist() }
+}
+
+// ════════════════════════════════════════════════════════════
+// TAB: ACCUEIL / HOME
+// ════════════════════════════════════════════════════════════
+function renderHome() {
+  renderHomeCards()
+  renderRecentTrips()
+}
+
+function renderHomeCards() {
+  const rev = totalRevAll()
+  const dep = totalDepAll()
+  const net = rev - dep
+  const tripsActive = state.trips.filter(t => yearOf(t.date) === activeYear)
+  const tripTotal = tripsActive.reduce((s, t) => s + (parseFloat(t.km)||0) * rate(), 0)
+
+  document.getElementById('home-cards').innerHTML = `
+    <div class="sum-card green">
+      <div class="s-lbl">Revenus locatifs</div>
+      <div class="s-val sm">${fmt(rev)} $</div>
+    </div>
+    <div class="sum-card red">
+      <div class="s-lbl">Dépenses déductibles</div>
+      <div class="s-val sm">${fmt(dep)} $</div>
+    </div>
+    <div class="sum-card ${net >= 0 ? 'blue' : 'red'}">
+      <div class="s-lbl">Bénéfice net</div>
+      <div class="s-val sm">${fmt(net)} $</div>
+    </div>
+    <div class="sum-card orange">
+      <div class="s-lbl">Déplacements ${activeYear}</div>
+      <div class="s-val sm">${fmt(tripTotal)} $</div>
+    </div>
+  `
+}
+
+function renderRecentTrips() {
+  const sorted = [...state.trips]
+    .filter(t => yearOf(t.date) === activeYear)
+    .sort((a,b) => b.date.localeCompare(a.date))
+    .slice(0, 5)
+
+  const el = document.getElementById('home-recent-trips')
+  if (!sorted.length) {
+    el.innerHTML = '<div class="empty-state"><div class="e-icon">🚗</div><div>Aucun déplacement enregistré.<br>Ajoutez votre premier trajet ci-dessus.</div></div>'
+    return
+  }
+  el.innerHTML = sorted.map(t => tripItemHTML(t)).join('')
+}
+
+function tripItemHTML(t) {
+  const prop = PROPS[t.property]
+  const label = prop ? prop.shortLabel : (t.customDest || 'Autre')
+  const dotClass = t.property || 'other'
+  const money = (parseFloat(t.km)||0) * rate()
+  return `
+    <div class="trip-item">
+      <div class="trip-dot ${dotClass}"></div>
+      <div class="trip-info">
+        <div class="trip-date">${fmtDate(t.date)}</div>
+        <div class="trip-label">${label}</div>
+        ${t.reason ? `<div class="trip-reason">${t.reason}</div>` : ''}
+      </div>
+      <div class="trip-amounts">
+        <div class="trip-km">${fmt(t.km, 1)} km</div>
+        <div class="trip-money">${fmt(money)} $</div>
+      </div>
+      <button class="trip-delete" onclick="deleteTrip('${t.id}')">×</button>
+    </div>`
+}
+
+// ════════════════════════════════════════════════════════════
+// TRIP FORM
+// ════════════════════════════════════════════════════════════
+let tripFormMonth = null  // base distance (one-way) for current selection
+
+function initTripForm() {
+  const today = new Date().toISOString().split('T')[0]
+  document.getElementById('trip-date').value = today
+  updateTripPropertySelection()
+}
+
+function updateTripPropertySelection() {
+  const propSel = document.getElementById('trip-property').value
+  const customField = document.getElementById('custom-dest-field')
+  const roundTrip = document.getElementById('trip-roundtrip').checked
+  const kmInp = document.getElementById('trip-km')
+
+  if (propSel === 'other') {
+    customField.style.display = 'block'
+    const originInp = document.getElementById('trip-custom-origin')
+    if (!originInp.value) originInp.value = HOME_ADDRESS
+    tripFormMonth = null
+  } else {
+    customField.style.display = 'none'
+    const baseKm = PROPS[propSel].distanceKm
+    tripFormMonth = baseKm
+    kmInp.value = roundTrip ? (baseKm * 2).toFixed(1) : baseKm.toFixed(1)
+  }
+  updateKmPreview()
+}
+
+function updateTripKm() {
+  const propSel = document.getElementById('trip-property').value
+  const roundTrip = document.getElementById('trip-roundtrip').checked
+  if (propSel !== 'other' && tripFormMonth != null) {
+    const baseKm = PROPS[propSel].distanceKm
+    document.getElementById('trip-km').value = roundTrip ? (baseKm * 2).toFixed(1) : baseKm.toFixed(1)
+  }
+  updateKmPreview()
+}
+
+function updateKmPreview() {
+  const km = parseFloat(document.getElementById('trip-km').value) || 0
+  const money = km * rate()
+  document.getElementById('km-preview-km').textContent = fmt(km, 1) + ' km'
+  document.getElementById('km-preview-money').textContent = fmt(money) + ' $'
+}
+
+function addTrip() {
+  const date = document.getElementById('trip-date').value
+  const property = document.getElementById('trip-property').value
+  const km = parseFloat(document.getElementById('trip-km').value)
+  const reason = document.getElementById('trip-reason').value.trim()
+  const roundTrip = document.getElementById('trip-roundtrip').checked
+  const customDest = document.getElementById('trip-custom-dest').value.trim()
+
+  if (!date) { toast('⚠️ Veuillez saisir une date'); return }
+  if (!km || km <= 0) { toast('⚠️ Veuillez saisir le kilométrage'); return }
+  if (property === 'other' && !customDest && !km) {
+    toast('⚠️ Veuillez saisir la destination ou le kilométrage'); return
+  }
+
+  state.trips.push({ id: uid(), date, property, reason, km: km.toFixed(1), roundTrip, customDest })
+  save()
+  toast('✅ Déplacement ajouté — ' + fmt(km, 1) + ' km / ' + fmt(km * rate()) + ' $')
+  document.getElementById('trip-reason').value = ''
+  if (currentTab === 'home') renderHome()
+  if (currentTab === 'trips') renderTrips()
+  renderHomeCards()
+}
+
+function deleteTrip(id) {
+  if (!confirm('Supprimer ce déplacement ?')) return
+  state.trips = state.trips.filter(t => t.id !== id)
+  save()
+  toast('🗑️ Déplacement supprimé')
+  if (currentTab === 'home') { renderHome(); return }
+  if (currentTab === 'trips') renderTrips()
+  renderHomeCards()
+}
+
+// ════════════════════════════════════════════════════════════
+// GOOGLE MAPS
+// ════════════════════════════════════════════════════════════
+let mapsLoaded = false
+
+async function calcMapsDistance() {
+  const apiKey = state.settings.googleMapsApiKey
+  if (!apiKey) {
+    toast('⚠️ Clé Google Maps non configurée dans les Réglages')
+    return
+  }
+  const origin = document.getElementById('trip-custom-origin').value.trim() || HOME_ADDRESS
+  const dest = document.getElementById('trip-custom-dest').value.trim()
+  if (!dest) { toast('⚠️ Saisissez une adresse de destination'); return }
+
+  const btn = document.getElementById('maps-calc-btn')
+  btn.textContent = '⏳ Calcul en cours…'
+  btn.disabled = true
+
+  try {
+    if (!mapsLoaded) {
+      await loadMapsAPI(apiKey)
+      mapsLoaded = true
+    }
+    const km = await getDistanceKm(origin, dest)
+    const roundTrip = document.getElementById('trip-roundtrip').checked
+    const totalKm = roundTrip ? km * 2 : km
+    document.getElementById('trip-km').value = totalKm.toFixed(1)
+    updateKmPreview()
+    toast('📍 Distance calculée : ' + fmt(km, 1) + ' km (base)')
+  } catch(e) {
+    toast('❌ Erreur Google Maps : ' + e.message)
+  } finally {
+    btn.textContent = '📍 Calculer distance (Google Maps)'
+    btn.disabled = false
+  }
+}
+
+function loadMapsAPI(apiKey) {
+  return new Promise((resolve, reject) => {
+    if (window.google?.maps) { resolve(); return }
+    const s = document.createElement('script')
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`
+    s.onload = resolve
+    s.onerror = () => reject(new Error('Impossible de charger l\'API Google Maps'))
+    document.head.appendChild(s)
+  })
+}
+
+function getDistanceKm(origin, destination) {
+  return new Promise((resolve, reject) => {
+    const svc = new google.maps.DistanceMatrixService()
+    svc.getDistanceMatrix({
+      origins: [origin], destinations: [destination],
+      travelMode: google.maps.TravelMode.DRIVING,
+      unitSystem: google.maps.UnitSystem.METRIC,
+      language: 'fr'
+    }, (res, status) => {
+      if (status === 'OK') {
+        const meters = res.rows[0]?.elements[0]?.distance?.value
+        if (meters) resolve(meters / 1000)
+        else reject(new Error('Adresse non trouvée'))
+      } else {
+        reject(new Error(status))
+      }
+    })
+  })
+}
+
+// ════════════════════════════════════════════════════════════
+// TAB: TRAJETS (trip log by month)
+// ════════════════════════════════════════════════════════════
+let tripsViewMonth = new Date().getMonth()
+
+function renderTrips() {
+  const mi = tripsViewMonth
+  document.getElementById('trips-month-label').textContent = MONTHS_FR[mi] + ' ' + activeYear
+
+  const tripsActive = state.trips.filter(t => yearOf(t.date) === activeYear && monthOf(t.date) === mi)
+
+  const totalKm = tripsActive.reduce((s, t) => s + (parseFloat(t.km)||0), 0)
+  const totalMoney = totalKm * rate()
+  document.getElementById('trips-month-total').textContent =
+    `${tripsActive.length} trajet${tripsActive.length!==1?'s':''} · ${fmt(totalKm,1)} km · ${fmt(totalMoney)} $`
+
+  renderTripGroup('p1090', tripsActive)
+  renderTripGroup('p470', tripsActive)
+
+  const others = tripsActive.filter(t => !PROPS[t.property])
+  const othCard = document.getElementById('trips-other-card')
+  if (others.length) {
+    othCard.style.display = ''
+    document.getElementById('trips-other-list').innerHTML = others.map(t => tripItemHTML(t)).join('')
+  } else {
+    othCard.style.display = 'none'
+  }
+}
+
+function renderTripGroup(propId, allTrips) {
+  const prop = PROPS[propId]
+  const trips = allTrips.filter(t => t.property === propId)
+  const totalKm = trips.reduce((s,t) => s+(parseFloat(t.km)||0), 0)
+  const totalMoney = totalKm * rate()
+  const listEl = document.getElementById(`trips-${propId}-list`)
+  const totEl  = document.getElementById(`trips-${propId}-total`)
+  const card   = document.getElementById(`trips-${propId}-card`)
+
+  if (!trips.length) {
+    listEl.innerHTML = '<div class="empty-state" style="padding:14px"><small>Aucun trajet ce mois-ci</small></div>'
+    totEl.textContent = ''
+    card.style.display = ''
+    return
+  }
+  listEl.innerHTML = trips.sort((a,b) => b.date.localeCompare(a.date)).map(t => tripItemHTML(t)).join('')
+  totEl.textContent = `${trips.length} trajet${trips.length!==1?'s':''} · ${fmt(totalKm,1)} km · ${fmt(totalMoney)} $`
+}
+
+function tripMonthPrev() {
+  tripsViewMonth = (tripsViewMonth + 11) % 12
+  renderTrips()
+}
+function tripMonthNext() {
+  tripsViewMonth = (tripsViewMonth + 1) % 12
+  renderTrips()
+}
+
+// ════════════════════════════════════════════════════════════
+// TAB: LOGEMENTS (property income/expense)
+// ════════════════════════════════════════════════════════════
+let propViewMonth = new Date().getMonth()
+let activePropTab = 'p1090'
+let propAnnualView = false
+
+function switchPropertyTab(propId) {
+  activePropTab = propId
+  document.getElementById('subtab-p1090-btn').classList.toggle('active', propId === 'p1090')
+  document.getElementById('subtab-p470-btn').classList.toggle('active', propId === 'p470')
+  renderProperty()
+}
+
+function propMonthPrev() {
+  propViewMonth = (propViewMonth + 11) % 12
+  renderProperty()
+}
+function propMonthNext() {
+  propViewMonth = (propViewMonth + 1) % 12
+  renderProperty()
+}
+
+function toggleAnnualView() {
+  propAnnualView = !propAnnualView
+  document.getElementById('prop-monthly-view').style.display = propAnnualView ? 'none' : ''
+  document.getElementById('prop-annual-view').style.display  = propAnnualView ? '' : 'none'
+  document.getElementById('annual-toggle-btn').textContent =
+    propAnnualView ? '📅 Vue mensuelle' : '📊 Vue annuelle'
+  renderProperty()
+}
+
+function renderProperty() {
+  const mi = propViewMonth
+  const propId = activePropTab
+  const prop = PROPS[propId]
+  document.getElementById('prop-month-label').textContent = MONTHS_FR[mi] + ' ' + activeYear
+
+  const rev = prop.revenus.reduce((s,c) => s + getMonthlyVal(propId,'revenus',c,mi), 0)
+  const dep = prop.deductibles.reduce((s,c) => {
+    if (c === 'Frais de déplacement') return s + getTripAmount(propId, mi)
+    return s + getMonthlyVal(propId,'deductibles',c,mi)
+  }, 0)
+  const net = rev - dep
+  document.getElementById('prop-month-net').textContent = 'Net: ' + fmt(net) + ' $'
+
+  if (propAnnualView) {
+    renderPropertyAnnual(propId)
+  } else {
+    renderPropertyMonthly(propId, mi)
+  }
+}
+
+function renderPropertyMonthly(propId, mi) {
+  const prop = PROPS[propId]
+  let html = ''
+
+  // REVENUS
+  html += `<div class="cat-section"><div class="cat-section-hdr blue">💰 Revenus de location</div>`
+  html += `<div class="card" style="border-radius:0 0 ${prop.revenus.length ? '8' : '0'}px 8px;overflow:hidden">`
+  let revTotal = 0
+  prop.revenus.forEach(cat => {
+    const val = getMonthlyVal(propId,'revenus',cat,mi)
+    revTotal += val
+    html += `
+      <div class="cat-row">
+        <div class="cat-label">${cat}</div>
+        <div class="cat-input-wrap">
+          <input type="number" class="inp-money" step="0.01" min="0" value="${val||''}"
+            placeholder="0,00"
+            oninput="setMonthlyVal('${propId}','revenus','${cat.replace(/'/g,"\\'")}',${mi},this.value);refreshNet()">
+        </div>
+        <span style="font-size:12px;color:var(--text2);width:12px">$</span>
+      </div>`
+  })
+  html += `<div class="cat-total-row"><span>Total revenus</span><span>${fmt(revTotal)} $</span></div>`
+  html += `</div></div>`
+
+  // DÉPENSES DÉDUCTIBLES
+  html += `<div class="cat-section" style="margin-top:8px"><div class="cat-section-hdr green">📄 Dépenses déductibles</div>`
+  html += `<div class="card" style="border-radius:0 0 8px 8px;overflow:hidden">`
+  let depTotal = 0
+  prop.deductibles.forEach(cat => {
+    if (cat === 'Frais de déplacement') {
+      const auto = getTripAmount(propId, mi)
+      depTotal += auto
+      html += `
+        <div class="cat-row readonly">
+          <div class="cat-label auto">🚗 Frais de déplacement<br><small style="font-size:10px">Auto depuis journal de trajets</small></div>
+          <div class="cat-input-wrap">
+            <input type="number" class="inp-money" value="${auto ? auto.toFixed(2) : ''}" readonly placeholder="auto">
+          </div>
+          <span style="font-size:12px;color:var(--text2);width:12px">$</span>
+        </div>`
+      return
+    }
+    const val = getMonthlyVal(propId,'deductibles',cat,mi)
+    depTotal += val
+    const rcptKey = `${propId}_deductibles_${cat}_${mi}`
+    const hasReceipt = !!(state.receipts && state.receipts[rcptKey])
+    const hasNote = !!(state.notes && state.notes[rcptKey])
+    const catEsc = cat.replace(/'/g,"\\'")
+    html += `
+      <div class="cat-row">
+        <div class="cat-label">${cat}</div>
+        <div class="cat-input-wrap">
+          <input type="number" class="inp-money" step="0.01" min="0" value="${val||''}"
+            placeholder="0,00"
+            oninput="setMonthlyVal('${propId}','deductibles','${catEsc}',${mi},this.value);refreshNet()">
+        </div>
+        <button onclick="openNoteSheet('${rcptKey}','${catEsc}')"
+          style="background:none;border:none;cursor:pointer;font-size:15px;padding:0 2px;opacity:${hasNote?1:.3};filter:${hasNote?'none':'grayscale(1)'}"
+          title="${hasNote ? 'Modifier la note' : 'Ajouter une note'}">✏️</button>
+        <button onclick="${hasReceipt ? `viewReceipt('${rcptKey}')` : `openReceiptCamera('${rcptKey}')`}"
+          style="background:none;border:none;cursor:pointer;font-size:16px;padding:0 2px;opacity:${hasReceipt?1:.35}"
+          title="${hasReceipt ? 'Voir le reçu' : 'Ajouter un reçu'}">
+          ${hasReceipt ? '🧾' : '📷'}
+        </button>
+      </div>`
+  })
+  html += `<div class="cat-total-row"><span>Total dépenses</span><span>${fmt(depTotal)} $</span></div>`
+  html += `</div></div>`
+
+  // DÉPENSES EN CAPITAL
+  html += `<div class="cat-section" style="margin-top:8px"><div class="cat-section-hdr brown">🔨 Dépenses en capital</div>`
+  html += `<div class="card" style="border-radius:0 0 8px 8px;overflow:hidden">`
+  let capTotal = 0
+  prop.capital.forEach(cat => {
+    const val = getMonthlyVal(propId,'capital',cat,mi)
+    capTotal += val
+    html += `
+      <div class="cat-row">
+        <div class="cat-label">${cat}</div>
+        <div class="cat-input-wrap">
+          <input type="number" class="inp-money" step="0.01" min="0" value="${val||''}"
+            placeholder="0,00"
+            oninput="setMonthlyVal('${propId}','capital','${cat.replace(/'/g,"\\'")}',${mi},this.value);refreshNet()">
+        </div>
+        <span style="font-size:12px;color:var(--text2);width:12px">$</span>
+      </div>`
+  })
+  html += `<div class="cat-total-row" style="background:var(--brown)"><span>Total capital</span><span>${fmt(capTotal)} $</span></div>`
+  html += `</div></div>`
+
+  document.getElementById('prop-content').innerHTML = html
+}
+
+function renderPropertyAnnual(propId) {
+  const prop = PROPS[propId]
+  let html = ''
+
+  const buildAnnualTable = (title, cats, section, hdrClass) => {
+    html += `<div class="card" style="margin-bottom:10px">
+      <div class="card-header ${hdrClass}">${title}</div>
+      <div style="overflow-x:auto"><table class="annual-table">
+        <thead><tr><th>Catégorie</th><th>Total ${activeYear}</th></tr></thead><tbody>`
+    let grand = 0
+    cats.forEach(cat => {
+      let total
+      if (cat === 'Frais de déplacement' && section === 'deductibles') {
+        total = Array.from({length:12},(_,i) => getTripAmount(propId,i)).reduce((a,b)=>a+b,0)
+      } else {
+        const data = state[propId][section][cat] || []
+        total = data.reduce((s,v) => s+(parseFloat(v)||0), 0)
+      }
+      grand += total
+      html += `<tr><td>${cat}</td><td>${fmt(total)} $</td></tr>`
+    })
+    html += `<tr class="total-tr"><td>TOTAL</td><td>${fmt(grand)} $</td></tr>`
+    html += `</tbody></table></div></div>`
+    return grand
+  }
+
+  const rev = buildAnnualTable('💰 Revenus de location', prop.revenus, 'revenus', 'blue')
+  const dep = buildAnnualTable('📄 Dépenses déductibles', prop.deductibles, 'deductibles', 'green')
+  buildAnnualTable('🔨 Dépenses en capital', prop.capital, 'capital', 'brown')
+
+  const net = rev - dep
+  html += `<div class="sum-card ${net >= 0 ? 'green' : 'red'}" style="margin-bottom:10px">
+    <div class="s-lbl">Bénéfice (Perte) net ${activeYear}</div>
+    <div class="s-val">${fmt(net)} $</div>
+  </div>`
+
+  document.getElementById('prop-annual-content').innerHTML = html
+}
+
+function refreshNet() {
+  if (!propAnnualView) {
+    const propId = activePropTab
+    const prop = PROPS[propId]
+    const mi = propViewMonth
+    const rev = prop.revenus.reduce((s,c) => s + getMonthlyVal(propId,'revenus',c,mi), 0)
+    const dep = prop.deductibles.reduce((s,c) => {
+      if (c === 'Frais de déplacement') return s + getTripAmount(propId, mi)
+      return s + getMonthlyVal(propId,'deductibles',c,mi)
+    }, 0)
+    document.getElementById('prop-month-net').textContent = 'Net: ' + fmt(rev - dep) + ' $'
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// TAB: RIDESHARE
+// ════════════════════════════════════════════════════════════
+let activeRideTab = 'uber'
+let lyftViewMonth = new Date().getMonth()
+
+function switchRideTab(tab) {
+  activeRideTab = tab
+  ;['uber','lyft','veh'].forEach(t => {
+    document.getElementById(`ride-${t}`).style.display = t === tab ? '' : 'none'
+    document.getElementById(`subtab-${t}-btn`).classList.toggle('active', t === tab)
+  })
+  if (tab === 'uber') renderUber()
+  if (tab === 'lyft') renderLyft()
+  if (tab === 'veh') renderVehicle()
+}
+
+function renderRideshare() {
+  if (activeRideTab === 'uber') renderUber()
+  if (activeRideTab === 'lyft') renderLyft()
+  if (activeRideTab === 'veh') renderVehicle()
+}
+
+// UBER
+function renderUber() {
+  const u = state.uber
+  let html = ''
+  UBER_FIELDS.forEach(f => {
+    if (f.sep) {
+      html += `<div style="font-size:11px;color:var(--text2);padding:10px 0 4px;font-weight:600;text-transform:uppercase;">${f.label}</div>`
+      return
+    }
+    html += `
+      <div class="field" style="margin-bottom:8px">
+        <label>${f.label}</label>
+        <input type="number" class="inp" step="0.01" value="${u[f.key]||''}" placeholder="0,00"
+          id="uber-f-${f.key}" oninput="saveUberField('${f.key}',this.value)">
+      </div>`
+  })
+  document.getElementById('uber-form-body').innerHTML = html
+  document.getElementById('uber-km-trip').value   = u.km_on_trip  || ''
+  document.getElementById('uber-km-online').value = u.km_online   || ''
+}
+
+function saveUberField(key, val) {
+  state.uber[key] = val
+  autoSave()
+}
+
+function saveUber() {
+  state.uber.km_on_trip = document.getElementById('uber-km-trip').value
+  state.uber.km_online  = document.getElementById('uber-km-online').value
+  autoSave()
+}
+
+// LYFT
+function renderLyft() {
+  const mi = lyftViewMonth
+  document.getElementById('lyft-month-label').textContent = MONTHS_FR[mi] + ' ' + activeYear
+  const m = state.lyft[mi] || {}
+
+  const fields = [
+    { key:'taxable', label:'Base taxable ($)' },
+    { key:'bonuses', label:'Primes ($)' },
+    { key:'tips',    label:'Pourboires ($)' },
+    { key:'fees',    label:'Frais Lyft ($)' },
+    { key:'km',      label:'Kilomètres parcourus' },
+    { key:'courses', label:'Nombre de courses' }
+  ]
+
+  let formHtml = ''
+  fields.forEach(f => {
+    formHtml += `
+      <div class="field" style="margin-bottom:8px">
+        <label>${f.label}</label>
+        <input type="number" class="inp" step="${f.key==='courses'?'1':'0.01'}"
+          value="${m[f.key]||''}" placeholder="0,00"
+          oninput="saveLyftField(${mi},'${f.key}',this.value)">
+      </div>`
+  })
+
+  const net = (parseFloat(m.taxable)||0) + (parseFloat(m.bonuses)||0) +
+              (parseFloat(m.tips)||0) - (parseFloat(m.fees)||0)
+  formHtml += `
+    <div class="sum-card ${net >= 0 ? 'green' : 'red'}" style="margin-top:8px">
+      <div class="s-lbl">Net reçu ce mois</div>
+      <div class="s-val">${fmt(net)} $</div>
+    </div>`
+
+  document.getElementById('lyft-month-form').innerHTML = formHtml
+  document.getElementById('lyft-month-total').textContent = 'Net: ' + fmt(net) + ' $'
+  renderLyftAnnual()
+}
+
+function saveLyftField(mi, key, val) {
+  if (!state.lyft[mi]) state.lyft[mi] = {}
+  state.lyft[mi][key] = val
+  autoSave()
+  renderLyftAnnual()
+  const m = state.lyft[mi] || {}
+  const net = (parseFloat(m.taxable)||0)+(parseFloat(m.bonuses)||0)+
+              (parseFloat(m.tips)||0)-(parseFloat(m.fees)||0)
+  document.getElementById('lyft-month-total').textContent = 'Net: ' + fmt(net) + ' $'
+  if (activeRideTab === 'veh') renderVehicle()
+}
+
+function renderLyftAnnual() {
+  let totTaxable=0, totBonuses=0, totTips=0, totFees=0, totKm=0, totCourses=0
+  for (let mi=0; mi<12; mi++) {
+    const m = state.lyft[mi] || {}
+    totTaxable += parseFloat(m.taxable)||0
+    totBonuses += parseFloat(m.bonuses)||0
+    totTips    += parseFloat(m.tips)||0
+    totFees    += parseFloat(m.fees)||0
+    totKm      += parseFloat(m.km)||0
+    totCourses += parseFloat(m.courses)||0
+  }
+  const totNet = totTaxable + totBonuses + totTips - totFees
+  document.getElementById('lyft-annual-summary').innerHTML = `
+    <div class="summary-row">
+      <div class="sum-card green"><div class="s-lbl">Net total annuel</div><div class="s-val sm">${fmt(totNet)} $</div></div>
+      <div class="sum-card blue"><div class="s-lbl">Base taxable</div><div class="s-val sm">${fmt(totTaxable)} $</div></div>
+      <div class="sum-card orange"><div class="s-lbl">Primes</div><div class="s-val sm">${fmt(totBonuses)} $</div></div>
+      <div class="sum-card red"><div class="s-lbl">Frais Lyft</div><div class="s-val sm">${fmt(totFees)} $</div></div>
+    </div>
+    <div class="summary-row">
+      <div class="sum-card gray"><div class="s-lbl">Total km Lyft</div><div class="s-val sm">${fmt(totKm, 1)} km</div></div>
+      <div class="sum-card gray"><div class="s-lbl">Courses totales</div><div class="s-val sm">${fmt(totCourses, 0)}</div></div>
+    </div>`
+}
+
+function lyftMonthPrev() {
+  lyftViewMonth = (lyftViewMonth + 11) % 12
+  renderLyft()
+}
+function lyftMonthNext() {
+  lyftViewMonth = (lyftViewMonth + 1) % 12
+  renderLyft()
+}
+
+// VEHICLE
+function renderVehicle() {
+  const v = state.vehicule
+  const s = state.settings
+  const kmTotal  = parseFloat(s.kmTotalAnnuel) || 0
+  const kmUber   = parseFloat(state.uber.km_online) || 0
+  const kmLyft   = getLyftKmTotal()
+  const kmRental = getRentalKmTotal()
+  const pctUber  = kmTotal > 0 ? (kmUber / kmTotal * 100) : 0
+  const pctLyft  = kmTotal > 0 ? (kmLyft / kmTotal * 100) : 0
+
+  document.getElementById('veh-km-form').innerHTML = `
+    <div class="field"><label>Km total annuel (odomètre)</label>
+      <input type="number" class="inp" id="veh-km-total-inp" value="${s.kmTotalAnnuel||''}"
+        placeholder="ex: 22000" oninput="saveSetting('kmTotalAnnuel',this.value);renderVehicle()">
+    </div>
+    <div class="summary-row three" style="margin-top:4px">
+      <div class="sum-card orange"><div class="s-lbl">🟠 Uber km</div><div class="s-val sm">${fmt(kmUber,0)}</div></div>
+      <div class="sum-card" style="background:#fce4ec;color:#880e4f"><div class="s-lbl">💗 Lyft km</div><div class="s-val sm">${fmt(kmLyft,1)}</div></div>
+      <div class="sum-card blue"><div class="s-lbl">🏘 Logements km</div><div class="s-val sm">${fmt(kmRental,1)}</div></div>
+    </div>
+    <div class="summary-row" style="margin-top:0">
+      <div class="sum-card orange"><div class="s-lbl">% Uber</div><div class="s-val">${pctUber.toFixed(1)}%</div></div>
+      <div class="sum-card" style="background:#fce4ec;color:#880e4f"><div class="s-lbl">% Lyft</div><div class="s-val">${pctLyft.toFixed(1)}%</div></div>
+    </div>`
+
+  let depHtml = ''
+  VEH_CATS.forEach(cat => {
+    const val = v.depenses[cat] || ''
+    const safeId = 'veh-' + cat.replace(/[^a-z0-9]/gi,'_')
+    depHtml += `
+      <div class="cat-row">
+        <div class="cat-label" style="font-size:13px">${cat}</div>
+        <div class="cat-input-wrap">
+          <input type="number" class="inp-money" step="0.01" min="0" value="${val}"
+            placeholder="0,00" id="${safeId}"
+            oninput="saveVehDep('${cat.replace(/'/g,"\\'")}',this.value)">
+        </div>
+        <span style="font-size:12px;color:var(--text2);width:12px">$</span>
+      </div>`
+  })
+  const totalDep = VEH_CATS.reduce((s,c) => s+(parseFloat(v.depenses[c])||0), 0)
+  depHtml += `<div class="cat-total-row"><span>Total dépenses véhicule</span><span>${fmt(totalDep)} $</span></div>`
+  document.getElementById('veh-dep-form').innerHTML = `<div class="card" style="overflow:hidden;border-radius:8px">${depHtml}</div>`
+
+  // Proration summary
+  const totalUberDed = totalDep * (kmTotal > 0 ? kmUber/kmTotal : 0)
+  const totalLyftDed = totalDep * (kmTotal > 0 ? kmLyft/kmTotal : 0)
+  document.getElementById('veh-proration-summary').innerHTML = `
+    <div class="summary-row">
+      <div class="sum-card orange">
+        <div class="s-lbl">🟠 Déduc. Uber</div>
+        <div class="s-val sm">${fmt(totalUberDed)} $</div>
+        <div style="font-size:10px;opacity:.7">${pctUber.toFixed(1)}% × ${fmt(totalDep)} $</div>
+      </div>
+      <div class="sum-card" style="background:#fce4ec;color:#880e4f">
+        <div class="s-lbl">💗 Déduc. Lyft</div>
+        <div class="s-val sm">${fmt(totalLyftDed)} $</div>
+        <div style="font-size:10px;opacity:.7">${pctLyft.toFixed(1)}% × ${fmt(totalDep)} $</div>
+      </div>
+    </div>
+    <div class="info-box">Formule : Déduc. Uber = Dépense totale × (km Uber Online ÷ km total annuel)</div>`
+}
+
+function saveVehDep(cat, val) {
+  state.vehicule.depenses[cat] = val
+  autoSave()
+}
+
+function getLyftKmTotal() {
+  let km = 0
+  for (let mi=0; mi<12; mi++) km += parseFloat(state.lyft[mi]?.km) || 0
+  return km
+}
+
+function getRentalKmTotal() {
+  return state.trips
+    .filter(t => yearOf(t.date) === activeYear && PROPS[t.property])
+    .reduce((s, t) => s + (parseFloat(t.km)||0), 0)
+}
+
+// ════════════════════════════════════════════════════════════
+// TOTALS HELPERS
+// ════════════════════════════════════════════════════════════
+function totalRevAll() {
+  let t = 0
+  ;['p1090','p470'].forEach(pId => {
+    PROPS[pId].revenus.forEach(cat => {
+      const d = state[pId].revenus[cat] || []
+      t += d.reduce((s,v) => s+(parseFloat(v)||0), 0)
+    })
+  })
+  return t
+}
+
+function totalDepAll() {
+  let t = 0
+  ;['p1090','p470'].forEach(pId => {
+    PROPS[pId].deductibles.forEach(cat => {
+      if (cat === 'Frais de déplacement') {
+        for (let mi=0; mi<12; mi++) t += getTripAmount(pId, mi)
+        return
+      }
+      const d = state[pId].deductibles[cat] || []
+      t += d.reduce((s,v) => s+(parseFloat(v)||0), 0)
+    })
+  })
+  // Vehicle deductions
+  const kmTotal = parseFloat(state.settings.kmTotalAnnuel) || 0
+  const kmUber  = parseFloat(state.uber.km_online) || 0
+  const kmLyft  = getLyftKmTotal()
+  const totalDep = VEH_CATS.reduce((s,c) => s+(parseFloat(state.vehicule.depenses[c])||0), 0)
+  if (kmTotal > 0) t += totalDep * (kmUber + kmLyft) / kmTotal
+  return t
+}
+
+function propTotals(propId) {
+  const prop = PROPS[propId]
+  const rev = prop.revenus.reduce((s,c) => {
+    const d = state[propId].revenus[c] || []
+    return s + d.reduce((ss,v) => ss+(parseFloat(v)||0), 0)
+  }, 0)
+  const dep = prop.deductibles.reduce((s,c) => {
+    if (c === 'Frais de déplacement') {
+      let t = 0; for (let mi=0;mi<12;mi++) t += getTripAmount(propId,mi); return s+t
+    }
+    const d = state[propId].deductibles[c] || []
+    return s + d.reduce((ss,v) => ss+(parseFloat(v)||0), 0)
+  }, 0)
+  const cap = prop.capital.reduce((s,c) => {
+    const d = state[propId].capital[c] || []
+    return s + d.reduce((ss,v) => ss+(parseFloat(v)||0), 0)
+  }, 0)
+  return { rev, dep, cap, net: rev-dep }
+}
+
+// ════════════════════════════════════════════════════════════
+// TAB: SOMMAIRE
+// ════════════════════════════════════════════════════════════
+function renderSummary() {
+  const t1090 = propTotals('p1090')
+  const t470  = propTotals('p470')
+  const totalRev = t1090.rev + t470.rev
+  const totalDep = t1090.dep + t470.dep
+  const totalCap = t1090.cap + t470.cap
+
+  const kmTotal  = parseFloat(state.settings.kmTotalAnnuel) || 0
+  const kmUber   = parseFloat(state.uber.km_online) || 0
+  const kmLyft   = getLyftKmTotal()
+  const totalVehDep = VEH_CATS.reduce((s,c) => s+(parseFloat(state.vehicule.depenses[c])||0), 0)
+  const uberDed  = totalVehDep * (kmTotal > 0 ? kmUber/kmTotal : 0)
+  const lyftDed  = totalVehDep * (kmTotal > 0 ? kmLyft/kmTotal : 0)
+
+  const uberNet  = UBER_FIELDS.filter(f=>!f.sep && f.key==='rides_gross').reduce((_,f)=>parseFloat(state.uber[f.key])||0, 0)
+  const lyftNet  = Array.from({length:12},(_,mi)=>state.lyft[mi]||{})
+    .reduce((s,m) => s+(parseFloat(m.taxable)||0)+(parseFloat(m.bonuses)||0)+(parseFloat(m.tips)||0)-(parseFloat(m.fees)||0), 0)
+
+  const netLoc = totalRev - totalDep
+  const net = netLoc - uberDed - lyftDed
+
+  document.getElementById('summary-body').innerHTML = `
+    <div class="summary-row">
+      <div class="sum-card green"><div class="s-lbl">Revenus locatifs totaux</div><div class="s-val sm">${fmt(totalRev)} $</div></div>
+      <div class="sum-card red"><div class="s-lbl">Dépenses déductibles</div><div class="s-val sm">${fmt(totalDep)} $</div></div>
+      <div class="sum-card orange"><div class="s-lbl">Dépenses en capital</div><div class="s-val sm">${fmt(totalCap)} $</div></div>
+      <div class="sum-card ${netLoc>=0?'green':'red'}"><div class="s-lbl">Bénéfice locatif net</div><div class="s-val sm">${fmt(netLoc)} $</div></div>
+    </div>
+    <div class="summary-row">
+      <div class="sum-card orange"><div class="s-lbl">🟠 Déduction véhicule Uber</div><div class="s-val sm">${fmt(uberDed)} $</div></div>
+      <div class="sum-card" style="background:#fce4ec;color:#880e4f"><div class="s-lbl">💗 Déduction véhicule Lyft</div><div class="s-val sm">${fmt(lyftDed)} $</div></div>
+    </div>`
+
+  document.getElementById('summary-detail').innerHTML = `
+    <table class="annual-table" style="font-size:12px">
+      <thead><tr>
+        <th>Source</th>
+        <th style="text-align:right">Revenus</th>
+        <th style="text-align:right">Dép. déductibles</th>
+        <th style="text-align:right">Bénéfice</th>
+      </tr></thead>
+      <tbody>
+        ${summaryRow('🏠 1090 Oscar Benoît', t1090.rev, t1090.dep, t1090.net)}
+        ${summaryRow('🏢 470 Rue Gélinas', t470.rev, t470.dep, t470.net)}
+        ${summaryRow('🟠 Uber — véhicule', '-', uberDed, '-', true)}
+        ${summaryRow('💗 Lyft — véhicule', fmt(lyftNet)+' $', lyftDed, '-', true)}
+      </tbody>
+      <tfoot>
+        <tr class="total-tr">
+          <td>TOTAL</td>
+          <td style="text-align:right">${fmt(totalRev)} $</td>
+          <td style="text-align:right">${fmt(totalDep + uberDed + lyftDed)} $</td>
+          <td style="text-align:right">${fmt(net)} $</td>
+        </tr>
+      </tfoot>
+    </table>`
+
+}
+
+function summaryRow(label, rev, dep, ben, isDed=false) {
+  const revTxt = typeof rev === 'number' ? fmt(rev)+' $' : rev
+  const depTxt = typeof dep === 'number' ? fmt(dep)+' $' : dep
+  const benTxt = typeof ben === 'number' ? fmt(ben)+' $' : ben
+  const benColor = typeof ben === 'number' ? (ben >= 0 ? 'var(--green)' : '#C00000') : 'inherit'
+  return `<tr>
+    <td>${label}</td>
+    <td style="text-align:right">${revTxt}</td>
+    <td style="text-align:right">${depTxt}</td>
+    <td style="text-align:right;font-weight:700;color:${benColor}">${benTxt}</td>
+  </tr>`
+}
+
+// ════════════════════════════════════════════════════════════
+// EXPORT / IMPORT
+// ════════════════════════════════════════════════════════════
+function exportCSV() {
+  let csv = 'Section,Catégorie'
+  MONTHS_FR.forEach(m => csv += ',' + m)
+  csv += ',Total Annuel\n'
+
+  const addSection = (label, propId, section, cats) => {
+    cats.forEach(cat => {
+      let vals
+      if (cat === 'Frais de déplacement' && section === 'deductibles') {
+        vals = Array.from({length:12}, (_,mi) => getTripAmount(propId, mi))
+      } else {
+        vals = state[propId][section][cat] || Array(12).fill('')
+      }
+      const total = vals.reduce((s,v) => s+(parseFloat(v)||0), 0)
+      csv += `"${label}","${cat}",${vals.map(v=>v||0).join(',')},${total.toFixed(2)}\n`
+    })
+  }
+
+  addSection('1090 - Revenus', 'p1090', 'revenus', PROPS.p1090.revenus)
+  addSection('1090 - Dépenses déductibles', 'p1090', 'deductibles', PROPS.p1090.deductibles)
+  addSection('1090 - Dépenses capital', 'p1090', 'capital', PROPS.p1090.capital)
+  addSection('470 - Revenus', 'p470', 'revenus', PROPS.p470.revenus)
+  addSection('470 - Dépenses déductibles', 'p470', 'deductibles', PROPS.p470.deductibles)
+  addSection('470 - Dépenses capital', 'p470', 'capital', PROPS.p470.capital)
+
+  // Trips
+  state.trips.forEach(t => {
+    const money = (parseFloat(t.km)||0) * rate()
+    csv += `"Déplacements","${t.date}|${t.property}|${t.reason}",${t.km},,,,,,,,,,,,${money.toFixed(2)}\n`
+  })
+
+  // Lyft monthly
+  for (let mi=0; mi<12; mi++) {
+    const m = state.lyft[mi] || {}
+    const net = (parseFloat(m.taxable)||0)+(parseFloat(m.bonuses)||0)+(parseFloat(m.tips)||0)-(parseFloat(m.fees)||0)
+    if (net) csv += `"Lyft - Revenus","${MONTHS_FR[mi]}",,,,,,,,,,,,,,${net.toFixed(2)}\n`
+  }
+
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'})
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `Depenses_${activeYear}.csv`
+  a.click()
+  toast('✅ CSV exporté')
+}
+
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'})
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `Depenses_${activeYear}_backup.json`
+  a.click()
+  toast('✅ Sauvegarde JSON créée')
+}
+
+function importJSON() {
+  document.getElementById('import-file').click()
+}
+
+function handleImport(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result)
+      if (!confirm('Remplacer toutes les données actuelles par le fichier importé ?')) return
+      state = Object.assign(defaultState(), data)
+      save()
+      refreshAll()
+      toast('✅ Données restaurées depuis le fichier JSON')
+    } catch(err) {
+      toast('❌ Fichier JSON invalide')
+    }
+  }
+  reader.readAsText(file)
+  e.target.value = ''
+}
+
+function clearAllData() {
+  if (!confirm(`Effacer TOUTES les données ${activeYear} ? Cette action est irréversible.`)) return
+  state = defaultState()
+  save()
+  refreshAll()
+  toast('🗑️ Données effacées')
+}
+
+function refreshAll() {
+  if (currentTab === 'home') renderHome()
+  if (currentTab === 'trips') renderTrips()
+  if (currentTab === 'property') renderProperty()
+  if (currentTab === 'rideshare') renderRideshare()
+  if (currentTab === 'summary') renderSummary()
+}
+
+function refreshVehicleCalcs() {
+  if (currentTab === 'rideshare' && activeRideTab === 'veh') renderVehicle()
+}
+
+// ════════════════════════════════════════════════════════════
+// PDF IMPORT — Uber & Lyft
+// ════════════════════════════════════════════════════════════
+let pdfReviewData = null
+
+async function loadPDFJS() {
+  if (window.pdfjsLib) return
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+    s.onload = () => {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+      resolve()
+    }
+    s.onerror = () => reject(new Error('Impossible de charger PDF.js. Vérifiez votre connexion internet.'))
+    document.head.appendChild(s)
+  })
+}
+
+async function extractPDFText(file) {
+  await loadPDFJS()
+  const buf = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise
+  let fullText = ''
+  for (let pi = 1; pi <= pdf.numPages; pi++) {
+    const page = await pdf.getPage(pi)
+    const content = await page.getTextContent()
+    // Sort top→bottom, left→right to reconstruct reading order
+    const items = [...content.items].sort((a, b) => {
+      const dy = b.transform[5] - a.transform[5]
+      return Math.abs(dy) > 3 ? dy : a.transform[4] - b.transform[4]
+    })
+    fullText += items.map(it => it.str).join(' ') + '\n'
+  }
+  return fullText
+}
+
+function parseAmountStr(s) {
+  if (!s) return null
+  s = String(s).replace(/\s/g, '')
+  // French decimal: "1 234,56" → comma before exactly 2 digits at end
+  if (/,\d{2}$/.test(s) && !s.includes('.')) {
+    s = s.replace(/,/, '.')
+  } else {
+    // English: commas are thousands separators
+    s = s.replace(/,/g, '')
+  }
+  const v = parseFloat(s)
+  return isNaN(v) ? null : v
+}
+
+function findAmountNear(text, labels, win = 500) {
+  const lower = text.toLowerCase()
+  for (const lbl of [].concat(labels)) {
+    const pos = lower.indexOf(lbl.toLowerCase())
+    if (pos < 0) continue
+    const seg = text.slice(pos + lbl.length, pos + lbl.length + win)
+    // Match: optional negative, optional $, digits with separators
+    const m = seg.match(/(-?)\s*\$?\s*(\d[\d ,]*\.?\d{0,2})/)
+    if (!m) continue
+    const sign = m[1] === '-' ? -1 : 1
+    const v = sign * parseAmountStr(m[2])
+    if (v !== null && !isNaN(v) && Math.abs(v) > 0 && Math.abs(v) < 1e6) return v
+  }
+  return null
+}
+
+function parseUberPDF(text) {
+  const f = (...lbls) => findAmountNear(text, lbls)
+  return {
+    rides_gross:     f('Gross fares','Tarifs bruts','Total fares','Gross ride fares','Tarif brut'),
+    green_surcharge: f('Green transportation levy','Contribution verte','Green surcharge','Contribution au transport vert'),
+    booking_fee:     f('Booking fee','Frais de réservation'),
+    mtq_dues:        f('MTQ dues','Droits MTQ','Contribution MTQ'),
+    airport_fee:     f('Airport surcharge','Supplément aéroport','Airport fee','Frais aéroport'),
+    tolls:           f('Tolls','Péages'),
+    tips_rides:      f('Tips','Pourboires','Driver tips','Tip amount'),
+    gst_riders:      f('GST/HST collected from riders','TPS/TVH collectée des passagers','GST collected from riders','TPS collectée des passagers'),
+    qst_riders:      f('QST collected from riders','TVQ collectée des passagers','TVQ collectée'),
+    service_fee:     f('Uber service fee','Frais de service Uber','Service fee','Frais de service'),
+    other_fees:      f('Other fees','Autres frais Uber','Autres frais'),
+    fee_discount:    f('Fee discount','Remise sur frais','Discount'),
+    gst_paid_uber:   f('GST/HST paid to Uber','TPS/TVH payée à Uber','GST paid to Uber','TPS payée à Uber'),
+    qst_paid_uber:   f('QST paid to Uber','TVQ payée à Uber','TVQ payée à Uber'),
+    eats_gross:      f('Uber Eats gross','Tarif brut Uber Eats','Eats fares','Uber Eats delivery'),
+    eats_tips:       f('Eats tips','Pourboires Eats'),
+    other_income:    f('Other earnings','Autres revenus','Other income'),
+    gst_remitted:    f('GST/HST remitted by Uber','TPS versée par Uber','GST remitted by Uber'),
+    qst_remitted:    f('QST remitted by Uber','TVQ versée par Uber','TVQ remise par Uber'),
+    km_on_trip:      f('km on trip','On-trip km','Km en course','Miles on trip','On trip'),
+    km_online:       f('km online','Online km','Km en ligne','Total online km','Total km online','Online miles')
+  }
+}
+
+function parseLyftPDF(text) {
+  const f = (...lbls) => findAmountNear(text, lbls)
+  return {
+    taxable: f('Base pay','Rémunération de base','Taxable earnings','Ride earnings','Gross earnings'),
+    bonuses: f('Bonuses','Primes','Incentives','Streak bonus','Challenge bonus','Bonus pay'),
+    tips:    f('Tips','Pourboires','Tip amount','Total tips','Passenger tips'),
+    fees:    f('Lyft fee','Frais de service Lyft','Service fee','Lyft service fee','Commission','Lyft platform fee'),
+    km:      f('Kilometers','km driven','Distance (km)','Total distance','Miles driven','Km parcourus'),
+    courses: f('Rides completed','Total rides','Courses complétées','Trips completed','Number of rides','Rides given')
+  }
+}
+
+function importUberPDF() { document.getElementById('uber-pdf-input').click() }
+function importLyftPDF() { document.getElementById('lyft-pdf-input').click() }
+
+async function handleUberPDF(e) {
+  const file = e.target.files[0]; e.target.value = ''
+  if (!file) return
+  toast('⏳ Analyse du PDF Uber en cours…', 6000)
+  try {
+    const text = await extractPDFText(file)
+    pdfReviewData = { type: 'uber', data: parseUberPDF(text), month: -1 }
+    showPDFReview()
+  } catch(err) { toast('❌ ' + err.message) }
+}
+
+async function handleLyftPDF(e) {
+  const file = e.target.files[0]; e.target.value = ''
+  if (!file) return
+  toast('⏳ Analyse du PDF Lyft en cours…', 6000)
+  try {
+    const text = await extractPDFText(file)
+    pdfReviewData = { type: 'lyft', data: parseLyftPDF(text), month: lyftViewMonth }
+    showPDFReview()
+  } catch(err) { toast('❌ ' + err.message) }
+}
+
+function showPDFReview() {
+  const { type, data, month } = pdfReviewData
+  let title, rows
+
+  if (type === 'uber') {
+    title = '🟠 Données Uber extraites du PDF'
+    const labelMap = {}
+    UBER_FIELDS.filter(f => !f.sep).forEach(f => labelMap[f.key] = f.label)
+    labelMap.km_on_trip = 'Km "En course" (On Trip)'
+    labelMap.km_online  = 'Km "En ligne" (Online)'
+    rows = Object.keys(data).map(k => ({
+      key: k, label: labelMap[k] || k, value: data[k],
+      isUnit: k.startsWith('km_')
+    }))
+  } else {
+    title = `💗 Données Lyft — ${MONTHS_FR[month]}`
+    rows = [
+      { key:'taxable', label:'Base taxable ($)',     value:data.taxable },
+      { key:'bonuses', label:'Primes ($)',            value:data.bonuses },
+      { key:'tips',    label:'Pourboires ($)',        value:data.tips    },
+      { key:'fees',    label:'Frais Lyft ($)',        value:data.fees    },
+      { key:'km',      label:'Kilomètres parcourus', value:data.km,      isUnit:true },
+      { key:'courses', label:'Nombre de courses',    value:data.courses, isUnit:true }
+    ]
+  }
+
+  const found = rows.filter(r => r.value !== null && r.value !== undefined).length
+  document.getElementById('pdf-sheet-title').textContent = title
+
+  let html = found === 0
+    ? `<div class="warn-box">⚠️ Aucune donnée détectée automatiquement. Le format de ce PDF est peut-être différent. Vous pouvez saisir les valeurs manuellement ci-dessous ou fermer et saisir directement dans le formulaire.</div>`
+    : `<div class="info-box">✅ <strong>${found} / ${rows.length}</strong> valeurs extraites. Les champs en bleu ont été détectés — vérifiez et corrigez si nécessaire avant d'appliquer.</div>`
+
+  html += '<div style="margin-bottom:14px">'
+  rows.forEach(r => {
+    const ok = r.value !== null && r.value !== undefined
+    html += `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1;font-size:13px;line-height:1.3;color:${ok?'var(--text)':'var(--text2)'}">${r.label}</div>
+        <input type="number" step="${r.isUnit?'1':'0.01'}" value="${ok?r.value:''}" placeholder="—"
+          id="pdfr-${r.key}"
+          style="width:115px;padding:7px 9px;border:1.5px solid ${ok?'var(--blue)':'var(--border)'};
+            border-radius:6px;font-size:14px;text-align:right;
+            background:${ok?'#EBF5FF':'var(--gray)'};color:var(--text);font-family:inherit">
+        <span style="font-size:12px;color:var(--text2);width:16px">${r.isUnit?'':'$'}</span>
+      </div>`
+  })
+  html += '</div>'
+  html += `
+    <div style="display:flex;gap:8px;padding-bottom:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="applyPDFExtracted()">✅ Appliquer ces valeurs</button>
+      <button class="btn btn-ghost" style="min-width:90px" onclick="closePDFSheet()">Annuler</button>
+    </div>`
+
+  document.getElementById('pdf-sheet-body').innerHTML = html
+  document.getElementById('pdf-overlay').classList.add('open')
+  requestAnimationFrame(() => document.getElementById('pdf-sheet').classList.add('open'))
+}
+
+function closePDFSheet() {
+  document.getElementById('pdf-sheet').classList.remove('open')
+  setTimeout(() => document.getElementById('pdf-overlay').classList.remove('open'), 300)
+}
+
+function applyPDFExtracted() {
+  if (!pdfReviewData) return
+  const { type, month } = pdfReviewData
+
+  if (type === 'uber') {
+    Object.keys(pdfReviewData.data).forEach(key => {
+      const el = document.getElementById('pdfr-' + key)
+      if (el && el.value !== '') state.uber[key] = el.value
+    })
+    save(); closePDFSheet()
+    toast('✅ Données Uber appliquées')
+    renderUber()
+  } else {
+    if (!state.lyft[month]) state.lyft[month] = {}
+    ;['taxable','bonuses','tips','fees','km','courses'].forEach(key => {
+      const el = document.getElementById('pdfr-' + key)
+      if (el && el.value !== '') state.lyft[month][key] = el.value
+    })
+    save(); closePDFSheet()
+    toast('✅ Données Lyft appliquées — ' + MONTHS_FR[month])
+    renderLyft()
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// MULTI-DEVICE SYNC — Firebase Auth + Firestore
+// ════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyB4mTBFNN3HLNsChC6Suq7k5lvlFGF5PSI",
+  authDomain: "suivi-depenses-7dc02.firebaseapp.com",
+  projectId: "suivi-depenses-7dc02",
+  storageBucket: "suivi-depenses-7dc02.firebasestorage.app",
+  messagingSenderId: "631990576677",
+  appId: "1:631990576677:web:33fa55320a0c71560fc1cc"
+}
+
+let _fbApp, _fbAuth, _fbDb, lastSyncedAt = null
+
+// ════════════════════════════════════════════════════════════
+// SETTINGS SHEET
+// ════════════════════════════════════════════════════════════
+function showSettingsSheet() {
+  document.getElementById('setting-rate').value     = state.settings.mileageRate || 0.72
+  document.getElementById('setting-km-total').value = state.settings.kmTotalAnnuel || 22000
+  document.getElementById('setting-vehicle').value  = state.settings.vehicleModel || ''
+  document.getElementById('setting-maps-key').value = state.settings.googleMapsApiKey || ''
+  const syncAutoEl = document.getElementById('setting-sync-auto')
+  if (syncAutoEl) syncAutoEl.checked = state.settings.syncAuto !== false
+  updateSyncStatus()
+  document.getElementById('settings-overlay').classList.add('open')
+  document.getElementById('settings-sheet').classList.add('open')
+}
+
+function closeSettingsSheet() {
+  document.getElementById('settings-overlay').classList.remove('open')
+  document.getElementById('settings-sheet').classList.remove('open')
+}
+
+function initFirebase() {
+  if (_fbApp) return
+  _fbApp  = firebase.initializeApp(firebaseConfig)
+  _fbAuth = firebase.auth()
+  _fbDb   = firebase.firestore()
+  window._fbAuth = _fbAuth
+
+  _fbAuth.onAuthStateChanged(user => {
+    if (user) {
+      document.getElementById('sync-signed-out').style.display = 'none'
+      document.getElementById('sync-signed-in').style.display = 'block'
+      document.getElementById('sync-user-name').textContent  = user.displayName || ''
+      document.getElementById('sync-user-email').textContent = user.email || ''
+      const photo = document.getElementById('sync-user-photo')
+      if (user.photoURL) { photo.src = user.photoURL; photo.style.display = 'block' }
+      const autoEl = document.getElementById('setting-sync-auto')
+      if (autoEl) autoEl.checked = state.settings.syncAuto !== false
+      syncPull(false)
+    } else {
+      document.getElementById('sync-signed-out').style.display = 'block'
+      document.getElementById('sync-signed-in').style.display = 'none'
+      setSyncStatus('idle')
+    }
+  })
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && _fbAuth.currentUser) syncPull(false)
+  })
+}
+
+async function signInWithGoogle() {
+  initFirebase()
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider()
+    provider.setCustomParameters({ login_hint: 'fezerick@gmail.com' })
+    await _fbAuth.signInWithPopup(provider)
+  } catch(e) {
+    if (e.code !== 'auth/popup-closed-by-user') toast('❌ Connexion échouée : ' + e.message)
+  }
+}
+
+async function signOutGoogle() {
+  if (!confirm('Se déconnecter de la synchronisation ?')) return
+  await _fbAuth.signOut()
+  toast('👋 Déconnecté')
+}
+
+function syncDocRef() {
+  if (!_fbDb || !_fbAuth?.currentUser) return null
+  return _fbDb
+    .collection('users')
+    .doc(_fbAuth.currentUser.uid)
+    .collection('years')
+    .doc(String(activeYear))
+}
+
+function stateForSync() {
+  const { receipts, ...rest } = state
+  return rest
+}
+
+async function syncPush(manual = false) {
+  initFirebase()
+  const ref = syncDocRef()
+  if (!ref) {
+    if (manual) toast('⚠️ Connectez-vous d\'abord dans les Réglages')
+    return
+  }
+  setSyncStatus('syncing')
+  try {
+    await ref.set({
+      data:      JSON.stringify(stateForSync()),
+      year:      activeYear,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      device:    navigator.userAgent.slice(0, 80)
+    })
+    lastSyncedAt = new Date()
+    setSyncStatus('ok')
+    if (manual) toast('✅ Données envoyées vers le cloud')
+  } catch(e) {
+    setSyncStatus('error')
+    if (manual) toast('❌ Erreur sync : ' + e.message)
+    console.error('syncPush', e)
+  }
+}
+
+async function syncPull(manual = false) {
+  initFirebase()
+  const ref = syncDocRef()
+  if (!ref) {
+    if (manual) toast('⚠️ Connectez-vous d\'abord dans les Réglages')
+    return
+  }
+  setSyncStatus('syncing')
+  try {
+    const snap = await ref.get()
+    if (!snap.exists) {
+      setSyncStatus('none')
+      if (manual) toast('ℹ️ Aucune donnée cloud pour cette année — envoyez d\'abord depuis un autre appareil')
+      else { lastSyncedAt = new Date(); setSyncStatus('ok') }
+      return
+    }
+    const d = snap.data()
+    const remote = JSON.parse(d.data)
+    const remoteDate = d.updatedAt?.toDate?.()?.toLocaleString('fr-CA') || '?'
+
+    if (manual && !confirm(`Remplacer les données locales par la version du cloud ?\n\nDernière mise à jour : ${remoteDate}\n\nNote : vos photos de reçus locales seront conservées.`)) {
+      setSyncStatus('ok'); return
+    }
+
+    const localReceipts = state.receipts || {}
+    state = Object.assign(defaultState(), remote)
+    state.receipts = localReceipts
+    localStorage.setItem(storeKey(), JSON.stringify(state))
+    lastSyncedAt = new Date()
+    setSyncStatus('ok')
+    refreshAll()
+    if (manual) toast('✅ Données récupérées du cloud')
+  } catch(e) {
+    setSyncStatus('error')
+    if (manual) toast('❌ Erreur sync : ' + e.message)
+    console.error('syncPull', e)
+  }
+}
+
+function setSyncStatus(status) {
+  const dot   = document.getElementById('sync-status-dot')
+  const label = document.getElementById('sync-status-label')
+  if (!dot || !label) return
+  const map = {
+    ok:      { color:'#4caf50', text: '✅ Synchronisé — ' + (lastSyncedAt ? lastSyncedAt.toLocaleTimeString('fr-CA') : '') },
+    syncing: { color:'#ff9800', text: '🔄 Synchronisation en cours…' },
+    error:   { color:'#f44336', text: '❌ Erreur — vérifiez Firestore dans Firebase Console' },
+    none:    { color:'#2196f3', text: 'ℹ️ Aucune donnée cloud pour cette année' },
+    idle:    { color:'#ccc',    text: '' }
+  }
+  const s = map[status] || map.idle
+  dot.style.background = s.color
+  label.textContent = s.text
+}
+
+function updateSyncStatus() {
+  if (!_fbAuth) { setSyncStatus('idle'); return }
+  setSyncStatus(_fbAuth.currentUser ? (lastSyncedAt ? 'ok' : 'idle') : 'idle')
+}
+
+function saveSyncAuto(val) {
+  state.settings.syncAuto = val
+  save()
+}
+
+// ════════════════════════════════════════════════════════════
+// RECURRING MONTHLY EXPENSES
+// ════════════════════════════════════════════════════════════
+function showRecurringSheet() {
+  const propId = activePropTab
+  const prop = PROPS[propId]
+  if (!state.recurring) state.recurring = { p1090: {}, p470: {} }
+  if (!state.recurring[propId]) state.recurring[propId] = {}
+  const rec = state.recurring[propId]
+  let html = ''
+
+  html += `<div style="font-size:12px;color:var(--text2);margin-bottom:12px">
+    Configurez les montants fixes appliqués chaque mois. Seuls les champs <strong>vides</strong> du mois actuel seront remplis.
+  </div>`
+
+  html += `<div style="font-weight:600;color:var(--blue);padding:4px 0 8px">💰 Revenus mensuels fixes</div>`
+  prop.revenus.forEach(cat => {
+    const key = `rev_${cat}`
+    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="flex:1;font-size:13px">${cat}</div>
+      <input type="number" class="inp-money" step="0.01" min="0" value="${rec[key]||''}" placeholder="0,00"
+        style="width:100px" oninput="setRecurring('${propId}','${key.replace(/'/g,"\\'")}',this.value)">
+      <span style="font-size:12px;color:var(--text2)">$</span>
+    </div>`
+  })
+
+  html += `<div style="font-weight:600;color:var(--green);padding:12px 0 8px">📄 Dépenses fixes mensuelles</div>`
+  prop.deductibles.filter(c => c !== 'Frais de déplacement').forEach(cat => {
+    const key = `ded_${cat}`
+    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="flex:1;font-size:13px">${cat}</div>
+      <input type="number" class="inp-money" step="0.01" min="0" value="${rec[key]||''}" placeholder="0,00"
+        style="width:100px" oninput="setRecurring('${propId}','${key.replace(/'/g,"\\'")}',this.value)">
+      <span style="font-size:12px;color:var(--text2)">$</span>
+    </div>`
+  })
+
+  html += `<div style="padding:16px 0 8px;display:flex;flex-direction:column;gap:8px">
+    <button class="btn btn-primary btn-full" onclick="applyRecurringToMonth()">
+      ✓ Appliquer au mois de ${MONTHS_FR[propViewMonth]}
+    </button>
+    <button class="btn btn-ghost btn-full" onclick="applyRecurringAllMonths()">
+      ✓ Appliquer à tous les mois vides
+    </button>
+  </div>`
+
+  document.getElementById('recurring-sheet-title').textContent = `⟳ Récurrents — ${prop.shortLabel}`
+  document.getElementById('recurring-sheet-body').innerHTML = html
+  document.getElementById('recurring-overlay').classList.add('open')
+  requestAnimationFrame(() => document.getElementById('recurring-sheet').classList.add('open'))
+}
+
+function closeRecurringSheet() {
+  document.getElementById('recurring-sheet').classList.remove('open')
+  setTimeout(() => document.getElementById('recurring-overlay').classList.remove('open'), 300)
+}
+
+function setRecurring(propId, key, val) {
+  if (!state.recurring) state.recurring = { p1090: {}, p470: {} }
+  if (!state.recurring[propId]) state.recurring[propId] = {}
+  state.recurring[propId][key] = val
+  autoSave()
+}
+
+function applyRecurringToMonth() {
+  let applied = _applyRecurring([propViewMonth])
+  closeRecurringSheet()
+  renderProperty()
+  toast(`✅ ${applied} montant${applied !== 1 ? 's' : ''} appliqué${applied !== 1 ? 's' : ''} pour ${MONTHS_FR[propViewMonth]}`)
+}
+
+function applyRecurringAllMonths() {
+  let applied = _applyRecurring([0,1,2,3,4,5,6,7,8,9,10,11])
+  closeRecurringSheet()
+  renderProperty()
+  toast(`✅ ${applied} montant${applied !== 1 ? 's' : ''} appliqués sur tous les mois`)
+}
+
+function _applyRecurring(months) {
+  const propId = activePropTab
+  const prop = PROPS[propId]
+  const rec = (state.recurring || {})[propId] || {}
+  let applied = 0
+  months.forEach(mi => {
+    prop.revenus.forEach(cat => {
+      const recVal = parseFloat(rec[`rev_${cat}`])
+      if (!recVal) return
+      if (!getMonthlyVal(propId, 'revenus', cat, mi)) {
+        setMonthlyVal(propId, 'revenus', cat, mi, recVal)
+        applied++
+      }
+    })
+    prop.deductibles.filter(c => c !== 'Frais de déplacement').forEach(cat => {
+      const recVal = parseFloat(rec[`ded_${cat}`])
+      if (!recVal) return
+      if (!getMonthlyVal(propId, 'deductibles', cat, mi)) {
+        setMonthlyVal(propId, 'deductibles', cat, mi, recVal)
+        applied++
+      }
+    })
+  })
+  save()
+  return applied
+}
+
+// ════════════════════════════════════════════════════════════
+// TAX DECLARATION CHECKLIST
+// ════════════════════════════════════════════════════════════
+function getDefaultChecklist() {
+  return [
+    { id:'cl1',  label:'Feuillets T4 / Relevé 1 (revenus d\'emploi)', checked:false, custom:false },
+    { id:'cl2',  label:'Rapport annuel Uber (PDF)', checked:false, custom:false },
+    { id:'cl3',  label:'Relevés mensuels Lyft (jan–déc)', checked:false, custom:false },
+    { id:'cl4',  label:'Acomptes provisionnels versés — ARC', checked:false, custom:false },
+    { id:'cl5',  label:'Acomptes provisionnels versés — Revenu Québec', checked:false, custom:false },
+    { id:'cl6',  label:'Formulaire T776 — État des loyers de biens immeubles', checked:false, custom:false },
+    { id:'cl7',  label:'Avis d\'imposition municipale — 1090 Oscar Benoît', checked:false, custom:false },
+    { id:'cl8',  label:'Avis d\'imposition municipale — 470 Gélinas', checked:false, custom:false },
+    { id:'cl9',  label:'Taxe scolaire — 1090 Oscar Benoît', checked:false, custom:false },
+    { id:'cl10', label:'Taxe scolaire — 470 Gélinas', checked:false, custom:false },
+    { id:'cl11', label:'Relevé annuel hypothèque (intérêts) — 1090', checked:false, custom:false },
+    { id:'cl12', label:'Relevé annuel hypothèque (intérêts) — 470', checked:false, custom:false },
+    { id:'cl13', label:'Relevés assurance habitation (2 propriétés)', checked:false, custom:false },
+    { id:'cl14', label:'Reçus réparations / entretien', checked:false, custom:false },
+    { id:'cl15', label:'Journal kilométrique (trajets logements)', checked:false, custom:false },
+    { id:'cl16', label:'Reçus dépenses véhicule (carburant, assurance, entretien)', checked:false, custom:false },
+    { id:'cl17', label:'Rapport préparé par comptable', checked:false, custom:false },
+    { id:'cl18', label:'Déclaration fédérale T1 soumise à l\'ARC', checked:false, custom:false },
+    { id:'cl19', label:'Déclaration provinciale TP-1 soumise à Revenu Québec', checked:false, custom:false },
+  ]
+}
+
+function getChecklist() {
+  if (!state.checklist) state.checklist = getDefaultChecklist()
+  return state.checklist
+}
+
+let _checklistEditIdx = -1
+
+function renderChecklist() {
+  const items = getChecklist()
+  const done = items.filter(i => i.checked).length
+  const pct = Math.round(done / items.length * 100)
+  let html = `<div style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:13px;font-weight:600">${done}/${items.length} complété${done !== 1 ? 's' : ''}</span>
+      <span style="font-size:13px;color:${pct===100?'var(--green)':'var(--text2)'}">
+        ${pct === 100 ? '🎉 Prêt pour la déclaration !' : pct + '%'}
+      </span>
+    </div>
+    <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:${pct===100?'var(--green)':'#5c6bc0'};transition:width .3s"></div>
+    </div>
+  </div>`
+
+  items.forEach((item, idx) => {
+    const editing = _checklistEditIdx === idx
+    html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">`
+    if (!editing) {
+      html += `<input type="checkbox" ${item.checked ? 'checked' : ''} onchange="toggleChecklistItem(${idx})"
+        style="width:18px;height:18px;accent-color:#5c6bc0;flex-shrink:0">`
+      html += `<span style="flex:1;font-size:13px;${item.checked ? 'text-decoration:line-through;color:var(--text2)' : ''}">${item.label}</span>`
+      html += `<button onclick="editChecklistItem(${idx})" title="Modifier" style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:14px;padding:2px 4px;flex-shrink:0">✏️</button>`
+      html += `<button onclick="deleteChecklistItem(${idx})" title="Supprimer" style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:14px;padding:2px 4px;flex-shrink:0">✕</button>`
+    } else {
+      html += `<input type="text" id="checklist-edit-inp" value="${item.label.replace(/"/g,'&quot;')}"
+        class="inp" style="flex:1;font-size:13px;padding:4px 8px"
+        onkeydown="if(event.key==='Enter')saveChecklistEdit(${idx});if(event.key==='Escape')cancelChecklistEdit()">`
+      html += `<button onclick="saveChecklistEdit(${idx})" style="background:none;border:none;cursor:pointer;color:var(--green);font-size:18px;padding:2px 4px;flex-shrink:0">✓</button>`
+      html += `<button onclick="cancelChecklistEdit()" style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:16px;padding:2px 4px;flex-shrink:0">✕</button>`
+    }
+    html += `</div>`
+  })
+
+  html += `<div style="padding:12px 0">
+    <div style="display:flex;gap:8px">
+      <input type="text" class="inp" id="checklist-new-item" placeholder="Ajouter un élément…" style="flex:1">
+      <button class="btn btn-ghost btn-sm" onclick="addChecklistItem()" style="white-space:nowrap">+ Ajouter</button>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="resetChecklist()" style="margin-top:8px;width:100%;font-size:11px;color:var(--text2)">
+      ↺ Réinitialiser la liste par défaut
+    </button>
+  </div>`
+
+  document.getElementById('checklist-body').innerHTML = html
+  if (_checklistEditIdx >= 0) {
+    const inp = document.getElementById('checklist-edit-inp')
+    if (inp) { inp.focus(); inp.select() }
+  }
+}
+
+function editChecklistItem(idx) {
+  _checklistEditIdx = idx
+  renderChecklist()
+}
+
+function saveChecklistEdit(idx) {
+  const inp = document.getElementById('checklist-edit-inp')
+  const label = inp ? inp.value.trim() : ''
+  if (!label) return
+  const items = getChecklist()
+  items[idx].label = label
+  state.checklist = items
+  _checklistEditIdx = -1
+  save()
+  renderChecklist()
+}
+
+function cancelChecklistEdit() {
+  _checklistEditIdx = -1
+  renderChecklist()
+}
+
+function toggleChecklistItem(idx) {
+  const items = getChecklist()
+  items[idx].checked = !items[idx].checked
+  state.checklist = items
+  save()
+  renderChecklist()
+}
+
+function addChecklistItem() {
+  const inp = document.getElementById('checklist-new-item')
+  const label = inp.value.trim()
+  if (!label) return
+  const items = getChecklist()
+  items.push({ id: 'cl_' + Date.now(), label, checked: false, custom: true })
+  state.checklist = items
+  inp.value = ''
+  save()
+  renderChecklist()
+}
+
+function deleteChecklistItem(idx) {
+  const items = getChecklist()
+  items.splice(idx, 1)
+  state.checklist = items
+  save()
+  renderChecklist()
+}
+
+function resetChecklist() {
+  if (!confirm('Réinitialiser la checklist ? Vos éléments personnalisés seront perdus.')) return
+  state.checklist = getDefaultChecklist()
+  save()
+  renderChecklist()
+}
+
+// ════════════════════════════════════════════════════════════
+// PDF REPORT — ACCOUNTANT
+// ════════════════════════════════════════════════════════════
+let jspdfLoaded = false
+
+async function loadJsPDF() {
+  if (window.jspdf) return
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+    s.onload = resolve
+    s.onerror = () => reject(new Error('Impossible de charger jsPDF'))
+    document.head.appendChild(s)
+  })
+}
+
+async function generatePDF() {
+  toast('⏳ Génération du rapport…')
+  try {
+    await loadJsPDF()
+    const { jsPDF } = window.jspdf
+    const doc = new jsPDF({ unit:'mm', format:'letter' })
+    const W = 215.9
+    let y = 15
+    const lm = 15, rm = W - 15
+
+    const addTitle = (txt, size=14, color=[30,60,100]) => {
+      doc.setFontSize(size); doc.setTextColor(...color); doc.setFont(undefined,'bold')
+      doc.text(txt, lm, y); y += size * 0.45 + 3
+    }
+    const addLine = (label, val, indent=0) => {
+      doc.setFontSize(10); doc.setFont(undefined,'normal')
+      doc.setTextColor(60,60,60); doc.text(label, lm + indent, y)
+      doc.setTextColor(30,30,30); doc.setFont(undefined,'bold')
+      doc.text(val + ' $', rm, y, { align:'right' })
+      doc.setFont(undefined,'normal'); y += 5.5
+    }
+    const addSeparator = (color=[200,200,200]) => {
+      doc.setDrawColor(...color); doc.line(lm, y, rm, y); y += 4
+    }
+    const checkPage = () => { if (y > 260) { doc.addPage(); y = 15 } }
+
+    // HEADER
+    doc.setFillColor(30, 60, 100)
+    doc.rect(0, 0, W, 22, 'F')
+    doc.setTextColor(255,255,255); doc.setFontSize(16); doc.setFont(undefined,'bold')
+    doc.text(`Rapport fiscal ${activeYear}`, lm, 13)
+    doc.setFontSize(9); doc.setFont(undefined,'normal')
+    doc.text(`Généré le ${new Date().toLocaleDateString('fr-CA')} · ${state.settings.vehicleModel || ''}`, rm, 13, {align:'right'})
+    y = 32
+
+    // PROPERTIES
+    for (const propId of ['p1090', 'p470']) {
+      const prop = PROPS[propId]
+      checkPage()
+      addTitle(`🏠 ${prop.label}`, 12, [0,80,160])
+      addSeparator([0,120,220])
+
+      let totalRev = 0, totalDed = 0, totalCap = 0
+
+      prop.revenus.forEach(cat => {
+        const total = (state[propId].revenus[cat]||[]).reduce((s,v)=>s+(parseFloat(v)||0),0)
+        if (total) { addLine(cat, fmt(total), 4); totalRev += total }
+      })
+      if (totalRev) { doc.setFont(undefined,'bold'); addLine('Total revenus', fmt(totalRev)); addSeparator() }
+
+      prop.deductibles.forEach(cat => {
+        let total
+        if (cat === 'Frais de déplacement') {
+          total = Array.from({length:12},(_,i)=>getTripAmount(propId,i)).reduce((a,b)=>a+b,0)
+        } else {
+          total = (state[propId].deductibles[cat]||[]).reduce((s,v)=>s+(parseFloat(v)||0),0)
+        }
+        if (total) { addLine(cat, fmt(total), 4); totalDed += total }
+      })
+      if (totalDed) { doc.setFont(undefined,'bold'); addLine('Total dépenses déductibles', fmt(totalDed)); addSeparator() }
+
+      prop.capital.forEach(cat => {
+        const total = (state[propId].capital[cat]||[]).reduce((s,v)=>s+(parseFloat(v)||0),0)
+        if (total) { addLine(cat, fmt(total), 4); totalCap += total }
+      })
+      if (totalCap) { doc.setFont(undefined,'bold'); addLine('Total dépenses en capital', fmt(totalCap)); addSeparator() }
+
+      const net = totalRev - totalDed - totalCap
+      doc.setFontSize(11); doc.setFont(undefined,'bold')
+      doc.setTextColor(net >= 0 ? 0 : 200, net >= 0 ? 130 : 0, 0)
+      doc.text(`Bénéfice net : ${fmt(net)} $`, lm, y); y += 8
+      doc.setTextColor(60,60,60)
+      checkPage()
+    }
+
+    // RIDESHARE
+    checkPage()
+    addTitle('🚕 Revenus rideshare', 12, [180,60,0])
+    addSeparator([220,100,0])
+    const u = state.uber || {}
+    const uberNet = (parseFloat(u.rides_gross)||0) - (parseFloat(u.booking_fee)||0)
+    const lyftTotal = Object.keys(state.lyft||{}).reduce((s,mk)=>{
+      const m = state.lyft[mk]
+      return s + (parseFloat(m.taxable)||0) + (parseFloat(m.bonuses)||0) + (parseFloat(m.tips)||0)
+    }, 0)
+    if (uberNet) addLine('Uber — revenu net', fmt(uberNet), 4)
+    if (lyftTotal) addLine('Lyft — revenu taxable total', fmt(lyftTotal), 4)
+    addSeparator()
+    doc.setFont(undefined,'bold'); addLine('Total rideshare', fmt(uberNet + lyftTotal))
+
+    // VEHICLE
+    checkPage()
+    addTitle('🚗 Véhicule — ' + (state.settings.vehicleModel||''), 12, [60,60,60])
+    addSeparator()
+    const VEH = ['Frais de plaque / immatriculation','Frais de carburant (total annuel)','Frais d\'assurance','Frais de permis de conduire','Changement d\'huile','Achat et changement de pneus','Frais de réparation','Autres réparations / accessoires']
+    let totalVeh = 0
+    VEH.forEach(cat => {
+      const v = parseFloat((state.vehicule||{}).depenses?.[cat]) || 0
+      if (v) { addLine(cat, fmt(v), 4); totalVeh += v }
+    })
+    doc.setFont(undefined,'bold'); addLine('Total dépenses véhicule', fmt(totalVeh))
+    y += 4
+
+    // FOOTER
+    doc.setFontSize(8); doc.setTextColor(150,150,150); doc.setFont(undefined,'normal')
+    const pages = doc.getNumberOfPages()
+    for (let i = 1; i <= pages; i++) {
+      doc.setPage(i)
+      doc.text(`Page ${i}/${pages} · Rapport fiscal ${activeYear} · Eric FEZEU`, W/2, 200, {align:'center'})
+    }
+
+    doc.save(`Rapport_fiscal_${activeYear}.pdf`)
+    toast('✅ Rapport PDF généré !')
+  } catch(e) {
+    toast('❌ Erreur PDF : ' + e.message)
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// RECEIPT PHOTOS
+// ════════════════════════════════════════════════════════════
+let activeReceiptKey = null
+
+function openReceiptCamera(key) {
+  activeReceiptKey = key
+  document.getElementById('receipt-camera').value = ''
+  document.getElementById('receipt-camera').click()
+}
+
+function handleReceiptPhoto(event) {
+  const file = event.target.files[0]
+  if (!file || !activeReceiptKey) return
+  const reader = new FileReader()
+  reader.onload = e => {
+    compressImage(e.target.result, 800, dataUrl => {
+      if (!state.receipts) state.receipts = {}
+      state.receipts[activeReceiptKey] = dataUrl
+      save()
+      if (currentTab === 'property') renderProperty()
+      toast('✅ Reçu enregistré')
+    })
+  }
+  reader.readAsDataURL(file)
+}
+
+function compressImage(dataUrl, maxPx, cb) {
+  const img = new Image()
+  img.onload = () => {
+    const scale = Math.min(1, maxPx / Math.max(img.width, img.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = img.width * scale; canvas.height = img.height * scale
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+    cb(canvas.toDataURL('image/jpeg', 0.75))
+  }
+  img.src = dataUrl
+}
+
+// ── NOTES ────────────────────────────────────────────────────
+let activeNoteKey = null
+
+function openNoteSheet(key, catLabel) {
+  activeNoteKey = key
+  if (!state.notes) state.notes = {}
+  const existing = state.notes[key] || ''
+  document.getElementById('note-sheet-title').textContent = '✏️ Note — ' + catLabel
+  document.getElementById('note-textarea').value = existing
+  document.getElementById('note-delete-btn').style.display = existing ? 'block' : 'none'
+  document.getElementById('note-overlay').classList.add('open')
+  document.getElementById('note-sheet').classList.add('open')
+  setTimeout(() => document.getElementById('note-textarea').focus(), 300)
+}
+
+function closeNoteSheet() {
+  document.getElementById('note-overlay').classList.remove('open')
+  document.getElementById('note-sheet').classList.remove('open')
+  activeNoteKey = null
+}
+
+function saveNote() {
+  if (!activeNoteKey) return
+  const text = document.getElementById('note-textarea').value.trim()
+  if (!state.notes) state.notes = {}
+  if (text) {
+    state.notes[activeNoteKey] = text
+  } else {
+    delete state.notes[activeNoteKey]
+  }
+  save()
+  closeNoteSheet()
+  if (currentTab === 'property') renderProperty()
+}
+
+function deleteNote() {
+  if (!activeNoteKey || !state.notes) return
+  delete state.notes[activeNoteKey]
+  save()
+  closeNoteSheet()
+  if (currentTab === 'property') renderProperty()
+}
+
+// ── RECEIPTS ─────────────────────────────────────────────────
+function viewReceipt(key) {
+  activeReceiptKey = key
+  const src = state.receipts && state.receipts[key]
+  if (!src) return
+  document.getElementById('receipt-modal-img').src = src
+  const modal = document.getElementById('receipt-modal')
+  modal.style.display = 'flex'
+}
+
+function closeReceiptModal() {
+  document.getElementById('receipt-modal').style.display = 'none'
+}
+
+function downloadReceipt() {
+  const src = activeReceiptKey && state.receipts && state.receipts[activeReceiptKey]
+  if (!src) return
+  const a = document.createElement('a')
+  a.href = src
+  a.download = `recu_${activeReceiptKey}_${activeYear}.jpg`
+  a.click()
+}
+
+function deleteReceipt() {
+  if (!activeReceiptKey || !state.receipts) return
+  delete state.receipts[activeReceiptKey]
+  save()
+  closeReceiptModal()
+  if (currentTab === 'property') renderProperty()
+  toast('🗑️ Reçu supprimé')
+}
+
+// ════════════════════════════════════════════════════════════
+// SERVICE WORKER
+// ════════════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {})
+}
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+function init() {
+  initTripForm()
+
+  document.getElementById('trip-property').addEventListener('change', updateTripPropertySelection)
+  document.getElementById('trip-km').addEventListener('input', updateKmPreview)
+
+  updateYearLabels()
+  renderHome()
+  initFirebase()
+}
+
+init()
+</script>
+</body>
+</html>
