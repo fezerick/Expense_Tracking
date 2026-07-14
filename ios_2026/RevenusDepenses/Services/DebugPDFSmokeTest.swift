@@ -13,14 +13,17 @@ enum DebugPDFSmokeTest {
         // Test d'import : PWA_IMPORT_JSON=<chemin d'un backup JSON webapp>.
         if let path = ProcessInfo.processInfo.environment["PWA_IMPORT_JSON"],
            let json = FileManager.default.contents(atPath: path) {
-            let report: String
+            var report: String
+            let before = DataService(context: context, year: 2026).properties()
+                .map { "\($0.propId) pct:\($0.ownershipPct)" }.joined(separator: " | ")
+            report = "avant: \(before)\n"
             do {
                 let year = try BackupService.restore(from: json, context: context, fallbackYear: 2026)
                 let data = DataService(context: context, year: year)
                 let props = data.properties()
-                    .map { "\($0.propId)=\($0.name) [\($0.kindCode)/\($0.subtypeCode)] rev:\($0.revenueCategories.count)" }
+                    .map { "\($0.propId)=\($0.name) [\($0.kindCode)/\($0.subtypeCode)] rev:\($0.revenueCategories.count) pct:\($0.ownershipPct) co:\($0.coOwners)" }
                     .joined(separator: " | ")
-                report = "OK année \(year)\nimmeubles: \(props)\n"
+                report += "OK année \(year)\nimmeubles: \(props)\n"
                     + "trajets: \(data.trips().count)\n"
                     + "revenus: \(data.totalRevenueAll())  dépenses: \(data.totalDeductibleAll())  capital: \(data.totalCapitalAll())\n"
                     + "uber rides_gross: \(data.uberValue("rides_gross"))  km_online: \(data.uberValue("km_online"))\n"
@@ -40,6 +43,8 @@ enum DebugPDFSmokeTest {
         let data = DataService(context: context, year: 2026)
         data.eraseYearData()
         seed(data: data, context: context)
+        // simctl terminate tue l'app sans autosave : on persiste explicitement.
+        try? context.save()
 
         let pdf = PDFReportGenerator.generate(data: data)
         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]

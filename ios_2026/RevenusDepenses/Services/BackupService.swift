@@ -235,19 +235,22 @@ struct BackupService {
         return snapshot.year
     }
 
+    /// pct/coOwners nil = information absente du fichier : un immeuble déjà
+    /// configuré garde son % de propriété (la sauvegarde webapp ne contient
+    /// pas ce champ — il ne doit pas être remis à 100 % à chaque restauration).
     private static func ensureLegacyProperty(_ def: AppConfig.PropertyDef, kind: PropertyKind,
-                                             subtype: String, pct: Double, coOwners: String,
+                                             subtype: String, pct: Double?, coOwners: String?,
                                              context: ModelContext, data: DataService) {
         if let existing = data.property(id: def.id) {
-            existing.ownershipPct = pct
-            existing.coOwners = coOwners
+            if let pct { existing.ownershipPct = pct }
+            if let coOwners { existing.coOwners = coOwners }
             return
         }
         let sortOrder = (data.properties().map(\.sortOrder).max() ?? -1) + 1
         context.insert(RentalProperty(
             propId: def.id, name: def.name, address: def.address,
             kind: kind, subtypeCode: subtype, oneWayKm: def.oneWayKm,
-            ownershipPct: pct, coOwners: coOwners,
+            ownershipPct: pct ?? 100, coOwners: coOwners ?? "",
             revenueCategories: def.revenueCategories,
             deductibleCategories: def.deductibleCategories,
             capitalCategories: def.capitalCategories,
@@ -288,7 +291,7 @@ struct BackupService {
             guard let bucket = state[def.id] as? [String: Any] else { continue }
             ensureLegacyProperty(def, kind: def.id == AppConfig.p470.id ? .plex : .appart,
                                  subtype: def.id == AppConfig.p470.id ? "triplex" : "colocation",
-                                 pct: 100, coOwners: "", context: context, data: data)
+                                 pct: nil, coOwners: nil, context: context, data: data)
 
             for (pwaSection, section) in sectionMap {
                 guard let cats = bucket[pwaSection] as? [String: Any] else { continue }

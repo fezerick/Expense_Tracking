@@ -267,7 +267,9 @@ struct PDFReportGenerator {
                          amount: data.sectionAnnualTotal(propertyId: prop.propId, section: .revenue), bold: true)
 
                 // --- Dépenses par ligne T776 ---
-                drawSectionTitle("Dépenses d'exploitation (part 100 %)", color: orange)
+                drawSectionTitle(pct < 100
+                    ? "Dépenses d'exploitation (montants à 100 % — votre part de \(AppConfig.percent(pct / 100)) appliquée au revenu net)"
+                    : "Dépenses d'exploitation (part 100 %)", color: orange)
                 var mapped = Set<String>()
                 for line in t776Lines {
                     let cats = prop.deductibleCategories.filter(line.match)

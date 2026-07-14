@@ -178,6 +178,14 @@ Toujours mettre à jour ce fichier avec les features implémentés et toute autr
   gestion ajout/édition/retrait dans Réglages) ; PWA : registre `setup.propsList` (localStorage, hors Firestore)
   avec migration automatique des 2 immeubles historiques et checklist générée dynamiquement.
 
+### ✅ Correctifs saisie % de propriété + import (2026-07-14)
+- **Champs numériques validés à chaque frappe** (`DecimalTextField`) : avant, taper « 50 » puis
+  Enregistrer/Continuer sans fermer le clavier sauvegardait l'ancienne valeur (TextField(value:format:)
+  ne validait qu'à la perte de focus). Touche tous les champs $ / km / %.
+- **Import JSON webapp ne réinitialise plus le % de propriété** : la sauvegarde webapp ne contient
+  pas ce champ ; un immeuble déjà configuré garde son % et ses copropriétaires à la restauration.
+- Rapport PDF : l'en-tête « Dépenses d'exploitation » précise la part appliquée quand < 100 %.
+
 ---
 
 ## À faire / prochaines étapes

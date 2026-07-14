@@ -32,6 +32,67 @@ struct SummaryCard: View {
     }
 }
 
+// MARK: - Saisie numérique validée à CHAQUE frappe
+// TextField(value:format:) ne pousse la valeur dans le binding qu'à la perte de
+// focus — avec le clavier décimal (sans touche Retour), taper « 50 » puis
+// appuyer sur « Enregistrer »/« Continuer » sauvegardait l'ancienne valeur.
+// DecimalTextField s'appuie sur une String et met le binding à jour en direct.
+
+private struct DecimalTextField: View {
+    let placeholder: String
+    @Binding var value: Double
+    let maxFractionDigits: Int
+    let width: CGFloat
+
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        TextField(placeholder, text: $text)
+            .keyboardType(.decimalPad)
+            .multilineTextAlignment(.trailing)
+            .frame(width: width)
+            .textFieldStyle(.roundedBorder)
+            .font(.subheadline.monospacedDigit())
+            .focused($focused)
+            .onAppear { text = Self.format(value, maxFractionDigits) }
+            .onChange(of: text) { _, newText in
+                guard focused else { return }
+                value = Self.parse(newText) ?? 0
+            }
+            .onChange(of: value) { _, newValue in
+                // Mise à jour externe (ex. clamp min/max, calcul auto) :
+                // ne réécrit pas le texte pendant la frappe sauf si divergent.
+                if !focused {
+                    text = Self.format(newValue, maxFractionDigits)
+                } else if Self.parse(text) ?? 0 != newValue {
+                    text = Self.format(newValue, maxFractionDigits)
+                }
+            }
+            .onChange(of: focused) { _, isFocused in
+                if !isFocused { text = Self.format(value, maxFractionDigits) }
+            }
+    }
+
+    /// Accepte la virgule (clavier fr) et le point.
+    private static func parse(_ s: String) -> Double? {
+        let cleaned = s.replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "\u{00A0}", with: "")
+            .replacingOccurrences(of: ",", with: ".")
+        return Double(cleaned)
+    }
+
+    private static func format(_ v: Double, _ maxFraction: Int) -> String {
+        guard v != 0 else { return "" }
+        let f = NumberFormatter()
+        f.locale = AppConfig.locale
+        f.numberStyle = .decimal
+        f.usesGroupingSeparator = false
+        f.maximumFractionDigits = maxFraction
+        return f.string(from: NSNumber(value: v)) ?? ""
+    }
+}
+
 // MARK: - Champ montant ($) avec clavier décimal et format fr_CA
 
 struct CurrencyField: View {
@@ -50,18 +111,14 @@ struct CurrencyField: View {
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
             } else {
-                TextField("0,00", value: $value, format: .number.precision(.fractionLength(0...2)))
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.trailing)
-                    .frame(width: 110)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.subheadline.monospacedDigit())
+                DecimalTextField(placeholder: "0,00", value: $value,
+                                 maxFractionDigits: 2, width: 110)
             }
         }
     }
 }
 
-// MARK: - Champ numérique générique (km, nombre de courses…)
+// MARK: - Champ numérique générique (km, %, nombre de courses…)
 
 struct NumberField: View {
     let title: String
@@ -74,12 +131,8 @@ struct NumberField: View {
                 .font(.subheadline)
                 .lineLimit(2)
             Spacer()
-            TextField("0", value: $value, format: .number.precision(.fractionLength(0...1)))
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing)
-                .frame(width: 100)
-                .textFieldStyle(.roundedBorder)
-                .font(.subheadline.monospacedDigit())
+            DecimalTextField(placeholder: "0", value: $value,
+                             maxFractionDigits: 1, width: 100)
             if !unit.isEmpty {
                 Text(unit)
                     .font(.caption)
