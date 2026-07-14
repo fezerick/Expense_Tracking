@@ -1,4 +1,4 @@
-const CACHE = 'depenses-2026-v1'
+const CACHE = 'depenses-2026-v2'
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./manifest.json'])))
