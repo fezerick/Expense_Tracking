@@ -482,11 +482,8 @@ html.theme-dark .onb-section{background:#1a222d}
         </div>
         <div class="field">
           <label>Propriété</label>
-          <select class="inp" id="trip-property">
-            <option value="p1090">🏠 1090 Oscar Benoît (55,4 km)</option>
-            <option value="p470">🏢 470 Rue Gélinas, Trois-Rivières (165 km)</option>
-            <option value="other">📍 Autre destination</option>
-          </select>
+          <!-- Options générées depuis la liste des immeubles configurés -->
+          <select class="inp" id="trip-property"></select>
         </div>
 
         <div class="field" id="custom-dest-field" style="display:none">
@@ -548,30 +545,14 @@ html.theme-dark .onb-section{background:#1a222d}
       <button onclick="tripMonthNext()">›</button>
     </div>
 
-    <div id="trips-p1090-card" class="card">
-      <div class="card-header blue">🏠 1090 Oscar Benoît</div>
-      <div id="trips-p1090-list"></div>
-      <div id="trips-p1090-total" style="padding:8px 12px;background:var(--light-blue);font-size:13px;font-weight:600;color:var(--dark)"></div>
-    </div>
-
-    <div id="trips-p470-card" class="card">
-      <div class="card-header dark">🏢 470 Rue Gélinas</div>
-      <div id="trips-p470-list"></div>
-      <div id="trips-p470-total" style="padding:8px 12px;background:var(--light-blue);font-size:13px;font-weight:600;color:var(--dark)"></div>
-    </div>
-
-    <div id="trips-other-card" class="card">
-      <div class="card-header" style="background:var(--text2)">📍 Autres destinations</div>
-      <div id="trips-other-list"></div>
-    </div>
+    <!-- Un groupe par immeuble configuré + « Autres destinations », générés dynamiquement -->
+    <div id="trips-groups"></div>
   </section>
 
   <!-- ══════════ TAB: LOGEMENTS ══════════ -->
   <section id="tab-property" class="tab-panel">
-    <div class="sub-tabs">
-      <button class="sub-tab active" id="subtab-p1090-btn" onclick="switchPropertyTab('p1090')">🏠 1090 Oscar Benoît</button>
-      <button class="sub-tab" id="subtab-p470-btn" onclick="switchPropertyTab('p470')">🏢 470 Gélinas</button>
-    </div>
+    <!-- Sous-onglets générés depuis la liste des immeubles configurés -->
+    <div class="sub-tabs" id="prop-subtabs"></div>
 
     <div class="month-nav">
       <button onclick="propMonthPrev()">‹</button>
@@ -878,6 +859,9 @@ html.theme-dark .onb-section{background:#1a222d}
         Masquer un module cache ses onglets sans effacer les données déjà saisies.
       </div>
       <button class="btn btn-ghost btn-sm btn-full" onclick="relaunchOnboarding()">🪄 Relancer l'assistant de configuration</button>
+      <button class="btn btn-ghost btn-sm btn-full" style="margin-top:6px"
+        onclick="const n = reconcilePropsFromState(); refreshAll(); toast(n ? '✅ ' + n + ' immeuble(s) récupéré(s)' : 'ℹ️ Aucune donnée orpheline')">
+        ♻️ Récupérer les immeubles depuis les données</button>
     </div>
     <hr>
     <button class="btn btn-danger btn-sm btn-full" onclick="clearAllData()">🗑️ Effacer toutes les données</button>
@@ -927,7 +911,9 @@ const MONTHS_FR    = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet'
 
 const HOME_ADDRESS = '505 rue du Muscat, Sainte-Marthe-sur-le-Lac, QC'
 
-const PROPS = {
+// Définitions historiques : servent à la migration et à la reconstruction
+// après import — la liste vivante est setup.propsList (voir plus bas).
+const LEGACY_PROPS = {
   p1090: {
     id: 'p1090', label: '1090 Oscar Benoît', shortLabel: '1090 Oscar Benoît',
     address: '1090 Oscar-Benoît, Pointe-aux-Trembles, Montréal, QC',
@@ -1176,10 +1162,8 @@ function defaultSetup() {
     done: false,
     theme: 'system',                       // system | light | dark
     modules: { trips: true, props: true, rideshare: true },
-    props: {
-      p1090: { on: true, name: '', pct: 100, coOwner: '' },
-      p470:  { on: true, name: '', pct: 100, coOwner: '' }
-    }
+    // Liste des immeubles configurés (null = pas encore migrée depuis LEGACY_PROPS).
+    propsList: null
   }
 }
 
@@ -1189,14 +1173,7 @@ let setup = (() => {
     if (s) {
       const parsed = JSON.parse(s)
       const d = defaultSetup()
-      return {
-        ...d, ...parsed,
-        modules: { ...d.modules, ...(parsed.modules || {}) },
-        props: {
-          p1090: { ...d.props.p1090, ...(parsed.props?.p1090 || {}) },
-          p470:  { ...d.props.p470,  ...(parsed.props?.p470  || {}) }
-        }
-      }
+      return { ...d, ...parsed, modules: { ...d.modules, ...(parsed.modules || {}) } }
     }
   } catch(e) {}
   return defaultSetup()
@@ -1206,20 +1183,112 @@ function saveSetup() {
   try { localStorage.setItem(SETUP_KEY, JSON.stringify(setup)) } catch(e) {}
 }
 
-function propName(id) {
-  return (setup.props[id]?.name || '').trim() || PROPS[id].label
+// ── Registre des immeubles (dynamique) ──
+// Chaque immeuble : { id, label, kind (maison|plex|appart), subtype,
+//   revenus:[unités éditables], deductibles:[], capital:[],
+//   address, distanceKm, pct, coOwners }
+const PROP_COLORS = ['#0070C0', '#1F3864', '#375623', '#7B3F00', '#AD1457', '#E65100']
+const PROP_ICONS = { maison: '🏠', plex: '🏢', appart: '🏬' }
+
+const STD_DEDUCTIBLES = [
+  'Taxes municipales', 'Taxe scolaire', 'Électricité',
+  'Chauffage (mazout / plan entretien)', 'Frais de condo', 'Frais de déneigement',
+  'Internet', 'Assurance habitation', "Système d'alarme", 'Frais de déplacement',
+  'Entretien / Réparations courantes', 'Honoraires professionnels (comptable, notaire)',
+  'Frais de gestion', 'Frais de bureau (papeterie, clés)', 'Publicité',
+  'Outils / Matériel', 'Intérêts sur hypothèque / frais bancaires',
+  'Autres dépenses déductibles'
+]
+
+function defaultCapital(units) {
+  const cats = units.length > 1
+    ? units.map(u => 'Rénovation / Amélioration — ' + u).concat(['Rénovation / Amélioration — Parties communes'])
+    : ['Rénovation / Amélioration majeure']
+  return cats.concat(['Remplacement équipements (chauffe-eau, fournaise)', 'Autres travaux majeurs'])
 }
 
-function propShortName(id) {
-  return (setup.props[id]?.name || '').trim() || PROPS[id].shortLabel
+function legacyToProp(p) {
+  // Reprend les réglages de l'ancien assistant (setup.props) s'ils existent.
+  const s = (setup.props && setup.props[p.id]) || {}
+  return {
+    id: p.id,
+    label: (s.name || '').trim() || p.label,
+    kind: p.id === 'p470' ? 'plex' : 'appart',
+    subtype: p.id === 'p470' ? 'triplex' : 'colocation',
+    revenus: [...p.revenus],
+    deductibles: [...p.deductibles],
+    capital: [...p.capital],
+    address: p.address,
+    distanceKm: p.distanceKm,
+    pct: s.pct ?? 100,
+    coOwners: s.coOwner || ''
+  }
 }
 
-function propActive(id) {
-  return setup.modules.props && setup.props[id]?.on !== false
+function ensurePropsList() {
+  if (Array.isArray(setup.propsList)) return
+  setup.propsList = Object.values(LEGACY_PROPS)
+    .filter(p => !setup.props || setup.props[p.id]?.on !== false)
+    .map(legacyToProp)
+  saveSetup()
 }
 
-function firstActivePropId() {
-  return ['p1090', 'p470'].find(propActive) || null
+function propsList() { ensurePropsList(); return setup.propsList }
+function activeProps() { return setup.modules.props ? propsList() : [] }
+function propById(id) { return propsList().find(p => p.id === id) || null }
+function propIcon(p) { return PROP_ICONS[p?.kind] || '🏠' }
+function propColor(id) {
+  const i = propsList().findIndex(p => p.id === id)
+  return PROP_COLORS[(i < 0 ? 0 : i) % PROP_COLORS.length]
+}
+function shortLabel(label) { return String(label).replace(/\s*\(.*\)$/, '') }
+function newPropId() { return 'prop_' + uid() }
+
+function propName(id) { return propById(id)?.label || id }
+function propShortName(id) { return shortLabel(propName(id)) }
+function firstActivePropId() { return activeProps()[0]?.id || null }
+
+/// Bucket de données d'un immeuble (créé au besoin pour les nouveaux ids).
+function ensurePropBucket(id) {
+  if (!state[id] || typeof state[id] !== 'object') state[id] = {}
+  ;['revenus', 'deductibles', 'capital'].forEach(s => { if (!state[id][s]) state[id][s] = {} })
+  if (!state.recurring) state.recurring = {}
+  if (!state.recurring[id]) state.recurring[id] = {}
+  return state[id]
+}
+
+/// Après un import JSON ou une récupération cloud : recrée les immeubles
+/// dont des données existent mais qui manquent à la configuration locale.
+function reconcilePropsFromState() {
+  ensurePropsList()
+  const reserved = ['settings', 'vehicule', 'uber', 'lyft', 'trips', 'recurring',
+                    'checklist', 'receipts', 'notes', 'version']
+  let added = 0
+  Object.keys(state).forEach(key => {
+    if (reserved.includes(key)) return
+    const v = state[key]
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return
+    if (!(v.revenus || v.deductibles || v.capital)) return
+    if (propById(key)) return
+    const hasData = ['revenus', 'deductibles', 'capital']
+      .some(s => Object.values(v[s] || {}).some(arr => (arr || []).some(x => parseFloat(x))))
+    if (!hasData) return
+    if (LEGACY_PROPS[key]) {
+      setup.propsList.push(legacyToProp(LEGACY_PROPS[key]))
+    } else {
+      const units = Object.keys(v.revenus || {})
+      setup.propsList.push({
+        id: key, label: 'Immeuble importé', kind: 'plex', subtype: 'autre',
+        revenus: units.length ? units : ['Logement 1'],
+        deductibles: Array.from(new Set(STD_DEDUCTIBLES.concat(Object.keys(v.deductibles || {})))),
+        capital: Object.keys(v.capital || {}).length ? Object.keys(v.capital) : defaultCapital(units),
+        address: '', distanceKm: 0, pct: 100, coOwners: ''
+      })
+    }
+    added++
+  })
+  if (added) { saveSetup(); applyModules() }
+  return added
 }
 
 // ── Thème clair / sombre ──
@@ -1258,22 +1327,11 @@ function applyModules() {
   const recentCard = document.getElementById('home-recent-trips')?.closest('.card')
   if (recentCard) recentCard.style.display = m.trips ? '' : 'none'
 
-  // Sous-onglets Logements : noms personnalisés + immeubles non suivis masqués.
-  const b1090 = document.getElementById('subtab-p1090-btn')
-  const b470 = document.getElementById('subtab-p470-btn')
-  if (b1090) { b1090.style.display = propActive('p1090') ? '' : 'none'; b1090.textContent = '🏠 ' + propShortName('p1090') }
-  if (b470) { b470.style.display = propActive('p470') ? '' : 'none'; b470.textContent = '🏢 ' + propShortName('p470') }
-  if (!propActive(activePropTab)) {
+  if (!propById(activePropTab)) {
     const first = firstActivePropId()
     if (first) activePropTab = first
   }
-
-  // En-têtes des groupes de trajets (noms personnalisés).
-  const h1090 = document.querySelector('#trips-p1090-card .card-header')
-  if (h1090) h1090.textContent = '🏠 ' + propShortName('p1090')
-  const h470 = document.querySelector('#trips-p470-card .card-header')
-  if (h470) h470.textContent = '🏢 ' + propShortName('p470')
-
+  renderPropSubtabs()
   refreshTripPropertyOptions()
 
   // Si l'onglet courant vient d'être masqué, retour à l'accueil.
@@ -1282,23 +1340,25 @@ function applyModules() {
       (currentTab === 'rideshare' && !m.rideshare)) showTab('home')
 }
 
+function renderPropSubtabs() {
+  const cont = document.getElementById('prop-subtabs')
+  if (!cont) return
+  const props = activeProps()
+  cont.style.display = props.length > 1 ? '' : 'none'
+  cont.innerHTML = props.map(p => `
+    <button class="sub-tab ${p.id === activePropTab ? 'active' : ''}"
+      onclick="switchPropertyTab('${p.id}')">${propIcon(p)} ${onbEsc(shortLabel(p.label))}</button>`).join('')
+}
+
 function refreshTripPropertyOptions() {
   const sel = document.getElementById('trip-property')
   if (!sel) return
-  const icons = { p1090: '🏠', p470: '🏢' }
-  ;['p1090', 'p470'].forEach(id => {
-    const opt = sel.querySelector(`option[value="${id}"]`)
-    if (!opt) return
-    const active = propActive(id)
-    opt.hidden = !active
-    opt.disabled = !active
-    opt.textContent = `${icons[id]} ${propName(id)} (${fmt(PROPS[id].distanceKm, 1)} km)`
-  })
   const cur = sel.value
-  if ((cur === 'p1090' || cur === 'p470') && !propActive(cur)) {
-    sel.value = firstActivePropId() || 'other'
-    updateTripPropertySelection()
-  }
+  sel.innerHTML = activeProps().map(p =>
+    `<option value="${p.id}">${propIcon(p)} ${onbEsc(p.label)} (${fmt(p.distanceKm, 1)} km)</option>`
+  ).join('') + '<option value="other">📍 Autre destination</option>'
+  sel.value = (cur === 'other' || propById(cur)) ? cur : (firstActivePropId() || 'other')
+  updateTripPropertySelection()
 }
 
 // ── Assistant de configuration (onboarding) ──
@@ -1307,15 +1367,43 @@ let onbStep = 0
 
 const onbEsc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 
+const ONB_KINDS = {
+  maison: { label: 'Maison', subtypes: [['unifamiliale', 'Unifamiliale', 1], ['jumelee', 'Jumelée', 1], ['rangee', 'En rangée', 1]] },
+  plex:   { label: 'Plex', subtypes: [['duplex', 'Duplex', 2], ['triplex', 'Triplex', 3], ['quadruplex', 'Quadruplex', 4], ['autre', 'Autre', null]] },
+  appart: { label: 'Appartement / Condo', subtypes: [['entier', 'Loué en entier', 1], ['colocation', 'Colocation', null]] }
+}
+
+function onbDefaultUnits(kind, count) {
+  if (kind === 'maison') return ['Loyer']
+  if (kind === 'appart') return count <= 1 ? ['Loyer'] : Array.from({length: count}, (_, i) => 'Coloc ' + (i + 1))
+  return count <= 1 ? ['Logement 1'] : Array.from({length: count}, (_, i) => 'Logement ' + (i + 1))
+}
+
+function onbNewDraft() {
+  return { id: null, kind: 'maison', subtype: 'unifamiliale', units: ['Loyer'],
+           label: '', address: '', distanceKm: 0, pct: 100, coOwners: '' }
+}
+
+function onbDraftFromProp(p) {
+  return { id: p.id, kind: p.kind || 'plex', subtype: p.subtype || 'autre',
+           units: [...p.revenus], label: p.label, address: p.address || '',
+           distanceKm: p.distanceKm || 0, pct: p.pct ?? 100, coOwners: p.coOwners || '' }
+}
+
+// Étapes dynamiques : un module désactivé ne pose aucune question.
 function onbSteps() {
   const list = ['modules']
   if (onb.trips || onb.rideshare) list.push('vehicle')
-  if (onb.props) list.push('buildings')
+  if (onb.props) {
+    list.push('propcount')
+    onb.drafts.forEach((_, i) => list.push('prop-' + i))
+  }
   list.push('final')
   return list
 }
 
 function startOnboarding() {
+  ensurePropsList()
   onb = {
     trips: setup.modules.trips,
     props: setup.modules.props,
@@ -1324,10 +1412,7 @@ function startOnboarding() {
     rate: state.settings.mileageRate || 0.72,
     kmTotal: state.settings.kmTotalAnnuel || 22000,
     theme: setup.theme,
-    p: {
-      p1090: { ...setup.props.p1090 },
-      p470:  { ...setup.props.p470 }
-    }
+    drafts: propsList().length ? propsList().map(onbDraftFromProp) : [onbNewDraft()]
   }
   onbStep = 0
   renderOnb()
@@ -1335,7 +1420,50 @@ function startOnboarding() {
 }
 
 function onbSet(key, val) { onb[key] = val }
-function onbSetProp(id, key, val) { onb.p[id][key] = val }
+function onbSetDraft(i, key, val) { if (onb.drafts[i]) onb.drafts[i][key] = val }
+function onbSetUnit(i, j, val) { if (onb.drafts[i]) onb.drafts[i].units[j] = val }
+
+function onbSetKind(i, kind) {
+  const d = onb.drafts[i]; if (!d) return
+  d.kind = kind
+  d.subtype = ONB_KINDS[kind].subtypes[0][0]
+  const fixed = ONB_KINDS[kind].subtypes[0][2]
+  d.units = onbDefaultUnits(kind, fixed ?? 2)
+  renderOnb()
+}
+
+function onbSetSubtype(i, code) {
+  const d = onb.drafts[i]; if (!d) return
+  d.subtype = code
+  const fixed = (ONB_KINDS[d.kind].subtypes.find(s => s[0] === code) || [])[2]
+  // Régénère les noms par défaut pour le nouveau sous-type (l'utilisateur
+  // personnalise ensuite sur la même page).
+  d.units = onbDefaultUnits(d.kind, fixed ?? Math.max(2, d.units.length))
+  renderOnb()
+}
+
+function onbResizeUnits(i, count) {
+  const d = onb.drafts[i]; if (!d) return
+  const target = Math.max(1, Math.min(12, parseInt(count) || 1))
+  if (d.units.length > target) d.units = d.units.slice(0, target)
+  const defs = onbDefaultUnits(d.kind, target)
+  while (d.units.length < target) {
+    const idx = d.units.length
+    d.units.push(idx < defs.length ? defs[idx] : 'Unité ' + (idx + 1))
+  }
+}
+
+function onbSetPropCount(count) {
+  const target = Math.max(1, Math.min(10, parseInt(count) || 1))
+  while (onb.drafts.length > target) onb.drafts.pop()
+  while (onb.drafts.length < target) onb.drafts.push(onbNewDraft())
+  renderOnb()
+}
+
+function onbGoto(stepKey) {
+  const idx = onbSteps().indexOf(stepKey)
+  if (idx >= 0) { onbStep = idx; renderOnb(); document.getElementById('onb-overlay').scrollTop = 0 }
+}
 
 function renderOnb() {
   const steps = onbSteps()
@@ -1355,7 +1483,7 @@ function renderOnb() {
     body.innerHTML = `
       <div class="onb-title">Bienvenue 👋</div>
       <div class="onb-sub">Quelques questions pour n'afficher que les modules dont vous avez besoin,
-        selon ce que votre comptable demandera. Vous pourrez changer ces réponses à tout moment dans ⚙️ Réglages.</div>
+        selon ce que votre comptable demandera. Un module désactivé ne posera aucune question.</div>
       <div class="section-title">Que souhaitez-vous suivre ?</div>
       ${toggleRow('🚗', 'Déplacements en véhicule',
         "Journal de kilométrage avec montant automatique ($/km) — registre exigé par l'ARC et Revenu Québec.", 'trips')}
@@ -1385,52 +1513,119 @@ function renderOnb() {
             oninput="onbSet('kmTotal',this.value)">
         </div>
       </div>`
-  } else if (step === 'buildings') {
-    const propCard = id => {
-      const P = PROPS[id]
-      const o = onb.p[id]
-      const icon = id === 'p1090' ? '🏠' : '🏢'
-      return `
-      <div class="onb-section">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:${o.on ? '12px' : '0'}">
-          <div style="flex:1;font-weight:700;color:var(--text)">${icon} ${P.label}</div>
-          <label class="toggle"><input type="checkbox" ${o.on ? 'checked' : ''}
-            onchange="onbSetProp('${id}','on',this.checked);renderOnb()"><span class="toggle-slider"></span></label>
+  } else if (step === 'propcount') {
+    const preview = onb.drafts.map((d, i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:20px">${PROP_ICONS[d.kind] || '🏠'}</span>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">${onbEsc(d.label || 'Propriété ' + (i + 1))}</div>
+          <div style="font-size:11px;color:var(--text2)">${ONB_KINDS[d.kind].label} — ${d.units.length} unité(s)</div>
         </div>
-        ${o.on ? `
+      </div>`).join('')
+    body.innerHTML = `
+      <div class="onb-title">Vos propriétés 🏘️</div>
+      <div class="onb-sub">Combien de propriétés locatives possédez-vous ? Une page de configuration
+        s'affichera pour chacune (type, unités, adresse, % de propriété).</div>
+      <div class="onb-section">
+        <div class="field" style="margin-bottom:0">
+          <label>Nombre de propriétés</label>
+          <input type="number" class="inp" min="1" max="10" step="1" value="${onb.drafts.length}"
+            onchange="onbSetPropCount(this.value)">
+        </div>
+      </div>
+      <div class="onb-section">
+        <div class="section-title">Aperçu</div>
+        ${preview}
+      </div>`
+  } else if (step.startsWith('prop-')) {
+    const i = parseInt(step.slice(5))
+    const d = onb.drafts[i]
+    const kindBtn = (code, lbl) => `<button class="sub-tab ${d.kind === code ? 'active' : ''}"
+      onclick="onbSetKind(${i},'${code}')">${lbl}</button>`
+    const subtypeOpts = ONB_KINDS[d.kind].subtypes.map(([code, lbl]) =>
+      `<option value="${code}" ${d.subtype === code ? 'selected' : ''}>${lbl}</option>`).join('')
+    const fixed = (ONB_KINDS[d.kind].subtypes.find(s => s[0] === d.subtype) || [])[2]
+    const unitNoun = d.kind === 'appart' ? 'colocataires' : (d.kind === 'plex' ? 'logements' : 'unités')
+    const unitInputs = d.units.map((u, j) => `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:15px">${d.kind === 'appart' ? '👤' : '🚪'}</span>
+        <input type="text" class="inp" value="${onbEsc(u)}" placeholder="Unité ${j + 1}"
+          oninput="onbSetUnit(${i},${j},this.value)">
+      </div>`).join('')
+    body.innerHTML = `
+      <div class="onb-title">${PROP_ICONS[d.kind] || '🏠'} Propriété ${i + 1} / ${onb.drafts.length}</div>
+      <div class="onb-sub">Type de logement, unités et informations pour le T776 / TP-128.</div>
+      <div class="onb-section">
+        <div class="field">
+          <label>Type de logement</label>
+          <div class="sub-tabs" style="margin-bottom:0">
+            ${kindBtn('maison', 'Maison')}${kindBtn('plex', 'Plex')}${kindBtn('appart', 'Appart / Condo')}
+          </div>
+        </div>
+        <div class="field">
+          <label>Sous-type</label>
+          <select class="inp" onchange="onbSetSubtype(${i},this.value)">${subtypeOpts}</select>
+        </div>
+        ${fixed ? '' : `
+        <div class="field" style="margin-bottom:0">
+          <label>Nombre de ${unitNoun}</label>
+          <input type="number" class="inp" min="1" max="12" step="1" value="${d.units.length}"
+            onchange="onbResizeUnits(${i},this.value);renderOnb()">
+        </div>`}
+      </div>
+      <div class="onb-section">
+        <div class="section-title">${d.kind === 'appart' ? 'Colocataires' : 'Unités'} (noms éditables)</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px">
+          Ces noms deviennent les catégories de revenus — personnalisez-les librement (ex. nom du locataire).</div>
+        ${unitInputs}
+      </div>
+      <div class="onb-section">
         <div class="field">
           <label>Nom affiché</label>
-          <input type="text" class="inp" value="${onbEsc(o.name)}" placeholder="${onbEsc(P.label)}"
-            oninput="onbSetProp('${id}','name',this.value)">
+          <input type="text" class="inp" value="${onbEsc(d.label)}" placeholder="ex: 470 Rue Gélinas"
+            oninput="onbSetDraft(${i},'label',this.value)">
         </div>
         <div class="field">
-          <label>Votre % de propriété</label>
-          <input type="number" class="inp" min="0" max="100" step="1" value="${o.pct}"
-            oninput="onbSetProp('${id}','pct',Math.min(100,Math.max(0,parseFloat(this.value)||0)))">
+          <label>Adresse complète (figure sur le T776)</label>
+          <input type="text" class="inp" value="${onbEsc(d.address)}" placeholder="ex: 470 Rue Gélinas, Trois-Rivières, QC"
+            oninput="onbSetDraft(${i},'address',this.value)">
         </div>
         <div class="field" style="margin-bottom:0">
-          <label>Copropriétaire (vide si aucun)</label>
-          <input type="text" class="inp" value="${onbEsc(o.coOwner)}"
-            oninput="onbSetProp('${id}','coOwner',this.value)">
-        </div>` : `<div style="font-size:12px;color:var(--text2);margin-top:8px">Cet immeuble ne sera pas affiché.</div>`}
+          <label>Distance depuis le domicile — aller simple (km)</label>
+          <input type="number" class="inp" min="0" step="0.1" value="${d.distanceKm || ''}" placeholder="ex: 55.4"
+            oninput="onbSetDraft(${i},'distanceKm',this.value)">
+        </div>
+      </div>
+      <div class="onb-section">
+        <div class="field" style="margin-bottom:${(parseFloat(d.pct) || 100) < 100 ? '12px' : '0'}">
+          <label>Votre % de propriété</label>
+          <input type="number" class="inp" min="0" max="100" step="1" value="${d.pct}"
+            oninput="onbSetDraft(${i},'pct',Math.min(100,Math.max(0,parseFloat(this.value)||0)));if((parseFloat(this.value)||0)<100!==(${(parseFloat(d.pct)||100) < 100}))renderOnb()">
+        </div>
+        ${(parseFloat(d.pct) || 100) < 100 ? `
+        <div class="field" style="margin-bottom:0">
+          <label>Nom du/des copropriétaire(s)</label>
+          <input type="text" class="inp" value="${onbEsc(d.coOwners)}" placeholder="ex: Marie Tremblay"
+            oninput="onbSetDraft(${i},'coOwners',this.value)">
+        </div>` : ''}
       </div>`
-    }
-    body.innerHTML = `
-      <div class="onb-title">Vos immeubles 🏘️</div>
-      <div class="onb-sub">Le % de propriété et le nom du copropriétaire sont demandés par le comptable pour le formulaire T776 / TP-128.</div>
-      ${propCard('p1090')}${propCard('p470')}`
   } else {
     const themeBtn = (t, lbl) => `<button class="sub-tab ${onb.theme === t ? 'active' : ''}"
       onclick="onbSet('theme','${t}');renderOnb()">${lbl}</button>`
-    const sumRow = (lbl, val) => `
-      <div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);font-size:14px">
-        <span>${lbl}</span><span style="color:var(--text2);text-align:right">${val}</span>
+    const sumRow = (lbl, val, target) => `
+      <div onclick="onbGoto('${target}')" style="display:flex;justify-content:space-between;gap:12px;padding:9px 0;
+        border-bottom:1px solid var(--border);font-size:14px;cursor:pointer;align-items:center">
+        <span>${lbl}</span>
+        <span style="color:var(--text2);text-align:right;flex:1">${val}</span>
+        <span style="color:var(--border)">›</span>
       </div>`
-    const propsSummary = onb.props
-      ? (['p1090', 'p470'].filter(id => onb.p[id].on)
-          .map(id => (onb.p[id].name || '').trim() || PROPS[id].shortLabel)
-          .join(' • ') || 'Aucun immeuble')
-      : 'Masqué'
+    const propRows = onb.props
+      ? onb.drafts.map((d, i) => {
+          let v = `${ONB_KINDS[d.kind].label} · ${d.units.length} unité(s)`
+          if ((parseFloat(d.pct) || 100) < 100) v += ` · ${d.pct} %${d.coOwners ? ' avec ' + onbEsc(d.coOwners) : ''}`
+          return sumRow(`${PROP_ICONS[d.kind]} ${onbEsc(d.label || 'Propriété ' + (i + 1))}`, v, 'prop-' + i)
+        }).join('')
+      : sumRow('🏠 Logements locatifs', 'Masqué', 'modules')
     body.innerHTML = `
       <div class="onb-title">Apparence et résumé 🎨</div>
       <div class="onb-section">
@@ -1442,13 +1637,13 @@ function renderOnb() {
         </div>
       </div>
       <div class="onb-section">
-        <div class="section-title">Votre configuration</div>
-        ${sumRow('🚗 Déplacements', onb.trips ? 'Activé' : 'Masqué')}
-        ${sumRow('🏠 Logements locatifs', propsSummary)}
-        ${sumRow('🚕 Uber / Lyft', onb.rideshare ? 'Activé' : 'Masqué')}
+        <div class="section-title">Votre configuration — touchez une ligne pour la modifier</div>
+        ${sumRow('🚗 Déplacements', onb.trips ? 'Activé' : 'Masqué', 'modules')}
+        ${sumRow('🚕 Uber / Lyft', onb.rideshare ? 'Activé' : 'Masqué', 'modules')}
         ${(onb.trips || onb.rideshare)
-          ? sumRow('🚙 Véhicule', `${onbEsc(onb.vehicleModel)} — ${fmt(parseFloat(onb.rate) || 0)} $/km`)
+          ? sumRow('🚙 Véhicule', `${onbEsc(onb.vehicleModel)} — ${fmt(parseFloat(onb.rate) || 0)} $/km`, 'vehicle')
           : ''}
+        ${propRows}
       </div>`
   }
 
@@ -1469,7 +1664,7 @@ function onbNext() {
 }
 
 function onbPrev() {
-  if (onbStep > 0) { onbStep--; renderOnb() }
+  if (onbStep > 0) { onbStep--; renderOnb(); document.getElementById('onb-overlay').scrollTop = 0 }
 }
 
 function onbSkip() {
@@ -1479,18 +1674,64 @@ function onbSkip() {
   document.getElementById('onb-overlay').classList.remove('open')
 }
 
-function finishOnboarding() {
-  setup.modules = { trips: !!onb.trips, props: !!onb.props, rideshare: !!onb.rideshare }
-  ;['p1090', 'p470'].forEach(id => {
-    const o = onb.p[id]
-    const name = (o.name || '').trim()
-    setup.props[id] = {
-      on: !!o.on,
-      name: name === PROPS[id].label ? '' : name,
-      pct: Math.min(100, Math.max(0, parseFloat(o.pct) || 0)),
-      coOwner: (o.coOwner || '').trim()
+function clampPct(v) { return Math.min(100, Math.max(0, parseFloat(v) || 0)) || 100 }
+
+function renameBucketKey(obj, oldKey, newKey) {
+  if (obj && obj[oldKey] !== undefined && obj[newKey] === undefined) {
+    obj[newKey] = obj[oldKey]
+    delete obj[oldKey]
+  }
+}
+
+/// Applique les brouillons de l'assistant : crée / met à jour / retire les
+/// immeubles. Les renommages d'unités déplacent les montants déjà saisis.
+function applyPropDrafts() {
+  ensurePropsList()
+  const oldList = propsList()
+  const newList = []
+  onb.drafts.forEach((d, i) => {
+    const existing = d.id ? oldList.find(p => p.id === d.id) : null
+    const pct = clampPct(d.pct)
+    if (existing) {
+      const bucket = ensurePropBucket(existing.id)
+      const oldUnits = existing.revenus
+      let capital = [...existing.capital]
+      d.units.forEach((n, j) => {
+        const o = oldUnits[j]
+        if (o && o !== n) {
+          renameBucketKey(bucket.revenus, o, n)
+          const oc = 'Rénovation / Amélioration — ' + o
+          const nc = 'Rénovation / Amélioration — ' + n
+          renameBucketKey(bucket.capital, oc, nc)
+          capital = capital.map(c => c === oc ? nc : c)
+        }
+      })
+      if (d.units.length > oldUnits.length) {
+        const adds = d.units.slice(oldUnits.length).map(n => 'Rénovation / Amélioration — ' + n)
+        const at = capital.findIndex(c => c.startsWith('Remplacement équipements'))
+        capital.splice(at < 0 ? capital.length : at, 0, ...adds)
+      }
+      newList.push({ ...existing, label: (d.label || '').trim() || existing.label,
+        kind: d.kind, subtype: d.subtype, revenus: [...d.units], capital,
+        address: d.address || '', distanceKm: parseFloat(d.distanceKm) || 0,
+        pct, coOwners: pct < 100 ? (d.coOwners || '') : '' })
+    } else {
+      const id = newPropId()
+      ensurePropBucket(id)
+      newList.push({ id, label: (d.label || '').trim() || ('Immeuble ' + (i + 1)),
+        kind: d.kind, subtype: d.subtype, revenus: [...d.units],
+        deductibles: [...STD_DEDUCTIBLES], capital: defaultCapital(d.units),
+        address: d.address || '', distanceKm: parseFloat(d.distanceKm) || 0,
+        pct, coOwners: pct < 100 ? (d.coOwners || '') : '' })
     }
   })
+  setup.propsList = newList
+  if (!propById(activePropTab)) activePropTab = newList[0]?.id || activePropTab
+}
+
+function finishOnboarding() {
+  setup.modules = { trips: !!onb.trips, props: !!onb.props, rideshare: !!onb.rideshare }
+  if (onb.props) applyPropDrafts()
   setup.theme = onb.theme
   setup.done = true
   saveSetup()
@@ -1499,8 +1740,8 @@ function finishOnboarding() {
     state.settings.vehicleModel = onb.vehicleModel
     state.settings.mileageRate = parseFloat(onb.rate) || 0.72
     state.settings.kmTotalAnnuel = parseFloat(onb.kmTotal) || 0
-    save()
   }
+  save()
 
   document.getElementById('onb-overlay').classList.remove('open')
   applyTheme()
@@ -1532,6 +1773,7 @@ function getMonthlyVal(propId, section, cat, mi) {
 }
 
 function setMonthlyVal(propId, section, cat, mi, val) {
+  ensurePropBucket(propId)
   if (!state[propId][section][cat]) state[propId][section][cat] = Array(12).fill('')
   state[propId][section][cat][mi] = val
   autoSave()
@@ -1648,13 +1890,13 @@ function renderRecentTrips() {
 }
 
 function tripItemHTML(t) {
-  const prop = PROPS[t.property]
-  const label = prop ? prop.shortLabel : (t.customDest || 'Autre')
-  const dotClass = t.property || 'other'
+  const prop = propById(t.property)
+  const label = prop ? shortLabel(prop.label) : (t.customDest || 'Autre')
+  const dotColor = prop ? propColor(t.property) : 'var(--text2)'
   const money = (parseFloat(t.km)||0) * rate()
   return `
     <div class="trip-item">
-      <div class="trip-dot ${dotClass}"></div>
+      <div class="trip-dot" style="background:${dotColor}"></div>
       <div class="trip-info">
         <div class="trip-date">${fmtDate(t.date)}</div>
         <div class="trip-label">${label}</div>
@@ -1692,7 +1934,7 @@ function updateTripPropertySelection() {
     tripFormMonth = null
   } else {
     customField.style.display = 'none'
-    const baseKm = PROPS[propSel].distanceKm
+    const baseKm = propById(propSel)?.distanceKm || 0
     tripFormMonth = baseKm
     kmInp.value = roundTrip ? (baseKm * 2).toFixed(1) : baseKm.toFixed(1)
   }
@@ -1703,7 +1945,7 @@ function updateTripKm() {
   const propSel = document.getElementById('trip-property').value
   const roundTrip = document.getElementById('trip-roundtrip').checked
   if (propSel !== 'other' && tripFormMonth != null) {
-    const baseKm = PROPS[propSel].distanceKm
+    const baseKm = propById(propSel)?.distanceKm || 0
     document.getElementById('trip-km').value = roundTrip ? (baseKm * 2).toFixed(1) : baseKm.toFixed(1)
   }
   updateKmPreview()
@@ -1834,36 +2076,30 @@ function renderTrips() {
   document.getElementById('trips-month-total').textContent =
     `${tripsActive.length} trajet${tripsActive.length!==1?'s':''} · ${fmt(totalKm,1)} km · ${fmt(totalMoney)} $`
 
-  renderTripGroup('p1090', tripsActive)
-  renderTripGroup('p470', tripsActive)
-
-  const others = tripsActive.filter(t => !PROPS[t.property])
-  const othCard = document.getElementById('trips-other-card')
-  if (others.length) {
-    othCard.style.display = ''
-    document.getElementById('trips-other-list').innerHTML = others.map(t => tripItemHTML(t)).join('')
-  } else {
-    othCard.style.display = 'none'
-  }
+  // Un groupe par immeuble configuré + « Autres » (destinations personnalisées
+  // et trajets vers des immeubles retirés — jamais masqués).
+  const groups = activeProps().map(p => tripGroupHTML(
+    `${propIcon(p)} ${onbEsc(shortLabel(p.label))}`, propColor(p.id),
+    tripsActive.filter(t => t.property === p.id), true))
+  const others = tripsActive.filter(t => !propById(t.property))
+  groups.push(tripGroupHTML('📍 Autres destinations', 'var(--text2)', others, false))
+  document.getElementById('trips-groups').innerHTML = groups.join('')
 }
 
-function renderTripGroup(propId, allTrips) {
-  const prop = PROPS[propId]
-  const trips = allTrips.filter(t => t.property === propId)
+function tripGroupHTML(title, color, trips, alwaysShow) {
+  if (!trips.length && !alwaysShow) return ''
   const totalKm = trips.reduce((s,t) => s+(parseFloat(t.km)||0), 0)
-  const totalMoney = totalKm * rate()
-  const listEl = document.getElementById(`trips-${propId}-list`)
-  const totEl  = document.getElementById(`trips-${propId}-total`)
-  const card   = document.getElementById(`trips-${propId}-card`)
-
-  if (!trips.length) {
-    listEl.innerHTML = '<div class="empty-state" style="padding:14px"><small>Aucun trajet ce mois-ci</small></div>'
-    totEl.textContent = ''
-    card.style.display = ''
-    return
-  }
-  listEl.innerHTML = trips.sort((a,b) => b.date.localeCompare(a.date)).map(t => tripItemHTML(t)).join('')
-  totEl.textContent = `${trips.length} trajet${trips.length!==1?'s':''} · ${fmt(totalKm,1)} km · ${fmt(totalMoney)} $`
+  const list = trips.length
+    ? trips.sort((a,b) => b.date.localeCompare(a.date)).map(t => tripItemHTML(t)).join('')
+    : '<div class="empty-state" style="padding:14px"><small>Aucun trajet ce mois-ci</small></div>'
+  const total = trips.length
+    ? `<div style="padding:8px 12px;background:var(--light-blue);font-size:13px;font-weight:600;color:var(--dark)">
+        ${trips.length} trajet${trips.length!==1?'s':''} · ${fmt(totalKm,1)} km · ${fmt(totalKm * rate())} $</div>`
+    : ''
+  return `<div class="card">
+    <div class="card-header" style="background:${color}">${title}</div>
+    ${list}${total}
+  </div>`
 }
 
 function tripMonthPrev() {
@@ -1884,8 +2120,7 @@ let propAnnualView = false
 
 function switchPropertyTab(propId) {
   activePropTab = propId
-  document.getElementById('subtab-p1090-btn').classList.toggle('active', propId === 'p1090')
-  document.getElementById('subtab-p470-btn').classList.toggle('active', propId === 'p470')
+  renderPropSubtabs()
   renderProperty()
 }
 
@@ -1910,7 +2145,16 @@ function toggleAnnualView() {
 function renderProperty() {
   const mi = propViewMonth
   const propId = activePropTab
-  const prop = PROPS[propId]
+  const prop = propById(propId)
+  if (!prop) {
+    document.getElementById('prop-content').innerHTML =
+      `<div class="empty-state"><div class="e-icon">🏘️</div>
+        <div>Aucun immeuble configuré.<br>Lancez l'assistant depuis ⚙️ Réglages pour décrire vos propriétés.</div></div>`
+    document.getElementById('prop-annual-content').innerHTML = ''
+    document.getElementById('prop-month-net').textContent = ''
+    return
+  }
+  ensurePropBucket(propId)
   document.getElementById('prop-month-label').textContent = MONTHS_FR[mi] + ' ' + activeYear
 
   const rev = prop.revenus.reduce((s,c) => s + getMonthlyVal(propId,'revenus',c,mi), 0)
@@ -1929,7 +2173,7 @@ function renderProperty() {
 }
 
 function renderPropertyMonthly(propId, mi) {
-  const prop = PROPS[propId]
+  const prop = propById(propId)
   let html = ''
 
   // REVENUS
@@ -2023,7 +2267,7 @@ function renderPropertyMonthly(propId, mi) {
 }
 
 function renderPropertyAnnual(propId) {
-  const prop = PROPS[propId]
+  const prop = propById(propId)
   let html = ''
 
   const buildAnnualTable = (title, cats, section, hdrClass) => {
@@ -2064,7 +2308,7 @@ function renderPropertyAnnual(propId) {
 function refreshNet() {
   if (!propAnnualView) {
     const propId = activePropTab
-    const prop = PROPS[propId]
+    const prop = propById(propId)
     const mi = propViewMonth
     const rev = prop.revenus.reduce((s,c) => s + getMonthlyVal(propId,'revenus',c,mi), 0)
     const dep = prop.deductibles.reduce((s,c) => {
@@ -2292,7 +2536,7 @@ function getLyftKmTotal() {
 
 function getRentalKmTotal() {
   return state.trips
-    .filter(t => yearOf(t.date) === activeYear && PROPS[t.property])
+    .filter(t => yearOf(t.date) === activeYear && propById(t.property))
     .reduce((s, t) => s + (parseFloat(t.km)||0), 0)
 }
 
@@ -2301,9 +2545,10 @@ function getRentalKmTotal() {
 // ════════════════════════════════════════════════════════════
 function totalRevAll() {
   let t = 0
-  ;['p1090','p470'].forEach(pId => {
-    PROPS[pId].revenus.forEach(cat => {
-      const d = state[pId].revenus[cat] || []
+  propsList().forEach(prop => {
+    const bucket = ensurePropBucket(prop.id)
+    prop.revenus.forEach(cat => {
+      const d = bucket.revenus[cat] || []
       t += d.reduce((s,v) => s+(parseFloat(v)||0), 0)
     })
   })
@@ -2312,13 +2557,14 @@ function totalRevAll() {
 
 function totalDepAll() {
   let t = 0
-  ;['p1090','p470'].forEach(pId => {
-    PROPS[pId].deductibles.forEach(cat => {
+  propsList().forEach(prop => {
+    const bucket = ensurePropBucket(prop.id)
+    prop.deductibles.forEach(cat => {
       if (cat === 'Frais de déplacement') {
-        for (let mi=0; mi<12; mi++) t += getTripAmount(pId, mi)
+        for (let mi=0; mi<12; mi++) t += getTripAmount(prop.id, mi)
         return
       }
-      const d = state[pId].deductibles[cat] || []
+      const d = bucket.deductibles[cat] || []
       t += d.reduce((s,v) => s+(parseFloat(v)||0), 0)
     })
   })
@@ -2332,7 +2578,9 @@ function totalDepAll() {
 }
 
 function propTotals(propId) {
-  const prop = PROPS[propId]
+  const prop = propById(propId)
+  if (!prop) return { rev: 0, dep: 0, cap: 0, net: 0 }
+  ensurePropBucket(propId)
   const rev = prop.revenus.reduce((s,c) => {
     const d = state[propId].revenus[c] || []
     return s + d.reduce((ss,v) => ss+(parseFloat(v)||0), 0)
@@ -2355,11 +2603,10 @@ function propTotals(propId) {
 // TAB: SOMMAIRE
 // ════════════════════════════════════════════════════════════
 function renderSummary() {
-  const t1090 = propTotals('p1090')
-  const t470  = propTotals('p470')
-  const totalRev = t1090.rev + t470.rev
-  const totalDep = t1090.dep + t470.dep
-  const totalCap = t1090.cap + t470.cap
+  const perProp = activeProps().map(p => ({ prop: p, t: propTotals(p.id) }))
+  const totalRev = perProp.reduce((s, x) => s + x.t.rev, 0)
+  const totalDep = perProp.reduce((s, x) => s + x.t.dep, 0)
+  const totalCap = perProp.reduce((s, x) => s + x.t.cap, 0)
 
   const kmTotal  = parseFloat(state.settings.kmTotalAnnuel) || 0
   const kmUber   = parseFloat(state.uber.km_online) || 0
@@ -2408,8 +2655,7 @@ function renderSummary() {
         <th style="text-align:right">Bénéfice</th>
       </tr></thead>
       <tbody>
-        ${mProps && propActive('p1090') ? summaryRow('🏠 ' + propShortName('p1090'), t1090.rev, t1090.dep, t1090.net) : ''}
-        ${mProps && propActive('p470') ? summaryRow('🏢 ' + propShortName('p470'), t470.rev, t470.dep, t470.net) : ''}
+        ${mProps ? perProp.map(x => summaryRow(propIcon(x.prop) + ' ' + onbEsc(shortLabel(x.prop.label)), x.t.rev, x.t.dep, x.t.net)).join('') : ''}
         ${mRide ? summaryRow('🟠 Uber — véhicule', '-', uberDed, '-', true) : ''}
         ${mRide ? summaryRow('💗 Lyft — véhicule', fmt(lyftNet)+' $', lyftDed, '-', true) : ''}
       </tbody>
@@ -2459,12 +2705,13 @@ function exportCSV() {
     })
   }
 
-  addSection('1090 - Revenus', 'p1090', 'revenus', PROPS.p1090.revenus)
-  addSection('1090 - Dépenses déductibles', 'p1090', 'deductibles', PROPS.p1090.deductibles)
-  addSection('1090 - Dépenses capital', 'p1090', 'capital', PROPS.p1090.capital)
-  addSection('470 - Revenus', 'p470', 'revenus', PROPS.p470.revenus)
-  addSection('470 - Dépenses déductibles', 'p470', 'deductibles', PROPS.p470.deductibles)
-  addSection('470 - Dépenses capital', 'p470', 'capital', PROPS.p470.capital)
+  activeProps().forEach(prop => {
+    ensurePropBucket(prop.id)
+    const base = shortLabel(prop.label)
+    addSection(base + ' - Revenus', prop.id, 'revenus', prop.revenus)
+    addSection(base + ' - Dépenses déductibles', prop.id, 'deductibles', prop.deductibles)
+    addSection(base + ' - Dépenses capital', prop.id, 'capital', prop.capital)
+  })
 
   // Trips
   state.trips.forEach(t => {
@@ -2509,9 +2756,10 @@ function handleImport(e) {
       const data = JSON.parse(ev.target.result)
       if (!confirm('Remplacer toutes les données actuelles par le fichier importé ?')) return
       state = Object.assign(defaultState(), data)
+      const rebuilt = reconcilePropsFromState()
       save()
       refreshAll()
-      toast('✅ Données restaurées depuis le fichier JSON')
+      toast('✅ Données restaurées' + (rebuilt ? ` — ${rebuilt} immeuble(s) reconstruit(s)` : ''))
     } catch(err) {
       toast('❌ Fichier JSON invalide')
     }
@@ -2911,6 +3159,7 @@ async function syncPull(manual = false) {
     const localReceipts = state.receipts || {}
     state = Object.assign(defaultState(), remote)
     state.receipts = localReceipts
+    reconcilePropsFromState()
     localStorage.setItem(storeKey(), JSON.stringify(state))
     lastSyncedAt = new Date()
     setSyncStatus('ok')
@@ -2954,9 +3203,8 @@ function saveSyncAuto(val) {
 // ════════════════════════════════════════════════════════════
 function showRecurringSheet() {
   const propId = activePropTab
-  const prop = PROPS[propId]
-  if (!state.recurring) state.recurring = { p1090: {}, p470: {} }
-  if (!state.recurring[propId]) state.recurring[propId] = {}
+  const prop = propById(propId)
+  ensurePropBucket(propId)
   const rec = state.recurring[propId]
   let html = ''
 
@@ -2995,7 +3243,7 @@ function showRecurringSheet() {
     </button>
   </div>`
 
-  document.getElementById('recurring-sheet-title').textContent = `⟳ Récurrents — ${prop.shortLabel}`
+  document.getElementById('recurring-sheet-title').textContent = `⟳ Récurrents — ${shortLabel(prop.label)}`
   document.getElementById('recurring-sheet-body').innerHTML = html
   document.getElementById('recurring-overlay').classList.add('open')
   requestAnimationFrame(() => document.getElementById('recurring-sheet').classList.add('open'))
@@ -3007,8 +3255,7 @@ function closeRecurringSheet() {
 }
 
 function setRecurring(propId, key, val) {
-  if (!state.recurring) state.recurring = { p1090: {}, p470: {} }
-  if (!state.recurring[propId]) state.recurring[propId] = {}
+  ensurePropBucket(propId)
   state.recurring[propId][key] = val
   autoSave()
 }
@@ -3029,7 +3276,7 @@ function applyRecurringAllMonths() {
 
 function _applyRecurring(months) {
   const propId = activePropTab
-  const prop = PROPS[propId]
+  const prop = propById(propId)
   const rec = (state.recurring || {})[propId] || {}
   let applied = 0
   months.forEach(mi => {
@@ -3057,28 +3304,32 @@ function _applyRecurring(months) {
 // ════════════════════════════════════════════════════════════
 // TAX DECLARATION CHECKLIST
 // ════════════════════════════════════════════════════════════
+// Checklist générée selon les modules et les immeubles configurés.
 function getDefaultChecklist() {
-  return [
-    { id:'cl1',  label:'Feuillets T4 / Relevé 1 (revenus d\'emploi)', checked:false, custom:false },
-    { id:'cl2',  label:'Rapport annuel Uber (PDF)', checked:false, custom:false },
-    { id:'cl3',  label:'Relevés mensuels Lyft (jan–déc)', checked:false, custom:false },
-    { id:'cl4',  label:'Acomptes provisionnels versés — ARC', checked:false, custom:false },
-    { id:'cl5',  label:'Acomptes provisionnels versés — Revenu Québec', checked:false, custom:false },
-    { id:'cl6',  label:'Formulaire T776 — État des loyers de biens immeubles', checked:false, custom:false },
-    { id:'cl7',  label:'Avis d\'imposition municipale — 1090 Oscar Benoît', checked:false, custom:false },
-    { id:'cl8',  label:'Avis d\'imposition municipale — 470 Gélinas', checked:false, custom:false },
-    { id:'cl9',  label:'Taxe scolaire — 1090 Oscar Benoît', checked:false, custom:false },
-    { id:'cl10', label:'Taxe scolaire — 470 Gélinas', checked:false, custom:false },
-    { id:'cl11', label:'Relevé annuel hypothèque (intérêts) — 1090', checked:false, custom:false },
-    { id:'cl12', label:'Relevé annuel hypothèque (intérêts) — 470', checked:false, custom:false },
-    { id:'cl13', label:'Relevés assurance habitation (2 propriétés)', checked:false, custom:false },
-    { id:'cl14', label:'Reçus réparations / entretien', checked:false, custom:false },
-    { id:'cl15', label:'Journal kilométrique (trajets logements)', checked:false, custom:false },
-    { id:'cl16', label:'Reçus dépenses véhicule (carburant, assurance, entretien)', checked:false, custom:false },
-    { id:'cl17', label:'Rapport préparé par comptable', checked:false, custom:false },
-    { id:'cl18', label:'Déclaration fédérale T1 soumise à l\'ARC', checked:false, custom:false },
-    { id:'cl19', label:'Déclaration provinciale TP-1 soumise à Revenu Québec', checked:false, custom:false },
-  ]
+  const labels = ['Feuillets T4 / Relevé 1 (revenus d\'emploi)']
+  if (setup.modules.rideshare) {
+    labels.push('Rapport annuel Uber (PDF)', 'Relevés mensuels Lyft (jan–déc)')
+  }
+  labels.push('Acomptes provisionnels versés — ARC', 'Acomptes provisionnels versés — Revenu Québec')
+  const props = activeProps()
+  if (props.length) {
+    labels.push('Formulaire T776 — État des loyers de biens immeubles')
+    props.forEach(p => {
+      const n = shortLabel(p.label)
+      labels.push(`Avis d'imposition municipale — ${n}`,
+                  `Taxe scolaire — ${n}`,
+                  `Relevé annuel hypothèque (intérêts) — ${n}`)
+    })
+    labels.push('Relevés assurance habitation', 'Reçus réparations / entretien')
+  }
+  if (setup.modules.trips) labels.push('Journal kilométrique (trajets)')
+  if (setup.modules.trips || setup.modules.rideshare) {
+    labels.push('Reçus dépenses véhicule (carburant, assurance, entretien)')
+  }
+  labels.push('Rapport préparé par comptable',
+              'Déclaration fédérale T1 soumise à l\'ARC',
+              'Déclaration provinciale TP-1 soumise à Revenu Québec')
+  return labels.map((label, i) => ({ id: 'cl' + (i + 1), label, checked: false, custom: false }))
 }
 
 function getChecklist() {
@@ -3249,8 +3500,9 @@ async function generatePDF() {
     y = 32
 
     // PROPERTIES
-    for (const propId of ['p1090', 'p470']) {
-      const prop = PROPS[propId]
+    for (const prop of activeProps()) {
+      const propId = prop.id
+      ensurePropBucket(propId)
       checkPage()
       addTitle(`🏠 ${prop.label}`, 12, [0,80,160])
       addSeparator([0,120,220])

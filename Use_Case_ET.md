@@ -160,6 +160,24 @@ Toujours mettre à jour ce fichier avec les features implémentés et toute autr
 - **Rollback** : dépôt git initialisé à la racine du projet. Revenir à l'état d'avant ces changements :
   `git checkout cbb35df -- ios_2026 pwa_2026` (ou `git revert` des commits suivants). Les données (localStorage, Firestore, SwiftData) ne sont pas dans git et ne sont jamais touchées par un rollback de code.
 
+### ✅ Propriétés dynamiques + assistant approfondi — iOS **et** PWA (2026-07-14)
+- **Nombre libre de propriétés** (1 à 10) : fini les 2 immeubles codés en dur.
+  Types : Maison (unifamiliale, jumelée, en rangée), Plex (duplex → quadruplex, autre), Appartement/Condo (entier ou colocation).
+- **Unités/colocataires éditables** : le type génère des catégories par défaut (Logement 1‑3, Coloc 1‑N…)
+  renommables librement (ex. nom du locataire) ; le renommage déplace les montants déjà saisis.
+- **Assistant** : étapes conditionnelles (module désactivé = aucune question), nombre de propriétés,
+  une page par immeuble (type, unités, nom, adresse, distance domicile, % de propriété, copropriétaires si < 100 %),
+  **résumé final cliquable** (chaque ligne ramène à sa section).
+- **Import JSON multi-format (iOS)** : sauvegarde iOS v2, iOS v1 et **sauvegarde JSON de la webapp**
+  (immeubles recréés automatiquement avec montants, trajets, Uber/Lyft, véhicule, notes, reçus, checklist).
+  Testé avec la vraie sauvegarde `Backup/Depenses_2026_backup.json` (dossier ignoré par git).
+- **Récupération de données orphelines** : si des montants existent sans immeuble configuré
+  (démarrage à zéro, immeuble retiré), un bouton les rattache en recréant l'immeuble
+  (iOS : bannière dans Logements ; PWA : bouton dans Réglages + reconstruction auto après import/sync).
+- iOS : nouveau modèle SwiftData `RentalProperty` + `PropertyEditorView` (partagé assistant/Réglages,
+  gestion ajout/édition/retrait dans Réglages) ; PWA : registre `setup.propsList` (localStorage, hors Firestore)
+  avec migration automatique des 2 immeubles historiques et checklist générée dynamiquement.
+
 ---
 
 ## À faire / prochaines étapes
