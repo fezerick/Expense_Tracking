@@ -186,6 +186,17 @@ Toujours mettre à jour ce fichier avec les features implémentés et toute autr
   pas ce champ ; un immeuble déjà configuré garde son % et ses copropriétaires à la restauration.
 - Rapport PDF : l'en-tête « Dépenses d'exploitation » précise la part appliquée quand < 100 %.
 
+### ✅ Parité webapp ↔ iOS : rapport comptable complet + import croisé (2026-07-14)
+- **Rapport PDF comptable de la webapp porté sur le modèle iOS** (jsPDF, 9 pages au lieu d'1) :
+  page titre + résumé global, une page T776/TP-128 par immeuble (lignes officielles 8141→9946,
+  part du copropriétaire), T2125 Uber + tableau Lyft mensuel, véhicule 2 méthodes, sommaire TPS/TVQ,
+  Annexe A (journal km avec sous-totaux mensuels), Annexe B (détail mensuel par immeuble),
+  Annexe C (notes + photos de reçus intégrées). Sections limitées aux modules actifs.
+- **Import croisé complet** : la webapp lit désormais les sauvegardes JSON de l'app iOS (v1 et v2) —
+  immeubles, montants, notes, reçus, trajets, Uber/Lyft, véhicule, checklist, avec bascule sur
+  l'année du fichier. (iOS lisait déjà les sauvegardes webapp.)
+- Déployé en production : https://suivi-depenses-7dc02.web.app (cache SW v3).
+
 ---
 
 ## À faire / prochaines étapes

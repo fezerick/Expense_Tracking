@@ -910,6 +910,7 @@ const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','O
 const MONTHS_FR    = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
 
 const HOME_ADDRESS = '505 rue du Muscat, Sainte-Marthe-sur-le-Lac, QC'
+const HOME_OWNER = 'Eric Fezeu'
 
 // Définitions historiques : servent à la migration et à la reconstruction
 // après import — la liste vivante est setup.propsList (voir plus bas).
@@ -2755,6 +2756,10 @@ function handleImport(e) {
     try {
       const data = JSON.parse(ev.target.result)
       if (!confirm('Remplacer toutes les données actuelles par le fichier importé ?')) return
+      if (data.appVersion && Array.isArray(data.entries)) {
+        importIOSBackup(data)   // sauvegarde de l'app iOS (v1/v2)
+        return
+      }
       state = Object.assign(defaultState(), data)
       const rebuilt = reconcilePropsFromState()
       save()
@@ -2766,6 +2771,89 @@ function handleImport(e) {
   }
   reader.readAsText(file)
   e.target.value = ''
+}
+
+/// Convertit une sauvegarde de l'app iOS (BackupService v1/v2) vers l'état webapp.
+/// L'année du fichier est respectée : les données sont écrites dans cette année
+/// fiscale puis l'app bascule dessus.
+function importIOSBackup(snap) {
+  const year = parseInt(snap.year) || activeYear
+  const sectionMap = { rev: 'revenus', ded: 'deductibles', cap: 'capital' }
+  const st = defaultState()
+  st.settings.mileageRate = parseFloat(snap.kmRate) || 0.72
+  st.settings.kmTotalAnnuel = parseFloat(snap.vehicleTotalKm) || 0
+  st.settings.vehicleModel = snap.vehicleModel || st.settings.vehicleModel
+
+  // Immeubles : v2 = liste complète ; v1 = les 2 immeubles historiques.
+  ensurePropsList()
+  if (Array.isArray(snap.properties)) {
+    setup.propsList = snap.properties
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+      .map(p => ({
+        id: p.propId, label: p.name, kind: p.kindCode || 'plex', subtype: p.subtypeCode || 'autre',
+        revenus: p.revenueCategories || [], deductibles: p.deductibleCategories || [],
+        capital: p.capitalCategories || [], address: p.address || '',
+        distanceKm: parseFloat(p.oneWayKm) || 0,
+        pct: parseFloat(p.ownershipPct) || 100, coOwners: p.coOwners || ''
+      }))
+  } else {
+    setup.propsList = Object.values(LEGACY_PROPS).map(legacyToProp)
+    const p1090 = setup.propsList.find(p => p.id === 'p1090')
+    const p470 = setup.propsList.find(p => p.id === 'p470')
+    if (p1090 && snap.ownershipPct1090 != null) { p1090.pct = snap.ownershipPct1090; p1090.coOwners = snap.coOwner1090 || '' }
+    if (p470 && snap.ownershipPct470 != null) { p470.pct = snap.ownershipPct470; p470.coOwners = snap.coOwner470 || '' }
+  }
+  saveSetup()
+
+  // Montants + notes + reçus.
+  ;(snap.entries || []).forEach(en => {
+    const section = sectionMap[en.section]
+    if (!section || en.category === 'Frais de déplacement') return
+    if (!st[en.propertyId]) st[en.propertyId] = { revenus: {}, deductibles: {}, capital: {} }
+    const bucket = st[en.propertyId]
+    if (!bucket[section]) bucket[section] = {}
+    if (!bucket[section][en.category]) bucket[section][en.category] = Array(12).fill('')
+    if (en.month >= 0 && en.month < 12) bucket[section][en.category][en.month] = en.amount || ''
+    const key = `${en.propertyId}_${section}_${en.category}_${en.month}`
+    if (en.note) st.notes[key] = en.note
+    if (en.receiptBase64) st.receipts[key] = 'data:image/jpeg;base64,' + en.receiptBase64
+  })
+
+  // Trajets (date ISO8601 → YYYY-MM-DD).
+  st.trips = (snap.trips || []).map(t => {
+    const date = String(t.date || '').slice(0, 10)
+    const known = setup.propsList.some(p => p.id === t.propertyId)
+    return { id: uid(), date, property: known ? t.propertyId : 'other',
+             reason: t.purpose || '', km: (parseFloat(t.km) || 0).toFixed(1),
+             roundTrip: t.roundTrip !== false,
+             customDest: known ? '' : (t.destinationLabel || '') }
+  }).filter(t => t.date)
+
+  Object.entries(snap.uber || {}).forEach(([k, v]) => { if (v) st.uber[k] = v })
+  ;(snap.lyft || []).forEach(m => {
+    if (m.month >= 0 && m.month < 12) {
+      st.lyft[m.month] = { taxable: m.taxable || '', bonuses: m.bonuses || '', tips: m.tips || '',
+                           fees: m.fees || '', km: m.km || '', courses: m.courses || '' }
+    }
+  })
+  Object.entries(snap.vehicle || {}).forEach(([cat, v]) => { if (v) st.vehicule.depenses[cat] = v })
+  if (Array.isArray(snap.checklist) && snap.checklist.length) {
+    st.checklist = [...snap.checklist]
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+      .map((c, i) => ({ id: 'cl' + (i + 1), label: c.label, checked: !!c.isDone, custom: false }))
+  }
+
+  localStorage.setItem(STORE_PREFIX + year, JSON.stringify(st))
+  if (year === activeYear) {
+    state = st
+    save()
+    applyModules()
+    refreshAll()
+  } else {
+    switchYear(year)
+    applyModules()
+  }
+  toast(`✅ Sauvegarde iOS restaurée (année ${year})`)
 }
 
 function clearAllData() {
@@ -3464,120 +3552,458 @@ async function loadJsPDF() {
   })
 }
 
+// Correspondance catégorie → ligne officielle du T776 (même mapping que l'app iOS).
+const T776_LINES = [
+  ['8521', 'Publicité', c => c.includes('Publicité')],
+  ['8690', 'Assurances', c => c.includes('Assurance')],
+  ['8710', 'Intérêts et frais bancaires', c => c.includes('Intérêts')],
+  ['8810', 'Frais de bureau', c => c.includes('Frais de bureau')],
+  ['8860', 'Honoraires professionnels', c => c.includes('Honoraires')],
+  ['8871', 'Frais de gestion et d\'administration', c => c.includes('Frais de gestion')],
+  ['8960', 'Entretien et réparations', c => c.includes('Entretien')],
+  ['9180', 'Impôts fonciers', c => c.includes('Taxes municipales') || c.includes('Taxe scolaire')],
+  ['9200', 'Frais de déplacement', c => c === 'Frais de déplacement'],
+  ['9220', 'Services publics', c => c.includes('Électricité') || c.includes('Chauffage')]
+]
+
+const UBER_GROUPS = [
+  ['Revenus', [['rides_gross','Tarifs bruts courses'],['green_surcharge','Surtaxe verte'],['booking_fee','Frais de réservation'],
+    ['mtq_dues','Droits MTQ'],['airport_fee','Frais d\'aéroport'],['tolls','Péages'],['tips_rides','Pourboires courses'],
+    ['gst_riders','TPS collectée des passagers'],['qst_riders','TVQ collectée des passagers']]],
+  ['Frais payés à Uber', [['service_fee','Frais de service Uber'],['other_fees','Autres frais Uber'],
+    ['fee_discount','Remise sur frais'],['gst_paid_uber','TPS payée à Uber'],['qst_paid_uber','TVQ payée à Uber']]],
+  ['Autres revenus', [['eats_gross','Tarif brut Uber Eats'],['eats_tips','Pourboires Uber Eats'],['other_income','Autres revenus']]]
+]
+
 async function generatePDF() {
   toast('⏳ Génération du rapport…')
   try {
     await loadJsPDF()
     const { jsPDF } = window.jspdf
     const doc = new jsPDF({ unit:'mm', format:'letter' })
-    const W = 215.9
-    let y = 15
-    const lm = 15, rm = W - 15
+    const W = 215.9, H = 279.4
+    const lm = 15, rm = W - 15, contentW = rm - lm
+    let y = 18
 
-    const addTitle = (txt, size=14, color=[30,60,100]) => {
-      doc.setFontSize(size); doc.setTextColor(...color); doc.setFont(undefined,'bold')
-      doc.text(txt, lm, y); y += size * 0.45 + 3
-    }
-    const addLine = (label, val, indent=0) => {
-      doc.setFontSize(10); doc.setFont(undefined,'normal')
-      doc.setTextColor(60,60,60); doc.text(label, lm + indent, y)
-      doc.setTextColor(30,30,30); doc.setFont(undefined,'bold')
-      doc.text(val + ' $', rm, y, { align:'right' })
-      doc.setFont(undefined,'normal'); y += 5.5
-    }
-    const addSeparator = (color=[200,200,200]) => {
-      doc.setDrawColor(...color); doc.line(lm, y, rm, y); y += 4
-    }
-    const checkPage = () => { if (y > 260) { doc.addPage(); y = 15 } }
+    const uv = k => parseFloat((state.uber || {})[k]) || 0
+    const mProps = setup.modules.props, mRide = setup.modules.rideshare, mTrips = setup.modules.trips
+    const props = activeProps()
+    const kmRate = rate()
+    const kmTotalAnnuel = parseFloat(state.settings.kmTotalAnnuel) || 0
 
-    // HEADER
-    doc.setFillColor(30, 60, 100)
-    doc.rect(0, 0, W, 22, 'F')
-    doc.setTextColor(255,255,255); doc.setFontSize(16); doc.setFont(undefined,'bold')
-    doc.text(`Rapport fiscal ${activeYear}`, lm, 13)
-    doc.setFontSize(9); doc.setFont(undefined,'normal')
-    doc.text(`Généré le ${new Date().toLocaleDateString('fr-CA')} · ${state.settings.vehicleModel || ''}`, rm, 13, {align:'right'})
-    y = 32
+    // ── Primitives (équivalent du générateur iOS) ──
+    const newPage = () => { doc.addPage(); y = 18 }
+    const ensure = (needed = 10) => { if (y + needed > H - 18) newPage() }
+    const text = (txt, size = 10.5, opts = {}) => {
+      const { color = [20,20,20], bold = false, italic = false, x = lm, spacing = 2.2 } = opts
+      doc.setFontSize(size)
+      doc.setTextColor(...color)
+      doc.setFont(undefined, bold ? 'bold' : (italic ? 'italic' : 'normal'))
+      const lines = doc.splitTextToSize(txt, rm - x)
+      ensure(lines.length * size * 0.42 + spacing)
+      doc.text(lines, x, y)
+      y += lines.length * size * 0.42 + spacing
+    }
+    const line = (label, amount, opts = {}) => {
+      const { bold = false, color = [20,20,20], indent = 3, size = 10 } = opts
+      ensure(6)
+      doc.setFontSize(size)
+      doc.setFont(undefined, bold ? 'bold' : 'normal')
+      doc.setTextColor(...color)
+      doc.text(doc.splitTextToSize(label, contentW - 40), lm + indent, y)
+      doc.text(fmt(amount) + ' $', rm, y, { align: 'right' })
+      y += 5.4
+    }
+    const separator = () => { ensure(4); doc.setDrawColor(190,190,190); doc.setLineWidth(0.15); doc.line(lm, y - 1.5, rm, y - 1.5); y += 2 }
+    const sectionTitle = (txt, color = [31,56,100]) => {
+      ensure(14); y += 2.5
+      text(txt, 12.5, { color, bold: true, spacing: 1.5 })
+      separator()
+    }
+    const note = txt => text(txt, 8, { color: [90,90,90], italic: true, spacing: 3 })
+    const tableRow = (cells, opts = {}) => {
+      // cells : [texte, largeur, aligné à droite ?]
+      const { bold = false, size = 7.5, fill = null } = opts
+      const rowH = size * 0.42 + 2.4
+      ensure(rowH)
+      if (fill) { doc.setFillColor(...fill); doc.rect(lm, y - rowH + 2, contentW, rowH, 'F') }
+      doc.setFontSize(size)
+      doc.setFont(undefined, bold ? 'bold' : 'normal')
+      doc.setTextColor(25,25,25)
+      let x = lm
+      cells.forEach(([t, w, right]) => {
+        let str = String(t)
+        while (doc.getTextWidth(str) > w - 2 && str.length > 1) str = str.slice(0, -2) + '…'
+        doc.text(str, right ? x + w - 1 : x + 1, y)
+        x += w
+      })
+      y += rowH
+    }
 
-    // PROPERTIES
-    for (const prop of activeProps()) {
+    const catAnnual = (propId, section, cat) => {
+      if (section === 'deductibles' && cat === 'Frais de déplacement') {
+        return Array.from({length:12}, (_, i) => getTripAmount(propId, i)).reduce((a, b) => a + b, 0)
+      }
+      const d = (ensurePropBucket(propId)[section] || {})[cat] || []
+      return d.reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
+    }
+    const catMonth = (propId, section, cat, mi) => {
+      if (section === 'deductibles' && cat === 'Frais de déplacement') return getTripAmount(propId, mi)
+      return getMonthlyVal(propId, section, cat, mi)
+    }
+
+    // ════════ 1. PAGE TITRE + RÉSUMÉ GLOBAL ════════
+    text(`Dossier fiscal ${activeYear}`, 20, { color: [31,56,100], bold: true, spacing: 1 })
+    const scope = []
+    if (props.length) scope.push('Revenus locatifs (T776 / TP-128)')
+    if (mRide) scope.push('travail autonome (T2125 / TP-80)')
+    if (!scope.length) scope.push('Journal de kilométrage')
+    text(scope.join(' et '), 10.5, { color: [90,90,90], spacing: 5 })
+
+    text(`Contribuable : ${HOME_OWNER || 'Eric Fezeu'}`, 10, { spacing: 1.5 })
+    text(`Adresse : ${HOME_ADDRESS}`, 10, { spacing: 1.5 })
+    if (mTrips || mRide) {
+      text(`Véhicule : ${state.settings.vehicleModel || ''} — ${fmt(kmTotalAnnuel, 1)} km parcourus dans l'année`, 10, { spacing: 1.5 })
+    }
+    text(`Rapport généré le ${new Date().toLocaleDateString('fr-CA')} — montants en dollars canadiens`, 8.5, { color: [120,120,120], spacing: 5 })
+
+    const perProp = props.map(p => ({ p, t: propTotals(p.id) }))
+    const totalRev = perProp.reduce((s, x) => s + x.t.rev, 0)
+    const totalDed = perProp.reduce((s, x) => s + x.t.dep, 0)
+    const totalCap = perProp.reduce((s, x) => s + x.t.cap, 0)
+    const kmUber = uv('km_online'), kmLyft = getLyftKmTotal(), kmRental = getRentalKmTotal()
+    const totalVeh = VEH_CATS.reduce((s, c) => s + (parseFloat((state.vehicule.depenses || {})[c]) || 0), 0)
+    const pctUber = kmTotalAnnuel > 0 ? kmUber / kmTotalAnnuel : 0
+    const pctLyft = kmTotalAnnuel > 0 ? kmLyft / kmTotalAnnuel : 0
+    const pctRental = kmTotalAnnuel > 0 ? kmRental / kmTotalAnnuel : 0
+    const dedUber = totalVeh * pctUber, dedLyft = totalVeh * pctLyft
+    const uberRevenue = UBER_GROUPS[0][1].filter(([k]) => !k.startsWith('gst') && !k.startsWith('qst')).reduce((s, [k]) => s + uv(k), 0)
+      + UBER_GROUPS[2][1].reduce((s, [k]) => s + uv(k), 0)
+    const uberFees = uv('service_fee') + uv('other_fees') - uv('fee_discount')
+    const uberNet = uberRevenue - uberFees
+    const lyftMonths = Object.keys(state.lyft || {}).map(k => ({ mi: parseInt(k), ...state.lyft[k] }))
+      .filter(m => ['taxable','bonuses','tips','fees','km'].some(f => parseFloat(m[f])))
+      .sort((a, b) => a.mi - b.mi)
+    const lyftTaxable = lyftMonths.reduce((s, m) => s + (parseFloat(m.taxable) || 0), 0)
+
+    sectionTitle('Résumé global')
+    if (props.length) {
+      line(props.length > 1 ? `Revenus locatifs bruts (${props.length} immeubles)` : 'Revenus locatifs bruts', totalRev)
+      line('Dépenses locatives déductibles', totalDed)
+      line('Bénéfice locatif net (avant part des copropriétaires)', totalRev - totalDed, { bold: true, color: [55,86,35] })
+      line('Dépenses en capital (DPA à évaluer par le comptable)', totalCap, { color: [123,63,0] })
+      y += 2
+    }
+    if (mTrips && !props.length) {
+      line('Frais de déplacement (journal de kilométrage, annexe A)',
+        state.trips.filter(t => yearOf(t.date) === activeYear).reduce((s, t) => s + (parseFloat(t.km) || 0) * kmRate, 0),
+        { bold: true, color: [55,86,35] })
+      y += 2
+    }
+    if (mRide) {
+      line('Revenu net Uber (revenus − frais Uber)', uberNet)
+      line('Revenu taxable Lyft', lyftTaxable)
+      line('Déduction véhicule Uber (méthode dépenses réelles)', -dedUber)
+      line('Déduction véhicule Lyft (méthode dépenses réelles)', -dedLyft)
+    }
+    y += 3
+    note('Les sections suivantes reprennent les lignes des formulaires fiscaux pour transcription directe. '
+      + 'Les annexes fournissent les pièces justificatives (journal de kilométrage, détail mensuel, notes et reçus).')
+
+    // ════════ 2. IMMEUBLES — T776 / TP-128 ════════
+    for (const prop of props) {
       const propId = prop.id
       ensurePropBucket(propId)
-      checkPage()
-      addTitle(`🏠 ${prop.label}`, 12, [0,80,160])
-      addSeparator([0,120,220])
+      const pct = Math.min(100, Math.max(0, parseFloat(prop.pct) || 100))
+      newPage()
+      text(`Revenus de location — ${prop.label}`, 15, { color: [0,112,192], bold: true, spacing: 1 })
+      text('Formulaire T776 (fédéral) / TP-128 (Québec)', 8.5, { color: [120,120,120], spacing: 4 })
+      if (prop.address) text(`Adresse : ${prop.address}`, 9.5, { spacing: 1.5 })
+      text(`Nombre d'unités : ${prop.revenus.length}`, 9.5, { spacing: 1.5 })
+      const coTxt = (pct < 100 && prop.coOwners) ? ` — copropriétaire : ${prop.coOwners} (${fmt(100 - pct, 0)} %)` : ''
+      text(`Participation du contribuable : ${fmt(pct, 0)} %${coTxt}`, 9.5, { spacing: 4 })
 
-      let totalRev = 0, totalDed = 0, totalCap = 0
-
+      sectionTitle('Revenus bruts de location — ligne 8141', [55,86,35])
       prop.revenus.forEach(cat => {
-        const total = (state[propId].revenus[cat]||[]).reduce((s,v)=>s+(parseFloat(v)||0),0)
-        if (total) { addLine(cat, fmt(total), 4); totalRev += total }
+        const total = catAnnual(propId, 'revenus', cat)
+        if (total) line(cat, total, { indent: 7, size: 9 })
       })
-      if (totalRev) { doc.setFont(undefined,'bold'); addLine('Total revenus', fmt(totalRev)); addSeparator() }
+      const revTotal = prop.revenus.reduce((s, c) => s + catAnnual(propId, 'revenus', c), 0)
+      line('Loyers bruts (ligne 8141)', revTotal, { bold: true })
 
-      prop.deductibles.forEach(cat => {
-        let total
-        if (cat === 'Frais de déplacement') {
-          total = Array.from({length:12},(_,i)=>getTripAmount(propId,i)).reduce((a,b)=>a+b,0)
-        } else {
-          total = (state[propId].deductibles[cat]||[]).reduce((s,v)=>s+(parseFloat(v)||0),0)
-        }
-        if (total) { addLine(cat, fmt(total), 4); totalDed += total }
+      sectionTitle(pct < 100
+        ? `Dépenses d'exploitation (montants à 100 % — votre part de ${fmt(pct, 0)} % appliquée au revenu net)`
+        : 'Dépenses d\'exploitation (part 100 %)', [230,81,0])
+      const mapped = new Set()
+      T776_LINES.forEach(([code, label, match]) => {
+        const cats = prop.deductibles.filter(match)
+        if (!cats.length) return
+        cats.forEach(c => mapped.add(c))
+        const total = cats.reduce((s, c) => s + catAnnual(propId, 'deductibles', c), 0)
+        if (!total) return
+        line(`${code} — ${label}`, total, { bold: true })
+        if (cats.length > 1) cats.forEach(c => {
+          const t = catAnnual(propId, 'deductibles', c)
+          if (t) line(c, t, { color: [90,90,90], indent: 10, size: 8.5 })
+        })
       })
-      if (totalDed) { doc.setFont(undefined,'bold'); addLine('Total dépenses déductibles', fmt(totalDed)); addSeparator() }
+      const otherCats = prop.deductibles.filter(c => !mapped.has(c))
+      const otherTotal = otherCats.reduce((s, c) => s + catAnnual(propId, 'deductibles', c), 0)
+      if (otherTotal) {
+        line('9270 — Autres dépenses', otherTotal, { bold: true })
+        otherCats.forEach(c => {
+          const t = catAnnual(propId, 'deductibles', c)
+          if (t) line(c, t, { color: [90,90,90], indent: 10, size: 8.5 })
+        })
+      }
+      y += 1.5
+      const dedTotal = prop.deductibles.reduce((s, c) => s + catAnnual(propId, 'deductibles', c), 0)
+      line('Total des dépenses (ligne 9949)', dedTotal, { bold: true })
+      note(`La ligne 9200 « Frais de déplacement » est calculée automatiquement depuis le journal de kilométrage (annexe A) au taux de ${fmt(kmRate)} $/km. `
+        + 'Le comptable peut préférer la méthode des dépenses réelles au prorata — voir la section Véhicule.')
 
-      prop.capital.forEach(cat => {
-        const total = (state[propId].capital[cat]||[]).reduce((s,v)=>s+(parseFloat(v)||0),0)
-        if (total) { addLine(cat, fmt(total), 4); totalCap += total }
-      })
-      if (totalCap) { doc.setFont(undefined,'bold'); addLine('Total dépenses en capital', fmt(totalCap)); addSeparator() }
+      sectionTitle('Revenu net', [55,86,35])
+      const net = revTotal - dedTotal
+      line('Revenu net avant répartition (ligne 9369)', net, { bold: true })
+      if (pct < 100) {
+        line(`Part des copropriétaires (${fmt(100 - pct, 0)} %)`, net * (100 - pct) / 100, { color: [90,90,90] })
+        line(`Votre part du revenu net (ligne 9946) — ${fmt(pct, 0)} %`, net * pct / 100, { bold: true, color: [55,86,35] })
+      } else {
+        line('Votre part du revenu net (ligne 9946) — 100 %', net, { bold: true, color: [55,86,35] })
+      }
 
-      const net = totalRev - totalDed - totalCap
-      doc.setFontSize(11); doc.setFont(undefined,'bold')
-      doc.setTextColor(net >= 0 ? 0 : 200, net >= 0 ? 130 : 0, 0)
-      doc.text(`Bénéfice net : ${fmt(net)} $`, lm, y); y += 8
-      doc.setTextColor(60,60,60)
-      checkPage()
+      const capTotal = prop.capital.reduce((s, c) => s + catAnnual(propId, 'capital', c), 0)
+      if (capTotal) {
+        sectionTitle('Dépenses en capital — ajouts de l\'année (DPA, annexe du T776)', [123,63,0])
+        prop.capital.forEach(cat => {
+          const t = catAnnual(propId, 'capital', cat)
+          if (t) line(cat, t, { indent: 7, size: 9 })
+        })
+        line('Total des ajouts en capital', capTotal, { bold: true, color: [123,63,0] })
+        note('Ces montants ne sont pas déduits du revenu courant : le comptable détermine la catégorie de DPA et l\'amortissement admissible.')
+      }
     }
 
-    // RIDESHARE
-    checkPage()
-    addTitle('🚕 Revenus rideshare', 12, [180,60,0])
-    addSeparator([220,100,0])
-    const u = state.uber || {}
-    const uberNet = (parseFloat(u.rides_gross)||0) - (parseFloat(u.booking_fee)||0)
-    const lyftTotal = Object.keys(state.lyft||{}).reduce((s,mk)=>{
-      const m = state.lyft[mk]
-      return s + (parseFloat(m.taxable)||0) + (parseFloat(m.bonuses)||0) + (parseFloat(m.tips)||0)
-    }, 0)
-    if (uberNet) addLine('Uber — revenu net', fmt(uberNet), 4)
-    if (lyftTotal) addLine('Lyft — revenu taxable total', fmt(lyftTotal), 4)
-    addSeparator()
-    doc.setFont(undefined,'bold'); addLine('Total rideshare', fmt(uberNet + lyftTotal))
+    // ════════ 3-5. TRAVAIL AUTONOME + VÉHICULE + TPS/TVQ ════════
+    if (mRide) {
+      newPage()
+      text('Travail autonome — transport rémunéré de personnes', 15, { color: [230,81,0], bold: true, spacing: 1 })
+      text('Formulaire T2125 (fédéral) / TP-80 (Québec)', 8.5, { color: [120,120,120], spacing: 4 })
 
-    // VEHICLE
-    checkPage()
-    addTitle('🚗 Véhicule — ' + (state.settings.vehicleModel||''), 12, [60,60,60])
-    addSeparator()
-    const VEH = ['Frais de plaque / immatriculation','Frais de carburant (total annuel)','Frais d\'assurance','Frais de permis de conduire','Changement d\'huile','Achat et changement de pneus','Frais de réparation','Autres réparations / accessoires']
-    let totalVeh = 0
-    VEH.forEach(cat => {
-      const v = parseFloat((state.vehicule||{}).depenses?.[cat]) || 0
-      if (v) { addLine(cat, fmt(v), 4); totalVeh += v }
+      sectionTitle('Uber — relevé fiscal annuel', [230,81,0])
+      UBER_GROUPS.forEach(([title, fields]) => {
+        const withValues = fields.filter(([k]) => uv(k))
+        if (!withValues.length) return
+        text(title, 9.5, { bold: true, color: [80,80,80], spacing: 1.5 })
+        withValues.forEach(([k, label]) => line(label, uv(k), { indent: 7, size: 9 }))
+      })
+      y += 1.5
+      line('Revenus bruts Uber (courses + autres revenus)', uberRevenue, { bold: true })
+      line('Frais de service Uber (dépense déductible)', uberFees, { bold: true })
+      line('Revenu net Uber avant dépenses véhicule', uberNet, { bold: true, color: [55,86,35] })
+      if (uv('km_online') || uv('km_on_trip')) {
+        text(`Kilométrage Uber : ${fmt(uv('km_on_trip'), 1)} km en course — ${fmt(uv('km_online'), 1)} km en ligne (base retenue, recommandation Revenu Québec)`,
+          8.5, { color: [90,90,90], spacing: 3.5 })
+      }
+
+      sectionTitle('Lyft — détail mensuel', [173,20,87])
+      if (!lyftMonths.length) {
+        text(`Aucune donnée Lyft saisie pour ${activeYear}.`, 9, { color: [120,120,120] })
+      } else {
+        const cw = [contentW*0.16, contentW*0.15, contentW*0.13, contentW*0.14, contentW*0.13, contentW*0.15, contentW*0.14]
+        const lyftRow = (label, vals, opts) =>
+          tableRow([[label, cw[0], false], ...vals.map((v, i) => [v, cw[i+1], true])], opts)
+        lyftRow('Mois', ['Taxable','Primes','Pourboires','Frais','Net','Km'], { bold: true, fill: [235,235,235] })
+        const tt = { tax:0, bon:0, tip:0, fee:0, net:0, km:0 }
+        lyftMonths.forEach(m => {
+          const tax = parseFloat(m.taxable)||0, bon = parseFloat(m.bonuses)||0, tip = parseFloat(m.tips)||0
+          const fee = parseFloat(m.fees)||0, km = parseFloat(m.km)||0, net = tax + bon + tip - fee
+          tt.tax += tax; tt.bon += bon; tt.tip += tip; tt.fee += fee; tt.net += net; tt.km += km
+          lyftRow(MONTHS_FR[m.mi], [fmt(tax), fmt(bon), fmt(tip), fmt(fee), fmt(net), fmt(km, 1)])
+        })
+        lyftRow('TOTAL', [fmt(tt.tax), fmt(tt.bon), fmt(tt.tip), fmt(tt.fee), fmt(tt.net), fmt(tt.km, 1)], { bold: true, fill: [235,235,235] })
+      }
+
+      // Véhicule — deux méthodes
+      newPage()
+      text(`Dépenses véhicule — ${state.settings.vehicleModel || ''}`, 15, { color: [31,56,100], bold: true, spacing: 4 })
+      sectionTitle('Dépenses réelles de l\'année (100 %)')
+      VEH_CATS.forEach(cat => {
+        const v = parseFloat((state.vehicule.depenses || {})[cat]) || 0
+        if (v) line(cat, v, { indent: 7, size: 9 })
+      })
+      line('Total des dépenses véhicule', totalVeh, { bold: true })
+
+      sectionTitle('Répartition du kilométrage annuel')
+      text(`Km total du véhicule dans l'année : ${fmt(kmTotalAnnuel, 1)} km`, 10, { bold: true, x: lm + 3, spacing: 1.8 })
+      text(`Uber (en ligne) : ${fmt(kmUber, 1)} km → ${fmt(pctUber * 100, 1)} %`, 9, { x: lm + 6, spacing: 1.2 })
+      text(`Lyft : ${fmt(kmLyft, 1)} km → ${fmt(pctLyft * 100, 1)} %`, 9, { x: lm + 6, spacing: 1.2 })
+      text(`Immeubles locatifs : ${fmt(kmRental, 1)} km → ${fmt(pctRental * 100, 1)} %`, 9, { x: lm + 6, spacing: 3 })
+
+      sectionTitle('Méthode 1 — dépenses réelles au prorata des km')
+      line(`Déduction Uber (total × ${fmt(pctUber * 100, 1)} %)`, dedUber)
+      line(`Déduction Lyft (total × ${fmt(pctLyft * 100, 1)} %)`, dedLyft)
+      line(`Portion locative (total × ${fmt(pctRental * 100, 1)} %)`, totalVeh * pctRental)
+
+      sectionTitle(`Méthode 2 — taux fixe ${fmt(kmRate)} $ / km`)
+      line(`Uber (${fmt(kmUber, 1)} km)`, kmUber * kmRate)
+      line(`Lyft (${fmt(kmLyft, 1)} km)`, kmLyft * kmRate)
+      line(`Immeubles locatifs (${fmt(kmRental, 1)} km)`, kmRental * kmRate)
+      note('Une seule méthode doit être retenue par activité — le comptable choisit la plus avantageuse. '
+        + 'La ligne « Frais de déplacement » des immeubles (T776, ligne 9200) utilise déjà la méthode 2 ; '
+        + 'si la méthode 1 est retenue pour le locatif, remplacer la ligne 9200 par la portion locative ci-dessus.')
+
+      sectionTitle('Sommaire TPS / TVQ — activité rideshare', [0,112,192])
+      line('TPS perçue des passagers', uv('gst_riders'))
+      line('TVQ perçue des passagers', uv('qst_riders'))
+      line('TPS payée à Uber (CTI potentiel)', uv('gst_paid_uber'))
+      line('TVQ payée à Uber (RTI potentiel)', uv('qst_paid_uber'))
+      line('TPS déjà versée par Uber en votre nom', uv('gst_remitted'))
+      line('TVQ déjà versée par Uber en votre nom', uv('qst_remitted'))
+      note('Les chauffeurs de transport rémunéré doivent être inscrits aux fichiers TPS/TVQ dès le premier dollar. '
+        + 'Uber verse généralement les taxes perçues directement à Revenu Québec — les montants « versés en votre nom » '
+        + 'doivent apparaître dans la déclaration de taxes annuelle.')
+    }
+
+    // ════════ ANNEXE A — JOURNAL DE KILOMÉTRAGE ════════
+    if (mTrips) {
+      newPage()
+      text(`Annexe A — Journal de kilométrage ${activeYear}`, 15, { color: [31,56,100], bold: true, spacing: 1 })
+      text(`Taux appliqué : ${fmt(kmRate)} $/km — registre exigé par l'ARC et Revenu Québec en cas de vérification`,
+        8.5, { color: [120,120,120], spacing: 4 })
+      const allTrips = state.trips.filter(t => yearOf(t.date) === activeYear)
+        .sort((a, b) => a.date.localeCompare(b.date))
+      if (!allTrips.length) {
+        text(`Aucun trajet enregistré pour ${activeYear}.`, 9, { color: [120,120,120] })
+      } else {
+        const cw = [contentW*0.11, contentW*0.30, contentW*0.33, contentW*0.11, contentW*0.15]
+        tableRow([['Date', cw[0], false], ['Destination', cw[1], false], ['Motif', cw[2], false],
+                  ['Km', cw[3], true], ['Montant', cw[4], true]], { bold: true, fill: [235,235,235] })
+        let curMonth = -1, monthKm = 0
+        const flushMonth = () => {
+          if (curMonth < 0) return
+          tableRow([[`Sous-total ${MONTHS_FR[curMonth]}`, cw[0]+cw[1]+cw[2], false],
+                    [fmt(monthKm, 1), cw[3], true], [fmt(monthKm * kmRate), cw[4], true]],
+                   { bold: true, fill: [245,245,245] })
+        }
+        allTrips.forEach(t => {
+          const mi = monthOf(t.date)
+          if (mi !== curMonth) { flushMonth(); curMonth = mi; monthKm = 0 }
+          const km = parseFloat(t.km) || 0
+          monthKm += km
+          const dest = propById(t.property)?.label || t.customDest || 'Autre destination'
+          const motif = t.reason || (t.roundTrip ? 'Aller-retour' : 'Aller simple')
+          tableRow([[fmtDate(t.date), cw[0], false], [dest, cw[1], false], [motif, cw[2], false],
+                    [fmt(km, 1), cw[3], true], [fmt(km * kmRate), cw[4], true]])
+        })
+        flushMonth()
+        const totKm = allTrips.reduce((s, t) => s + (parseFloat(t.km) || 0), 0)
+        tableRow([[`TOTAL ANNUEL — ${allTrips.length} trajets`, cw[0]+cw[1]+cw[2], false],
+                  [fmt(totKm, 1), cw[3], true], [fmt(totKm * kmRate), cw[4], true]],
+                 { bold: true, fill: [235,235,235] })
+      }
+    }
+
+    // ════════ ANNEXE B — DÉTAIL MENSUEL PAR IMMEUBLE ════════
+    for (const prop of props) {
+      const propId = prop.id
+      newPage()
+      text(`Annexe B — Détail mensuel ${activeYear} : ${prop.label}`, 14, { color: [0,112,192], bold: true, spacing: 4 })
+      const labelW = contentW * 0.28
+      const monthW = (contentW - labelW) / 7
+      const monthlyTable = (section, title, color, cats) => {
+        const active = cats.filter(c => catAnnual(propId, section, c) !== 0)
+        if (!active.length) return
+        sectionTitle(title, color)
+        for (let sem = 0; sem < 2; sem++) {
+          const months = Array.from({length:6}, (_, i) => sem * 6 + i)
+          tableRow([['Catégorie', labelW, false],
+                    ...months.map(m => [MONTHS_FR[m].slice(0, 4), monthW, true]),
+                    ['Total', monthW, true]], { bold: true, size: 7, fill: [235,235,235] })
+          active.forEach(cat => {
+            let semTotal = 0
+            const cells = [[cat, labelW, false]]
+            months.forEach(m => {
+              const v = catMonth(propId, section, cat, m)
+              semTotal += v
+              cells.push([v ? fmt(v) : '—', monthW, true])
+            })
+            cells.push([fmt(semTotal), monthW, true])
+            tableRow(cells, { size: 7 })
+          })
+          const totCells = [['Total', labelW, false]]
+          let semGrand = 0
+          months.forEach(m => {
+            const v = active.reduce((s, c) => s + catMonth(propId, section, c, m), 0)
+            semGrand += v
+            totCells.push([fmt(v), monthW, true])
+          })
+          totCells.push([fmt(semGrand), monthW, true])
+          tableRow(totCells, { bold: true, size: 7, fill: [245,245,245] })
+          y += 2.5
+        }
+      }
+      monthlyTable('revenus', 'Revenus de location', [55,86,35], prop.revenus)
+      monthlyTable('deductibles', 'Dépenses déductibles', [230,81,0], prop.deductibles)
+      monthlyTable('capital', 'Dépenses en capital', [123,63,0], prop.capital)
+    }
+
+    // ════════ ANNEXE C — NOTES ET REÇUS ════════
+    const annexC = []
+    const noteKeys = new Set([...Object.keys(state.notes || {}), ...Object.keys(state.receipts || {})])
+    noteKeys.forEach(key => {
+      const parts = key.split('_')
+      if (parts.length < 4) return
+      const propId = parts[0], section = parts[1], mi = parseInt(parts[parts.length - 1])
+      const cat = parts.slice(2, -1).join('_')
+      const prop = propById(propId)
+      if (!prop || isNaN(mi)) return
+      annexC.push({ prop, propId, section, cat, mi,
+        note: (state.notes || {})[key] || '', receipt: (state.receipts || {})[key] || null })
     })
-    doc.setFont(undefined,'bold'); addLine('Total dépenses véhicule', fmt(totalVeh))
-    y += 4
+    annexC.sort((a, b) => a.propId.localeCompare(b.propId) || a.mi - b.mi)
+    if (annexC.length) {
+      newPage()
+      text('Annexe C — Notes et reçus', 15, { color: [31,56,100], bold: true, spacing: 4 })
+      let curProp = null
+      for (const item of annexC) {
+        if (item.propId !== curProp) { curProp = item.propId; sectionTitle(item.prop.label, [0,112,192]) }
+        const amount = catMonth(item.propId, item.section, item.cat, item.mi)
+        ensure(14)
+        text(`${MONTHS_FR[item.mi]} — ${item.cat} : ${fmt(amount)} $`, 9.5, { bold: true, spacing: 1 })
+        if (item.note) text(`Note : ${item.note}`, 9, { color: [80,80,80], x: lm + 4, spacing: 1.6 })
+        if (item.receipt) {
+          const size = await new Promise(res => {
+            const img = new Image()
+            img.onload = () => res({ w: img.naturalWidth, h: img.naturalHeight })
+            img.onerror = () => res(null)
+            img.src = item.receipt
+          })
+          if (size) {
+            const maxW = contentW * 0.55, maxH = 65
+            const scale = Math.min(maxW / size.w, maxH / size.h)
+            const w = size.w * scale, h = size.h * scale
+            ensure(h + 6)
+            try { doc.addImage(item.receipt, 'JPEG', lm + 4, y, w, h) } catch(e) {}
+            y += h + 4
+          }
+        }
+        y += 1.5
+      }
+    }
 
-    // FOOTER
-    doc.setFontSize(8); doc.setTextColor(150,150,150); doc.setFont(undefined,'normal')
+    // ════════ PIED DE PAGE ════════
+    doc.setFontSize(8); doc.setTextColor(150,150,150); doc.setFont(undefined, 'normal')
     const pages = doc.getNumberOfPages()
     for (let i = 1; i <= pages; i++) {
       doc.setPage(i)
-      doc.text(`Page ${i}/${pages} · Rapport fiscal ${activeYear} · Eric FEZEU`, W/2, 200, {align:'center'})
+      doc.text(`${HOME_OWNER || 'Eric Fezeu'} — Année fiscale ${activeYear}   ·   Page ${i}/${pages}`,
+        W / 2, H - 8, { align: 'center' })
     }
 
-    doc.save(`Rapport_fiscal_${activeYear}.pdf`)
-    toast('✅ Rapport PDF généré !')
+    generatePDF._lastPages = pages
+    doc.save(`Sommaire_fiscal_${activeYear}.pdf`)
+    toast(`✅ Rapport PDF généré (${pages} pages)`)
   } catch(e) {
     toast('❌ Erreur PDF : ' + e.message)
   }
