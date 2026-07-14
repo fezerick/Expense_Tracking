@@ -121,10 +121,52 @@ enum AppConfig {
         ]
     )
 
-    static let properties: [PropertyDef] = [p1090, p470]
+    /// Anciennes définitions codées en dur — servent uniquement à l'import des
+    /// sauvegardes (iOS v1 et webapp) et à la récupération de données orphelines.
+    /// Le reste de l'app utilise les RentalProperty créés par l'assistant.
+    static let legacyProperties: [PropertyDef] = [p1090, p470]
 
-    static func property(id: String) -> PropertyDef? {
-        properties.first { $0.id == id }
+    static func legacyProperty(id: String) -> PropertyDef? {
+        legacyProperties.first { $0.id == id }
+    }
+
+    // MARK: - Catégories standards des immeubles dynamiques
+
+    /// Liste unique de dépenses déductibles proposée à tout nouvel immeuble
+    /// (union des listes historiques 1090/470, libellés génériques).
+    static let standardDeductibleCategories: [String] = [
+        "Taxes municipales",
+        "Taxe scolaire",
+        "Électricité",
+        "Chauffage (mazout / plan entretien)",
+        "Frais de condo",
+        "Frais de déneigement",
+        "Internet",
+        "Assurance habitation",
+        "Système d'alarme",
+        travelExpenseCategory,
+        "Entretien / Réparations courantes",
+        "Honoraires professionnels (comptable, notaire)",
+        "Frais de gestion",
+        "Frais de bureau (papeterie, clés)",
+        "Publicité",
+        "Outils / Matériel",
+        "Intérêts sur hypothèque / frais bancaires",
+        "Autres dépenses déductibles"
+    ]
+
+    /// Catégories de dépenses en capital générées d'après les unités de l'immeuble.
+    static func defaultCapitalCategories(unitNames: [String]) -> [String] {
+        var cats: [String]
+        if unitNames.count > 1 {
+            cats = unitNames.map { "Rénovation / Amélioration — \($0)" }
+            cats.append("Rénovation / Amélioration — Parties communes")
+        } else {
+            cats = ["Rénovation / Amélioration majeure"]
+        }
+        cats.append("Remplacement équipements (chauffe-eau, fournaise)")
+        cats.append("Autres travaux majeurs")
+        return cats
     }
 
     // MARK: - Dépenses véhicule (annuelles, communes Uber/Lyft/locatif)
@@ -191,29 +233,35 @@ enum AppConfig {
     static let uberFeeKeys = ["service_fee", "other_fees"]
     static let uberOtherIncomeKeys = ["eats_gross", "eats_tips", "other_income"]
 
-    // MARK: - Checklist par défaut
+    // MARK: - Checklist par défaut (générée selon les immeubles configurés)
 
-    static let defaultChecklist: [String] = [
-        "Feuillets T4 / Relevé 1 (revenus d'emploi)",
-        "Rapport annuel Uber (PDF)",
-        "Relevés mensuels Lyft (jan–déc)",
-        "Acomptes provisionnels versés — ARC",
-        "Acomptes provisionnels versés — Revenu Québec",
-        "Formulaire T776 — État des loyers de biens immeubles",
-        "Avis d'imposition municipale — 1090 Oscar Benoît",
-        "Avis d'imposition municipale — 470 Gélinas",
-        "Taxe scolaire — 1090 Oscar Benoît",
-        "Taxe scolaire — 470 Gélinas",
-        "Relevé annuel hypothèque (intérêts) — 1090",
-        "Relevé annuel hypothèque (intérêts) — 470",
-        "Relevés assurance habitation (2 propriétés)",
-        "Reçus réparations / entretien",
-        "Journal kilométrique (trajets logements)",
-        "Reçus dépenses véhicule (carburant, assurance, entretien)",
-        "Rapport préparé par comptable",
-        "Déclaration fédérale T1 soumise à l'ARC",
-        "Déclaration provinciale TP-1 soumise à Revenu Québec"
-    ]
+    static func defaultChecklist(propertyNames: [String]) -> [String] {
+        var items = [
+            "Feuillets T4 / Relevé 1 (revenus d'emploi)",
+            "Rapport annuel Uber (PDF)",
+            "Relevés mensuels Lyft (jan–déc)",
+            "Acomptes provisionnels versés — ARC",
+            "Acomptes provisionnels versés — Revenu Québec"
+        ]
+        if !propertyNames.isEmpty {
+            items.append("Formulaire T776 — État des loyers de biens immeubles")
+            for name in propertyNames {
+                items.append("Avis d'imposition municipale — \(name)")
+                items.append("Taxe scolaire — \(name)")
+                items.append("Relevé annuel hypothèque (intérêts) — \(name)")
+            }
+            items.append("Relevés assurance habitation")
+            items.append("Reçus réparations / entretien")
+        }
+        items += [
+            "Journal kilométrique (trajets)",
+            "Reçus dépenses véhicule (carburant, assurance, entretien)",
+            "Rapport préparé par comptable",
+            "Déclaration fédérale T1 soumise à l'ARC",
+            "Déclaration provinciale TP-1 soumise à Revenu Québec"
+        ]
+        return items
+    }
 
     // MARK: - Charte visuelle
 

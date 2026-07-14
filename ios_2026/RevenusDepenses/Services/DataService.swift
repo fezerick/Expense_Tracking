@@ -35,6 +35,71 @@ struct DataService {
         return years.isEmpty ? [AppConfig.defaultYear] : years
     }
 
+    // MARK: - Immeubles (RentalProperty, communs à toutes les années)
+
+    func properties() -> [RentalProperty] {
+        let descriptor = FetchDescriptor<RentalProperty>(
+            sortBy: [SortDescriptor(\.sortOrder), SortDescriptor(\.createdAt)]
+        )
+        return (try? context.fetch(descriptor)) ?? []
+    }
+
+    func property(id: String) -> RentalProperty? {
+        properties().first { $0.propId == id }
+    }
+
+    /// Ids présents dans les montants de l'année sans immeuble configuré
+    /// (ex. après un démarrage à zéro alors que des données existaient déjà).
+    func orphanPropertyIds() -> [String] {
+        let known = Set(properties().map(\.propId))
+        let y = year
+        let descriptor = FetchDescriptor<EntryAmount>(predicate: #Predicate { $0.year == y })
+        let ids = Set(((try? context.fetch(descriptor)) ?? []).map(\.propertyId))
+        return ids.subtracting(known).subtracting(["other", ""]).sorted()
+    }
+
+    /// Recrée un immeuble pour des données orphelines : définition historique si
+    /// l'id est connu (p1090/p470), sinon reconstruction depuis les catégories trouvées.
+    @discardableResult
+    func restoreOrphanProperty(id: String) -> RentalProperty {
+        if let existing = property(id: id) { return existing }
+        let sortOrder = (properties().map(\.sortOrder).max() ?? -1) + 1
+        if let legacy = AppConfig.legacyProperty(id: id) {
+            let prop = RentalProperty(
+                propId: legacy.id, name: legacy.name, address: legacy.address,
+                kind: legacy.id == AppConfig.p470.id ? .plex : .appart,
+                subtypeCode: legacy.id == AppConfig.p470.id ? "triplex" : "colocation",
+                oneWayKm: legacy.oneWayKm,
+                revenueCategories: legacy.revenueCategories,
+                deductibleCategories: legacy.deductibleCategories,
+                capitalCategories: legacy.capitalCategories,
+                sortOrder: sortOrder
+            )
+            context.insert(prop)
+            return prop
+        }
+        // Reconstruction générique : les catégories observées dans les données.
+        let y = year
+        let descriptor = FetchDescriptor<EntryAmount>(predicate: #Predicate { $0.year == y && $0.propertyId == id })
+        let orphanEntries = (try? context.fetch(descriptor)) ?? []
+        func cats(_ section: EntrySection) -> [String] {
+            Array(Set(orphanEntries.filter { $0.section == section.rawValue }.map(\.category))).sorted()
+        }
+        let revenue = cats(.revenue)
+        let prop = RentalProperty(
+            propId: id, name: "Immeuble récupéré",
+            kind: .plex, subtypeCode: "autre",
+            revenueCategories: revenue.isEmpty ? ["Logement 1"] : revenue,
+            deductibleCategories: Array(Set(AppConfig.standardDeductibleCategories + cats(.deductible))),
+            capitalCategories: cats(.capital).isEmpty
+                ? AppConfig.defaultCapitalCategories(unitNames: revenue)
+                : cats(.capital),
+            sortOrder: sortOrder
+        )
+        context.insert(prop)
+        return prop
+    }
+
     // MARK: - Trajets
 
     func trips() -> [Trip] {
@@ -82,9 +147,10 @@ struct DataService {
         return km * ensureFiscalYear().kmRate
     }
 
-    /// Km annuels de tous les trajets vers les 2 propriétés (pour la proration véhicule).
+    /// Km annuels de tous les trajets vers des immeubles (pour la proration véhicule).
+    /// "other" = destination personnalisée, exclue du locatif.
     func rentalKmTotal() -> Double {
-        trips().filter { $0.propertyId == AppConfig.p1090.id || $0.propertyId == AppConfig.p470.id }
+        trips().filter { $0.propertyId != "other" }
             .reduce(0) { $0 + $1.km }
     }
 
@@ -133,14 +199,9 @@ struct DataService {
     // MARK: - Totaux propriété
 
     func sectionTotal(propertyId: String, section: EntrySection, month: Int) -> Double {
-        guard let prop = AppConfig.property(id: propertyId) else { return 0 }
-        let categories: [String]
-        switch section {
-        case .revenue: categories = prop.revenueCategories
-        case .deductible: categories = prop.deductibleCategories
-        case .capital: categories = prop.capitalCategories
-        }
-        return categories.reduce(0) { $0 + amount(propertyId: propertyId, section: section, category: $1, month: month) }
+        guard let prop = property(id: propertyId) else { return 0 }
+        return prop.categories(section)
+            .reduce(0) { $0 + amount(propertyId: propertyId, section: section, category: $1, month: month) }
     }
 
     func sectionAnnualTotal(propertyId: String, section: EntrySection) -> Double {
@@ -165,15 +226,15 @@ struct DataService {
     // MARK: - Totaux globaux locatifs
 
     func totalRevenueAll() -> Double {
-        AppConfig.properties.reduce(0) { $0 + sectionAnnualTotal(propertyId: $1.id, section: .revenue) }
+        properties().reduce(0) { $0 + sectionAnnualTotal(propertyId: $1.propId, section: .revenue) }
     }
 
     func totalDeductibleAll() -> Double {
-        AppConfig.properties.reduce(0) { $0 + sectionAnnualTotal(propertyId: $1.id, section: .deductible) }
+        properties().reduce(0) { $0 + sectionAnnualTotal(propertyId: $1.propId, section: .deductible) }
     }
 
     func totalCapitalAll() -> Double {
-        AppConfig.properties.reduce(0) { $0 + sectionAnnualTotal(propertyId: $1.id, section: .capital) }
+        properties().reduce(0) { $0 + sectionAnnualTotal(propertyId: $1.propId, section: .capital) }
     }
 
     /// benefice_locatif_net_global
@@ -311,37 +372,40 @@ struct DataService {
 
     func seedChecklistIfEmpty() {
         guard checklist().isEmpty else { return }
-        for (i, label) in AppConfig.defaultChecklist.enumerated() {
+        let labels = AppConfig.defaultChecklist(propertyNames: properties().map(\.name))
+        for (i, label) in labels.enumerated() {
             context.insert(ChecklistItem(year: year, label: label, sortOrder: i))
         }
     }
 
     func resetChecklist() {
         checklist().forEach { context.delete($0) }
-        for (i, label) in AppConfig.defaultChecklist.enumerated() {
+        let labels = AppConfig.defaultChecklist(propertyNames: properties().map(\.name))
+        for (i, label) in labels.enumerated() {
             context.insert(ChecklistItem(year: year, label: label, sortOrder: i))
         }
     }
 
     // MARK: - Effacement de l'année
 
+    /// Efface les DONNÉES de l'année (trajets, montants, relevés, checklist).
+    /// La liste des immeubles (RentalProperty) est une configuration : conservée.
     func eraseYearData() {
         trips().forEach { context.delete($0) }
-        AppConfig.properties.forEach { prop in
-            entries(propertyId: prop.id).forEach { context.delete($0) }
-        }
+        let y = year
+        let entryDescriptor = FetchDescriptor<EntryAmount>(predicate: #Predicate { $0.year == y })
+        ((try? context.fetch(entryDescriptor)) ?? []).forEach { context.delete($0) }
         uberValues().forEach { context.delete($0) }
         lyftMonths().forEach { context.delete($0) }
         vehicleExpenses().forEach { context.delete($0) }
         checklist().forEach { context.delete($0) }
+        // Concrétise les suppressions avant tout nouveau fetch : un fetch avec des
+        // objets supprimés en attente fait planter l'évaluation des #Predicate.
+        try? context.save()
         let fy = ensureFiscalYear()
         fy.kmRate = AppConfig.defaultKmRate
         fy.vehicleTotalKm = AppConfig.defaultVehicleTotalKm
         fy.vehicleModel = AppConfig.defaultVehicleModel
-        fy.ownershipPct1090 = 100
-        fy.ownershipPct470 = 100
-        fy.coOwner1090 = ""
-        fy.coOwner470 = ""
         seedChecklistIfEmpty()
     }
 }

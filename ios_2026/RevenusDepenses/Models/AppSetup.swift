@@ -17,8 +17,6 @@ enum AppSetup {
         static let moduleProperties = "setup.module.properties"
         static let moduleRideshare = "setup.module.rideshare"
         static let appearance = "setup.appearance"
-        static func propertyEnabled(_ id: String) -> String { "setup.prop.\(id).enabled" }
-        static func propertyName(_ id: String) -> String { "setup.prop.\(id).name" }
     }
 
     private static var defaults: UserDefaults { .standard }
@@ -49,34 +47,6 @@ enum AppSetup {
     static var moduleRideshare: Bool {
         get { bool(Keys.moduleRideshare) }
         set { defaults.set(newValue, forKey: Keys.moduleRideshare) }
-    }
-
-    // MARK: - Immeubles
-
-    static func propertyEnabled(_ id: String) -> Bool {
-        bool(Keys.propertyEnabled(id))
-    }
-
-    static func setPropertyEnabled(_ id: String, _ enabled: Bool) {
-        defaults.set(enabled, forKey: Keys.propertyEnabled(id))
-    }
-
-    /// Immeubles suivis, dans l'ordre de référence. Si le module Logements est
-    /// désactivé, la liste est vide (rien à afficher ni à exporter).
-    static var activeProperties: [AppConfig.PropertyDef] {
-        guard moduleProperties else { return [] }
-        return AppConfig.properties.filter { propertyEnabled($0.id) }
-    }
-
-    /// Nom d'affichage : personnalisé si défini dans l'assistant, sinon le nom de référence.
-    static func displayName(_ id: String) -> String {
-        let custom = defaults.string(forKey: Keys.propertyName(id))?
-            .trimmingCharacters(in: .whitespaces) ?? ""
-        return custom.isEmpty ? (AppConfig.property(id: id)?.name ?? id) : custom
-    }
-
-    static func setDisplayName(_ id: String, _ name: String) {
-        defaults.set(name.trimmingCharacters(in: .whitespaces), forKey: Keys.propertyName(id))
     }
 
     // MARK: - Apparence

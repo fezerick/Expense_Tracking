@@ -17,7 +17,9 @@ final class FiscalYear {
     var vehicleModel: String = AppConfig.defaultVehicleModel
     var createdAt: Date = Date()
 
-    // Renseignements T776 : pourcentage de propriété et copropriétaire, par immeuble.
+    // Champs hérités (avant les immeubles dynamiques) : conservés pour la
+    // migration SwiftData et l'import des sauvegardes v1. Le % de propriété
+    // vit désormais sur RentalProperty.ownershipPct.
     var ownershipPct1090: Double = 100
     var ownershipPct470: Double = 100
     var coOwner1090: String = ""
@@ -34,13 +36,6 @@ final class FiscalYear {
         self.createdAt = Date()
     }
 
-    func ownershipPct(propertyId: String) -> Double {
-        propertyId == AppConfig.p470.id ? ownershipPct470 : ownershipPct1090
-    }
-
-    func coOwner(propertyId: String) -> String {
-        propertyId == AppConfig.p470.id ? coOwner470 : coOwner1090
-    }
 }
 
 // MARK: - Trajet (journal de déplacements)
@@ -49,8 +44,8 @@ final class FiscalYear {
 final class Trip {
     var year: Int = AppConfig.defaultYear
     var date: Date = Date()
-    /// "p1090", "p470" ou "other" pour une destination personnalisée.
-    var propertyId: String = "p1090"
+    /// propId d'un RentalProperty, ou "other" pour une destination personnalisée.
+    var propertyId: String = "other"
     /// Libellé de la destination (nom de propriété ou adresse personnalisée).
     var destinationLabel: String = ""
     /// Kilométrage final du trajet (déjà doublé si aller-retour).

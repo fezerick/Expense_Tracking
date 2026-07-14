@@ -10,71 +10,42 @@ struct PropertiesView: View {
     @Environment(\.modelContext) private var context
     @Query private var allEntries: [EntryAmount]   // déclenche le rafraîchissement
     @Query private var allTrips: [Trip]            // pour "Frais de déplacement" auto
+    @Query(sort: [SortDescriptor(\RentalProperty.sortOrder), SortDescriptor(\RentalProperty.createdAt)])
+    private var allProperties: [RentalProperty]
+    @AppStorage(AppSetup.Keys.onboardingDone) private var onboardingDone = false
 
-    @State private var propertyId = "p1090"
+    @State private var selectedId = ""
     @State private var month = Date.currentMonthIndex()
     @State private var showAnnual = false
     @State private var showRecurring = false
     @State private var detailEntry: EntryAmount?
 
     private var data: DataService { DataService(context: context, year: year) }
-    private var property: AppConfig.PropertyDef { AppConfig.property(id: propertyId) ?? AppConfig.p1090 }
-
-    /// Libellé compact pour le sélecteur segmenté (sans la parenthèse descriptive).
-    private func segmentLabel(_ id: String) -> String {
-        AppSetup.displayName(id)
-            .replacingOccurrences(of: #"\s*\(.*\)$"#, with: "", options: .regularExpression)
+    private var property: RentalProperty? {
+        allProperties.first { $0.propId == selectedId } ?? allProperties.first
     }
+    /// Id effectif (toujours valide), utilisé par toutes les lignes.
+    private var propertyId: String { property?.propId ?? "" }
 
     var body: some View {
         List {
-            Section {
-                if AppSetup.activeProperties.count > 1 {
-                    Picker("Propriété", selection: $propertyId) {
-                        ForEach(AppSetup.activeProperties) { prop in
-                            Text(segmentLabel(prop.id)).tag(prop.id)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-
-                Picker("Vue", selection: $showAnnual) {
-                    Text("Vue mensuelle").tag(false)
-                    Text("Vue annuelle").tag(true)
-                }
-                .pickerStyle(.segmented)
-
-                if !showAnnual {
-                    MonthNavigator(month: $month)
-                }
+            if allProperties.isEmpty {
+                emptyState
+            } else if let property {
+                propertyContent(property)
             }
-
-            if !showAnnual {
-                Section {
-                    Button {
-                        showRecurring = true
-                    } label: {
-                        Label("Montants récurrents", systemImage: "arrow.triangle.2.circlepath")
-                    }
-                }
-            }
-
-            if showAnnual {
-                annualSections
-            } else {
-                monthlySections
-            }
+            orphanSection
         }
-        .navigationTitle(AppSetup.displayName(property.id))
+        .navigationTitle(property?.name ?? "Logements")
         .onAppear {
-            // Si l'immeuble sélectionné n'est plus suivi, bascule sur le premier actif.
-            if !AppSetup.activeProperties.contains(where: { $0.id == propertyId }),
-               let first = AppSetup.activeProperties.first {
-                propertyId = first.id
+            if !allProperties.contains(where: { $0.propId == selectedId }) {
+                selectedId = allProperties.first?.propId ?? ""
             }
         }
         .sheet(isPresented: $showRecurring) {
-            RecurringAmountsSheet(year: year, propertyId: propertyId, currentMonth: month)
+            if let property {
+                RecurringAmountsSheet(year: year, property: property, currentMonth: month)
+            }
         }
         .sheet(item: $detailEntry) { entry in
             EntryDetailSheet(entry: entry)
@@ -82,10 +53,108 @@ struct PropertiesView: View {
         .scrollDismissesKeyboard(.interactively)
     }
 
+    // MARK: - Contenu d'un immeuble
+
+    @ViewBuilder
+    private func propertyContent(_ property: RentalProperty) -> some View {
+        Section {
+            if allProperties.count > 1 {
+                if allProperties.count <= 3 {
+                    Picker("Propriété", selection: $selectedId) {
+                        ForEach(allProperties) { prop in
+                            Text(prop.shortName).tag(prop.propId)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                } else {
+                    Picker("Propriété", selection: $selectedId) {
+                        ForEach(allProperties) { prop in
+                            Text(prop.name).tag(prop.propId)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+            }
+
+            Picker("Vue", selection: $showAnnual) {
+                Text("Vue mensuelle").tag(false)
+                Text("Vue annuelle").tag(true)
+            }
+            .pickerStyle(.segmented)
+
+            if !showAnnual {
+                MonthNavigator(month: $month)
+            }
+        }
+
+        if !showAnnual {
+            Section {
+                Button {
+                    showRecurring = true
+                } label: {
+                    Label("Montants récurrents", systemImage: "arrow.triangle.2.circlepath")
+                }
+            }
+        }
+
+        if showAnnual {
+            annualSections(property)
+        } else {
+            monthlySections(property)
+        }
+    }
+
+    // MARK: - État vide / données orphelines
+
+    private var emptyState: some View {
+        Section {
+            VStack(spacing: 10) {
+                Image(systemName: "building.2")
+                    .font(.largeTitle)
+                    .foregroundStyle(.secondary)
+                Text("Aucun immeuble configuré")
+                    .font(.headline)
+                Text("Lancez l'assistant pour décrire vos propriétés (type, unités, % de propriété), ou restaurez une sauvegarde JSON depuis l'onglet Sommaire.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Button {
+                    onboardingDone = false   // rouvre l'assistant (RootView observe ce flag)
+                } label: {
+                    Label("Configurer mes immeubles", systemImage: "wand.and.stars")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AppConfig.Palette.blue)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+        }
+    }
+
+    @ViewBuilder
+    private var orphanSection: some View {
+        let orphans = data.orphanPropertyIds()
+        if !orphans.isEmpty {
+            Section {
+                Button {
+                    orphans.forEach { data.restoreOrphanProperty(id: $0) }
+                    selectedId = allProperties.first?.propId ?? selectedId
+                } label: {
+                    Label("Récupérer les données existantes (\(orphans.count) immeuble\(orphans.count > 1 ? "s" : ""))",
+                          systemImage: "arrow.counterclockwise.circle.fill")
+                }
+            } footer: {
+                Text("Des montants saisis pour des immeubles absents de la configuration ont été détectés. Ce bouton recrée les immeubles correspondants sans toucher aux données.")
+            }
+        }
+    }
+
     // MARK: - Vue mensuelle
 
     @ViewBuilder
-    private var monthlySections: some View {
+    private func monthlySections(_ property: RentalProperty) -> some View {
+        let pid = property.propId
         entrySection(title: "Revenus de location", section: .revenue,
                      categories: property.revenueCategories, color: AppConfig.Palette.green)
         entrySection(title: "Dépenses déductibles", section: .deductible,
@@ -95,9 +164,9 @@ struct PropertiesView: View {
 
         Section {
             AmountRow(label: "Net du mois (\(AppConfig.monthNames[month]))",
-                      amount: data.monthlyNet(propertyId: propertyId, month: month),
+                      amount: data.monthlyNet(propertyId: pid, month: month),
                       bold: true,
-                      color: data.monthlyNet(propertyId: propertyId, month: month) >= 0
+                      color: data.monthlyNet(propertyId: pid, month: month) >= 0
                           ? AppConfig.Palette.green : .red)
         }
     }
@@ -154,7 +223,8 @@ struct PropertiesView: View {
     // MARK: - Vue annuelle
 
     @ViewBuilder
-    private var annualSections: some View {
+    private func annualSections(_ property: RentalProperty) -> some View {
+        let pid = property.propId
         annualSection(title: "Revenus de location", section: .revenue,
                       categories: property.revenueCategories, color: AppConfig.Palette.green)
         annualSection(title: "Dépenses déductibles", section: .deductible,
@@ -164,9 +234,9 @@ struct PropertiesView: View {
 
         Section {
             AmountRow(label: "Bénéfice net annuel",
-                      amount: data.annualNet(propertyId: propertyId),
+                      amount: data.annualNet(propertyId: pid),
                       bold: true,
-                      color: data.annualNet(propertyId: propertyId) >= 0
+                      color: data.annualNet(propertyId: pid) >= 0
                           ? AppConfig.Palette.green : .red)
         }
     }
@@ -342,7 +412,7 @@ struct CameraPicker: UIViewControllerRepresentable {
 
 struct RecurringAmountsSheet: View {
     let year: Int
-    let propertyId: String
+    let property: RentalProperty
     let currentMonth: Int
 
     @Environment(\.modelContext) private var context
@@ -354,7 +424,7 @@ struct RecurringAmountsSheet: View {
     @State private var confirmation: String?
 
     private var data: DataService { DataService(context: context, year: year) }
-    private var property: AppConfig.PropertyDef { AppConfig.property(id: propertyId) ?? AppConfig.p1090 }
+    private var propertyId: String { property.propId }
 
     private var categories: [String] {
         switch sectionChoice {

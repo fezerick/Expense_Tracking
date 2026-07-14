@@ -10,6 +10,31 @@ import UIKit
 enum DebugPDFSmokeTest {
 
     static func runIfRequested(context: ModelContext) {
+        // Test d'import : PWA_IMPORT_JSON=<chemin d'un backup JSON webapp>.
+        if let path = ProcessInfo.processInfo.environment["PWA_IMPORT_JSON"],
+           let json = FileManager.default.contents(atPath: path) {
+            let report: String
+            do {
+                let year = try BackupService.restore(from: json, context: context, fallbackYear: 2026)
+                let data = DataService(context: context, year: year)
+                let props = data.properties()
+                    .map { "\($0.propId)=\($0.name) [\($0.kindCode)/\($0.subtypeCode)] rev:\($0.revenueCategories.count)" }
+                    .joined(separator: " | ")
+                report = "OK année \(year)\nimmeubles: \(props)\n"
+                    + "trajets: \(data.trips().count)\n"
+                    + "revenus: \(data.totalRevenueAll())  dépenses: \(data.totalDeductibleAll())  capital: \(data.totalCapitalAll())\n"
+                    + "uber rides_gross: \(data.uberValue("rides_gross"))  km_online: \(data.uberValue("km_online"))\n"
+                    + "lyft mois: \(data.lyftMonths().count)  véhicule: \(data.vehicleTotalExpenses())\n"
+                    + "checklist: \(data.checklist().count)\n"
+                    + "note capital: \(data.entries(propertyId: "p470").first { !$0.note.isEmpty }?.note ?? "-")"
+            } catch {
+                report = "ÉCHEC — \(error)"
+            }
+            let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("pwa_import_test.txt")
+            try? report.write(to: url, atomically: true, encoding: .utf8)
+        }
+
         guard ProcessInfo.processInfo.environment["PDF_SMOKE_TEST"] == "1" else { return }
 
         let data = DataService(context: context, year: 2026)
@@ -24,9 +49,24 @@ enum DebugPDFSmokeTest {
     }
 
     private static func seed(data: DataService, context: ModelContext) {
-        let fy = data.ensureFiscalYear()
-        fy.ownershipPct1090 = 50
-        fy.coOwner1090 = "Conjointe Exemple"
+        data.ensureFiscalYear()
+
+        // Immeubles dynamiques : les deux propriétés historiques.
+        for def in AppConfig.legacyProperties where data.property(id: def.id) == nil {
+            let is470 = def.id == AppConfig.p470.id
+            context.insert(RentalProperty(
+                propId: def.id, name: def.name, address: def.address,
+                kind: is470 ? .plex : .appart,
+                subtypeCode: is470 ? "triplex" : "colocation",
+                oneWayKm: def.oneWayKm,
+                ownershipPct: is470 ? 100 : 50,
+                coOwners: is470 ? "" : "Conjointe Exemple",
+                revenueCategories: def.revenueCategories,
+                deductibleCategories: def.deductibleCategories,
+                capitalCategories: def.capitalCategories,
+                sortOrder: is470 ? 1 : 0
+            ))
+        }
 
         var comps = DateComponents(year: 2026, month: 1, day: 12)
         let cal = Calendar.current

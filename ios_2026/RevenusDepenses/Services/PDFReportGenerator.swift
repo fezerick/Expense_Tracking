@@ -187,7 +187,7 @@ struct PDFReportGenerator {
             // ============================================================
             // Modules retenus dans l'assistant de configuration : le rapport
             // n'inclut que les sections des activités suivies.
-            let rentalProps = AppSetup.activeProperties
+            let rentalProps = AppSetup.moduleProperties ? data.properties() : []
             let includeRideshare = AppSetup.moduleRideshare
             let includeTrips = AppSetup.moduleTrips
 
@@ -244,10 +244,10 @@ struct PDFReportGenerator {
             // ============================================================
             for prop in rentalProps {
                 newPage()
-                let pct = fy.ownershipPct(propertyId: prop.id)
-                let coOwner = fy.coOwner(propertyId: prop.id)
+                let pct = prop.ownershipPct
+                let coOwner = prop.coOwners
 
-                drawText("Revenus de location — \(AppSetup.displayName(prop.id))",
+                drawText("Revenus de location — \(prop.name)",
                          font: .boldSystemFont(ofSize: 16), color: blue, spacing: 2)
                 drawText("Formulaire T776 (fédéral) / TP-128 (Québec)", font: .systemFont(ofSize: 9), color: .gray, spacing: 8)
 
@@ -260,11 +260,11 @@ struct PDFReportGenerator {
                 // --- Revenus bruts (8141) ---
                 drawSectionTitle("Revenus bruts de location — ligne 8141", color: green)
                 for cat in prop.revenueCategories {
-                    let total = data.categoryAnnualTotal(propertyId: prop.id, section: .revenue, category: cat)
+                    let total = data.categoryAnnualTotal(propertyId: prop.propId, section: .revenue, category: cat)
                     if total != 0 { drawLine(label: cat, amount: total, indent: 16, fontSize: 9.5) }
                 }
                 drawLine(label: "Loyers bruts (ligne 8141)",
-                         amount: data.sectionAnnualTotal(propertyId: prop.id, section: .revenue), bold: true)
+                         amount: data.sectionAnnualTotal(propertyId: prop.propId, section: .revenue), bold: true)
 
                 // --- Dépenses par ligne T776 ---
                 drawSectionTitle("Dépenses d'exploitation (part 100 %)", color: orange)
@@ -274,13 +274,13 @@ struct PDFReportGenerator {
                     guard !cats.isEmpty else { continue }
                     mapped.formUnion(cats)
                     let total = cats.reduce(0) {
-                        $0 + data.categoryAnnualTotal(propertyId: prop.id, section: .deductible, category: $1)
+                        $0 + data.categoryAnnualTotal(propertyId: prop.propId, section: .deductible, category: $1)
                     }
                     guard total != 0 else { continue }
                     drawLine(label: "\(line.code) — \(line.label)", amount: total, bold: true, fontSize: 10)
                     if cats.count > 1 {
                         for cat in cats {
-                            let t = data.categoryAnnualTotal(propertyId: prop.id, section: .deductible, category: cat)
+                            let t = data.categoryAnnualTotal(propertyId: prop.propId, section: .deductible, category: cat)
                             if t != 0 { drawLine(label: cat, amount: t, color: .darkGray, indent: 24, fontSize: 9) }
                         }
                     }
@@ -288,17 +288,17 @@ struct PDFReportGenerator {
                 // 9270 Autres dépenses : tout ce qui n'a pas été mappé.
                 let otherCats = prop.deductibleCategories.filter { !mapped.contains($0) }
                 let otherTotal = otherCats.reduce(0) {
-                    $0 + data.categoryAnnualTotal(propertyId: prop.id, section: .deductible, category: $1)
+                    $0 + data.categoryAnnualTotal(propertyId: prop.propId, section: .deductible, category: $1)
                 }
                 if otherTotal != 0 {
                     drawLine(label: "9270 — Autres dépenses", amount: otherTotal, bold: true, fontSize: 10)
                     for cat in otherCats {
-                        let t = data.categoryAnnualTotal(propertyId: prop.id, section: .deductible, category: cat)
+                        let t = data.categoryAnnualTotal(propertyId: prop.propId, section: .deductible, category: cat)
                         if t != 0 { drawLine(label: cat, amount: t, color: .darkGray, indent: 24, fontSize: 9) }
                     }
                 }
                 y += 4
-                let totalExpenses = data.sectionAnnualTotal(propertyId: prop.id, section: .deductible)
+                let totalExpenses = data.sectionAnnualTotal(propertyId: prop.propId, section: .deductible)
                 drawLine(label: "Total des dépenses (ligne 9949)", amount: totalExpenses, bold: true)
                 drawNote("La ligne 9200 « Frais de déplacement » est calculée automatiquement depuis le journal de kilométrage "
                          + "(annexe A) au taux de \(AppConfig.currency(fy.kmRate))/km. Le comptable peut préférer la méthode "
@@ -306,7 +306,7 @@ struct PDFReportGenerator {
 
                 // --- Net et part du copropriétaire ---
                 drawSectionTitle("Revenu net", color: green)
-                let net = data.annualNet(propertyId: prop.id)
+                let net = data.annualNet(propertyId: prop.propId)
                 drawLine(label: "Revenu net avant répartition (ligne 9369)", amount: net, bold: true)
                 if pct < 100 {
                     drawLine(label: "Part des copropriétaires (\(AppConfig.percent((100 - pct) / 100)))",
@@ -318,11 +318,11 @@ struct PDFReportGenerator {
                 }
 
                 // --- Dépenses en capital ---
-                let capTotal = data.sectionAnnualTotal(propertyId: prop.id, section: .capital)
+                let capTotal = data.sectionAnnualTotal(propertyId: prop.propId, section: .capital)
                 if capTotal != 0 {
                     drawSectionTitle("Dépenses en capital — ajouts de l'année (DPA, annexe du T776)", color: brown)
                     for cat in prop.capitalCategories {
-                        let total = data.categoryAnnualTotal(propertyId: prop.id, section: .capital, category: cat)
+                        let total = data.categoryAnnualTotal(propertyId: prop.propId, section: .capital, category: cat)
                         if total != 0 { drawLine(label: cat, amount: total, indent: 16, fontSize: 9.5) }
                     }
                     drawLine(label: "Total des ajouts en capital", amount: capTotal, bold: true, color: brown)
@@ -489,7 +489,7 @@ struct PDFReportGenerator {
                     }
                     monthKm += trip.km
                     let destination = trip.destinationLabel.isEmpty
-                        ? (AppConfig.property(id: trip.propertyId)?.name ?? trip.propertyId)
+                        ? (data.property(id: trip.propertyId)?.name ?? trip.propertyId)
                         : trip.destinationLabel
                     let purpose = trip.purpose.isEmpty
                         ? (trip.roundTrip ? "Aller-retour" : "Aller simple")
@@ -514,7 +514,7 @@ struct PDFReportGenerator {
             // ============================================================
             for prop in rentalProps {
                 newPage()
-                drawText("Annexe B — Détail mensuel \(fy.year) : \(AppSetup.displayName(prop.id))",
+                drawText("Annexe B — Détail mensuel \(fy.year) : \(prop.name)",
                          font: .boldSystemFont(ofSize: 15), color: blue, spacing: 10)
 
                 let w = contentWidth
@@ -524,7 +524,7 @@ struct PDFReportGenerator {
                 func monthlyTable(section: EntrySection, title: String, color: UIColor, categories: [String]) {
                     // Seules les catégories avec au moins un montant dans l'année.
                     let active = categories.filter {
-                        data.categoryAnnualTotal(propertyId: prop.id, section: section, category: $0) != 0
+                        data.categoryAnnualTotal(propertyId: prop.propId, section: section, category: $0) != 0
                     }
                     guard !active.isEmpty else { return }
                     drawSectionTitle(title, color: color)
@@ -538,7 +538,7 @@ struct PDFReportGenerator {
                             var row: [(String, CGFloat, Bool)] = [(cat, labelW, false)]
                             var semTotal = 0.0
                             for m in months {
-                                let v = data.amount(propertyId: prop.id, section: section, category: cat, month: m)
+                                let v = data.amount(propertyId: prop.propId, section: section, category: cat, month: m)
                                 semTotal += v
                                 row.append((compact(v), monthW, true))
                             }
@@ -548,7 +548,7 @@ struct PDFReportGenerator {
                         var totalRow: [(String, CGFloat, Bool)] = [("Total", labelW, false)]
                         var semGrand = 0.0
                         for m in months {
-                            let v = data.sectionTotal(propertyId: prop.id, section: section, month: m)
+                            let v = data.sectionTotal(propertyId: prop.propId, section: section, month: m)
                             semGrand += v
                             totalRow.append((compact(v), monthW, true))
                         }
@@ -571,7 +571,7 @@ struct PDFReportGenerator {
             // ============================================================
             var annexCStarted = false
             for prop in rentalProps {
-                let annotated = data.entries(propertyId: prop.id)
+                let annotated = data.entries(propertyId: prop.propId)
                     .filter { !$0.note.isEmpty || $0.receiptImage != nil }
                     .sorted { ($0.month, $0.category) < ($1.month, $1.category) }
                 guard !annotated.isEmpty else { continue }
@@ -580,7 +580,7 @@ struct PDFReportGenerator {
                     drawText("Annexe C — Notes et reçus", font: .boldSystemFont(ofSize: 16), color: navy, spacing: 10)
                     annexCStarted = true
                 }
-                drawSectionTitle(AppSetup.displayName(prop.id), color: blue)
+                drawSectionTitle(prop.name, color: blue)
                 for entry in annotated {
                     ensureSpace(40)
                     drawText("\(AppConfig.monthNames[entry.month]) — \(entry.category) : \(AppConfig.currency(entry.amount))",

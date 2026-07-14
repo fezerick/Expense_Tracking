@@ -15,8 +15,13 @@ struct SettingsView: View {
     @AppStorage(AppSetup.Keys.moduleRideshare) private var moduleRideshare = true
     @AppStorage(AppSetup.Keys.onboardingDone) private var onboardingDone = false
 
+    @Query(sort: [SortDescriptor(\RentalProperty.sortOrder), SortDescriptor(\RentalProperty.createdAt)])
+    private var allProperties: [RentalProperty]
+
     @State private var showEraseConfirmation = false
     @State private var eraseDone = false
+    @State private var editingDraft: PropertyDraft?
+    @State private var addingProperty = false
 
     private var data: DataService { DataService(context: context, year: year) }
 
@@ -112,13 +117,39 @@ struct SettingsView: View {
 
                 if moduleProperties {
                     Section {
-                        ForEach(AppSetup.activeProperties) { prop in
-                            ownershipRows(propertyId: prop.id)
+                        ForEach(allProperties) { prop in
+                            Button {
+                                editingDraft = PropertyDraft.from(prop)
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: prop.kind.icon)
+                                        .foregroundStyle(AppConfig.Palette.blue)
+                                        .frame(width: 24)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(prop.name)
+                                            .font(.subheadline.bold())
+                                            .foregroundStyle(.primary)
+                                        Text("\(prop.kind.label) · \(prop.revenueCategories.count) unité(s) · \(AppConfig.percent(prop.ownershipPct / 100))"
+                                             + (prop.coOwners.isEmpty ? "" : " avec \(prop.coOwners)"))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                        }
+                        Button {
+                            addingProperty = true
+                        } label: {
+                            Label("Ajouter un immeuble", systemImage: "plus.circle.fill")
                         }
                     } header: {
-                        Text("Propriété des immeubles (T776)")
+                        Text("Immeubles (T776)")
                     } footer: {
-                        Text("Votre pourcentage de participation et le nom du copropriétaire figurent sur le rapport PDF ; le comptable en a besoin pour le formulaire T776 / TP-128.")
+                        Text("Type, unités, adresse, % de propriété et copropriétaires : ces informations figurent sur le rapport PDF pour le formulaire T776 / TP-128.")
                     }
                 }
 
@@ -159,35 +190,13 @@ struct SettingsView: View {
                 }
                 Button("Annuler", role: .cancel) {}
             }
+            .sheet(item: $editingDraft) { draft in
+                PropertyEditorSheet(draft: draft, isExisting: true)
+            }
+            .sheet(isPresented: $addingProperty) {
+                PropertyEditorSheet(draft: PropertyDraft(), isExisting: false)
+            }
         }
     }
 
-    @ViewBuilder
-    private func ownershipRows(propertyId: String) -> some View {
-        let is470 = propertyId == AppConfig.p470.id
-        NumberField(title: "\(AppSetup.displayName(propertyId)) — % de propriété",
-                    value: Binding(
-                        get: { data.ensureFiscalYear().ownershipPct(propertyId: propertyId) },
-                        set: {
-                            let value = min(100, max(0, $0))
-                            if is470 { data.ensureFiscalYear().ownershipPct470 = value }
-                            else { data.ensureFiscalYear().ownershipPct1090 = value }
-                        }
-                    ),
-                    unit: "%")
-        HStack {
-            Text("Copropriétaire")
-                .font(.subheadline)
-            Spacer()
-            TextField("Nom (vide si aucun)", text: Binding(
-                get: { data.ensureFiscalYear().coOwner(propertyId: propertyId) },
-                set: {
-                    if is470 { data.ensureFiscalYear().coOwner470 = $0 }
-                    else { data.ensureFiscalYear().coOwner1090 = $0 }
-                }
-            ))
-            .multilineTextAlignment(.trailing)
-            .font(.subheadline)
-        }
-    }
 }

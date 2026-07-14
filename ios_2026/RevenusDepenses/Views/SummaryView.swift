@@ -18,6 +18,8 @@ struct SummaryView: View {
     @Query private var allUberValues: [UberValue]
     @Query private var allLyftMonths: [LyftMonth]
     @Query private var allVehicleExpenses: [VehicleExpense]
+    @Query(sort: [SortDescriptor(\RentalProperty.sortOrder), SortDescriptor(\RentalProperty.createdAt)])
+    private var allProperties: [RentalProperty]
     @Query(sort: \ChecklistItem.sortOrder) private var allChecklistItems: [ChecklistItem]
 
     @State private var showRestoreImporter = false
@@ -90,10 +92,12 @@ struct SummaryView: View {
 
     private var sourceTable: some View {
         Section("Détail par source") {
-            ForEach(AppSetup.activeProperties) { prop in
-                sourceRow(name: AppSetup.displayName(prop.id),
-                          revenue: data.sectionAnnualTotal(propertyId: prop.id, section: .revenue),
-                          expenses: data.sectionAnnualTotal(propertyId: prop.id, section: .deductible))
+            if moduleProperties {
+                ForEach(allProperties) { prop in
+                    sourceRow(name: prop.name,
+                              revenue: data.sectionAnnualTotal(propertyId: prop.propId, section: .revenue),
+                              expenses: data.sectionAnnualTotal(propertyId: prop.propId, section: .deductible))
+                }
             }
             if moduleRideshare {
                 sourceRow(name: "Uber — véhicule", revenue: 0, expenses: data.vehicleDeductionUber())
@@ -183,7 +187,8 @@ struct SummaryView: View {
             defer { if accessing { url.stopAccessingSecurityScopedResource() } }
             do {
                 let jsonData = try Data(contentsOf: url)
-                let restoredYear = try BackupService.restore(from: jsonData, context: context)
+                let restoredYear = try BackupService.restore(from: jsonData, context: context,
+                                                             fallbackYear: year)
                 restoreMessage = "Restauration réussie pour l'année \(restoredYear)."
             } catch {
                 restoreMessage = "Échec : \(error.localizedDescription)"

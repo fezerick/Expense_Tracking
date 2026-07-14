@@ -14,11 +14,13 @@ struct HomeView: View {
     // Ces @Query déclenchent le rafraîchissement des cartes quand les données changent.
     @Query private var allTrips: [Trip]
     @Query private var allEntries: [EntryAmount]
+    @Query(sort: [SortDescriptor(\RentalProperty.sortOrder), SortDescriptor(\RentalProperty.createdAt)])
+    private var allProperties: [RentalProperty]
 
     // Formulaire rapide
     @State private var tripDate = Date()
-    @State private var destination = "p1090"          // id de propriété | other
-    @State private var km: Double = AppConfig.p1090.oneWayKm * 2
+    @State private var destination = "other"          // propId | "other"
+    @State private var km: Double = 0
     @State private var roundTrip = true
     @State private var purpose = ""
     @State private var customOrigin = AppConfig.homeAddress
@@ -43,9 +45,9 @@ struct HomeView: View {
         .navigationTitle("Accueil")
         .scrollDismissesKeyboard(.interactively)
         .onAppear {
-            // Si la propriété par défaut n'est pas suivie, bascule sur la première active.
-            if destination != "other", !AppSetup.activeProperties.contains(where: { $0.id == destination }) {
-                destination = AppSetup.activeProperties.first?.id ?? "other"
+            // Sélectionne le premier immeuble configuré comme destination par défaut.
+            if !allProperties.contains(where: { $0.propId == destination }) {
+                destination = allProperties.first?.propId ?? "other"
                 applyPresetDistance()
             }
         }
@@ -107,13 +109,25 @@ struct HomeView: View {
             DatePicker("Date", selection: $tripDate, displayedComponents: .date)
                 .font(.subheadline)
 
-            Picker("Destination", selection: $destination) {
-                ForEach(AppSetup.activeProperties) { prop in
-                    Text(AppSetup.displayName(prop.id)).tag(prop.id)
+            Group {
+                if allProperties.count <= 2 {
+                    Picker("Destination", selection: $destination) {
+                        ForEach(allProperties) { prop in
+                            Text(prop.shortName).tag(prop.propId)
+                        }
+                        Text("Autre destination").tag("other")
+                    }
+                    .pickerStyle(.segmented)
+                } else {
+                    Picker("Destination", selection: $destination) {
+                        ForEach(allProperties) { prop in
+                            Text(prop.name).tag(prop.propId)
+                        }
+                        Text("Autre destination").tag("other")
+                    }
+                    .pickerStyle(.menu)
                 }
-                Text("Autre destination").tag("other")
             }
-            .pickerStyle(.segmented)
             .onChange(of: destination) { applyPresetDistance() }
 
             if destination == "other" {
@@ -220,7 +234,8 @@ struct HomeView: View {
         if destination == "other" {
             km = 0
         } else {
-            km = (AppConfig.property(id: destination)?.oneWayKm ?? 0) * (roundTrip ? 2 : 1)
+            let oneWay = allProperties.first { $0.propId == destination }?.oneWayKm ?? 0
+            km = oneWay * (roundTrip ? 2 : 1)
         }
     }
 
@@ -246,7 +261,7 @@ struct HomeView: View {
         if destination == "other" {
             label = customDestination.isEmpty ? "Autre destination" : customDestination
         } else {
-            label = AppSetup.displayName(destination)
+            label = allProperties.first { $0.propId == destination }?.name ?? "Immeuble"
         }
         data.addTrip(date: tripDate, propertyId: destination, destinationLabel: label,
                      km: km, roundTrip: roundTrip, purpose: purpose)

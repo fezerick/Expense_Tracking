@@ -8,6 +8,8 @@ struct TripsView: View {
 
     @Environment(\.modelContext) private var context
     @Query private var allTrips: [Trip]   // déclenche le rafraîchissement
+    @Query(sort: [SortDescriptor(\RentalProperty.sortOrder), SortDescriptor(\RentalProperty.createdAt)])
+    private var allProperties: [RentalProperty]
     @State private var month = Date.currentMonthIndex()
 
     private var data: DataService { DataService(context: context, year: year) }
@@ -23,14 +25,19 @@ struct TripsView: View {
                 monthTotals
             }
 
-            // Tous les immeubles (même désactivés dans l'assistant) : un trajet déjà
-            // saisi ne doit jamais disparaître ; le groupe est masqué seulement si vide.
-            let groupColors = [AppConfig.Palette.blue, AppConfig.Palette.green]
-            ForEach(Array(AppConfig.properties.enumerated()), id: \.element.id) { index, prop in
-                tripGroup(title: AppSetup.displayName(prop.id), propertyId: prop.id,
+            // Un groupe par immeuble configuré ; « Autres destinations » regroupe les
+            // trajets personnalisés ET ceux vers des immeubles retirés (jamais masqués).
+            let groupColors = [AppConfig.Palette.blue, AppConfig.Palette.green,
+                               AppConfig.Palette.orange, AppConfig.Palette.pink]
+            ForEach(Array(allProperties.enumerated()), id: \.element.propId) { index, prop in
+                tripGroup(title: prop.name,
+                          trips: monthTrips.filter { $0.propertyId == prop.propId },
                           color: groupColors[index % groupColors.count])
             }
-            tripGroup(title: "Autres destinations", propertyId: "other", color: AppConfig.Palette.brown)
+            let knownIds = Set(allProperties.map(\.propId))
+            tripGroup(title: "Autres destinations",
+                      trips: monthTrips.filter { !knownIds.contains($0.propertyId) },
+                      color: AppConfig.Palette.brown)
 
             if monthTrips.isEmpty {
                 Section {
@@ -71,8 +78,7 @@ struct TripsView: View {
     }
 
     @ViewBuilder
-    private func tripGroup(title: String, propertyId: String, color: Color) -> some View {
-        let trips = monthTrips.filter { $0.propertyId == propertyId }
+    private func tripGroup(title: String, trips: [Trip], color: Color) -> some View {
         if !trips.isEmpty {
             let kmTotal = trips.reduce(0) { $0 + $1.km }
             let amount = kmTotal * data.ensureFiscalYear().kmRate

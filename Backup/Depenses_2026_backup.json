@@ -1,0 +1,468 @@
+{
+  "version": 1,
+  "settings": {
+    "mileageRate": 0.72,
+    "kmTotalAnnuel": 22000,
+    "vehicleModel": "Mitsubishi Outlander 2025",
+    "googleMapsApiKey": "",
+    "syncAuto": true
+  },
+  "p1090": {
+    "revenus": {
+      "Coloc 1 (Salon)": [
+        800,
+        800,
+        800,
+        800,
+        800,
+        800,
+        800,
+        800,
+        800,
+        800,
+        800,
+        800
+      ],
+      "Coloc 2 (Ch.Princ)": [
+        780,
+        780,
+        780,
+        780,
+        780,
+        780,
+        780,
+        780,
+        780,
+        780,
+        780,
+        780
+      ],
+      "Coloc 3 (Ch. Bur)": [
+        730,
+        730,
+        730,
+        730,
+        730,
+        730,
+        730,
+        730,
+        730,
+        730,
+        730,
+        730
+      ]
+    },
+    "deductibles": {
+      "Frais de condo": [
+        180,
+        180,
+        180,
+        180,
+        180,
+        180,
+        180,
+        180,
+        180,
+        180,
+        180,
+        180
+      ],
+      "Entretien / Réparations courantes": [
+        "",
+        "",
+        "",
+        "",
+        "153.23",
+        "150",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "Électricité": [
+        "",
+        "353.92",
+        "",
+        "291.26",
+        "",
+        "176.67",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "Internet": [
+        "67.83",
+        "67.83",
+        "71.28",
+        "71.28",
+        "71.28",
+        "71.28",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "Outils / Matériel": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "713.39",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "Honoraires professionnels (comptable, notaire)": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "350",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "Taxes municipales": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "Taxe scolaire": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    "capital": {}
+  },
+  "p470": {
+    "revenus": {
+      "Logement 470": [
+        625,
+        625,
+        625,
+        625,
+        625,
+        625,
+        625,
+        625,
+        625,
+        625,
+        625,
+        625
+      ],
+      "Logement 468": [
+        1300,
+        1300,
+        1300,
+        1300,
+        1300,
+        1300,
+        1300,
+        1300,
+        1300,
+        1300,
+        1300,
+        1300
+      ],
+      "Logement 468 A": [
+        "525",
+        "525",
+        "",
+        "950",
+        "950",
+        "950",
+        "950",
+        "950",
+        "950",
+        "950",
+        "950",
+        "950"
+      ]
+    },
+    "deductibles": {
+      "Honoraires professionnels (comptable, notaire)": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "160",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "Électricité (parties communes)": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "193.64",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "Entretien / Réparations courantes (parties communes)": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "275",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "Taxes municipales": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "4123.96",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    "capital": {}
+  },
+  "vehicule": {
+    "depenses": {}
+  },
+  "uber": {},
+  "lyft": {},
+  "trips": [
+    {
+      "id": "mqirdv1nrjrf",
+      "date": "2026-06-10",
+      "property": "p470",
+      "reason": "Réparation porte toilettes Natalia, îlot de cuisine.",
+      "km": "330.0",
+      "roundTrip": true,
+      "customDest": ""
+    },
+    {
+      "id": "mqivkewdfypf",
+      "date": "2026-05-23",
+      "property": "p1090",
+      "reason": "Installation rideaux Armel et nettoyage toulettes",
+      "km": "110.8",
+      "roundTrip": true,
+      "customDest": ""
+    },
+    {
+      "id": "mqivn3awt69g",
+      "date": "2026-05-23",
+      "property": "p1090",
+      "reason": "Achat rideaux à Canac Laval pour installation",
+      "km": "110.8",
+      "roundTrip": true,
+      "customDest": ""
+    },
+    {
+      "id": "mqzhkf79t5t0",
+      "date": "2026-06-27",
+      "property": "p1090",
+      "reason": "Achat du chauffe eau et depot à PAT",
+      "km": "110.8",
+      "roundTrip": true,
+      "customDest": ""
+    },
+    {
+      "id": "mr3g5noniwjk",
+      "date": "2026-07-01",
+      "property": "p1090",
+      "reason": "Inspection remplacement chauffe eau (Mr Vincent)",
+      "km": "110.8",
+      "roundTrip": true,
+      "customDest": ""
+    },
+    {
+      "id": "mrjs2f915f3d",
+      "date": "2026-07-11",
+      "property": "p1090",
+      "reason": "Visite locataire qui veut le logement.",
+      "km": "110.8",
+      "roundTrip": true,
+      "customDest": ""
+    }
+  ],
+  "recurring": {
+    "p1090": {
+      "rev_Coloc 1 (Salon)": "800",
+      "rev_Coloc 2 (Ch.Princ)": "780",
+      "rev_Coloc 3 (Ch. Bur)": "730",
+      "ded_Frais de condo": "180"
+    },
+    "p470": {
+      "rev_Logement 470": "625",
+      "rev_Logement 468": "1300",
+      "rev_Logement 468 A": "950"
+    }
+  },
+  "checklist": [
+    {
+      "id": "cl1",
+      "label": "Feuillets T4 / Relevé 1 (revenus d'emploi)",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl2",
+      "label": "Rapport annuel Uber (PDF)",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl3",
+      "label": "Relevés mensuels Lyft (jan–déc)",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl4",
+      "label": "Acomptes provisionnels versés — ARC",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl5",
+      "label": "Acomptes provisionnels versés — Revenu Québec",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl6",
+      "label": "Formulaire T776 — État des loyers de biens immeubles",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl7",
+      "label": "Avis d'imposition municipale — 1090 Oscar Benoît",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl8",
+      "label": "Avis d'imposition municipale — 470 Gélinas",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl9",
+      "label": "Taxe scolaire — 1090 Oscar Benoît",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl10",
+      "label": "Taxe scolaire — 470 Gélinas",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl11",
+      "label": "Relevé annuel hypothèque (intérêts) — 1090",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl12",
+      "label": "Relevé annuel hypothèque (intérêts) — 470",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl13",
+      "label": "Relevés assurance habitation (2 propriétés)",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl14",
+      "label": "Reçus réparations / entretien",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl15",
+      "label": "Journal kilométrique (trajets logements)",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl16",
+      "label": "Reçus dépenses véhicule (carburant, assurance, entretien)",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl17",
+      "label": "Rapport préparé par comptable",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl18",
+      "label": "Déclaration fédérale T1 soumise à l'ARC",
+      "checked": false,
+      "custom": false
+    },
+    {
+      "id": "cl19",
+      "label": "Déclaration provinciale TP-1 soumise à Revenu Québec",
+      "checked": false,
+      "custom": false
+    }
+  ],
+  "receipts": {},
+  "notes": {}
+}

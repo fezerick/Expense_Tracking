@@ -11,6 +11,7 @@ struct RevenusDepensesApp: App {
     init() {
         let schema = Schema([
             FiscalYear.self,
+            RentalProperty.self,
             Trip.self,
             EntryAmount.self,
             UberValue.self,

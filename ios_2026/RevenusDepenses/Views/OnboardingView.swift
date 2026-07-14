@@ -2,9 +2,10 @@ import SwiftUI
 import SwiftData
 
 /// Assistant de configuration au premier lancement (relançable depuis Réglages).
-/// Pose les questions dont le comptable a besoin (véhicule, immeubles, % de propriété…)
-/// et n'affiche ensuite que les modules dont l'utilisateur a besoin.
-/// Ne touche jamais aux montants déjà saisis : il masque/affiche des sections.
+/// Étapes dynamiques : un module désactivé à l'étape 1 fait disparaître ses
+/// questions. Pour les logements : nombre de propriétés, puis une page par
+/// immeuble (type, unités/colocataires éditables, adresse, distance, % propriété).
+/// Le résumé final est cliquable pour revenir corriger une section.
 struct OnboardingView: View {
     let year: Int
 
@@ -23,26 +24,30 @@ struct OnboardingView: View {
     @State private var kmRate = AppConfig.defaultKmRate
     @State private var vehicleKm = AppConfig.defaultVehicleTotalKm
 
-    @State private var propEnabled: [String: Bool] = [:]
-    @State private var propNames: [String: String] = [:]
-    @State private var propPcts: [String: Double] = [:]
-    @State private var propCoOwners: [String: String] = [:]
+    @State private var drafts: [PropertyDraft] = []
 
     @State private var appearanceRaw = AppSetup.Appearance.system.rawValue
 
     @State private var stepIndex = 0
     @State private var loaded = false
 
-    // MARK: - Étapes
+    // MARK: - Étapes dynamiques
 
-    private enum Step {
-        case modules, vehicle, properties, final
+    private enum Step: Equatable {
+        case modules
+        case vehicle
+        case propertyCount
+        case property(Int)
+        case final
     }
 
     private var steps: [Step] {
         var list: [Step] = [.modules]
         if wantsTrips || wantsRideshare { list.append(.vehicle) }
-        if wantsProperties { list.append(.properties) }
+        if wantsProperties {
+            list.append(.propertyCount)
+            for i in drafts.indices { list.append(.property(i)) }
+        }
         list.append(.final)
         return list
     }
@@ -56,7 +61,8 @@ struct OnboardingView: View {
                 switch step {
                 case .modules: modulesStep
                 case .vehicle: vehicleStep
-                case .properties: propertiesStep
+                case .propertyCount: propertyCountStep
+                case .property(let i): propertyStep(i)
                 case .final: finalStep
                 }
             }
@@ -85,12 +91,14 @@ struct OnboardingView: View {
         switch step {
         case .modules: "Configuration"
         case .vehicle: "Votre véhicule"
-        case .properties: "Vos immeubles"
+        case .propertyCount: "Vos propriétés"
+        case .property(let i): drafts.indices.contains(i) && !drafts[i].displayName.isEmpty
+            ? drafts[i].displayName : "Propriété \(i + 1)"
         case .final: "Apparence et résumé"
         }
     }
 
-    // MARK: - Étape 1 : modules
+    // MARK: - Étape : modules
 
     private var modulesStep: some View {
         Group {
@@ -118,7 +126,7 @@ struct OnboardingView: View {
             } header: {
                 Text("Que souhaitez-vous suivre ?")
             } footer: {
-                Text("Seuls les onglets des modules choisis seront affichés. Les données déjà saisies sont conservées même si un module est masqué.")
+                Text("Un module désactivé ne posera aucune question et ses onglets seront masqués. Les données déjà saisies sont conservées.")
             }
         }
     }
@@ -138,7 +146,7 @@ struct OnboardingView: View {
         .padding(.vertical, 2)
     }
 
-    // MARK: - Étape 2 : véhicule
+    // MARK: - Étape : véhicule
 
     private var vehicleStep: some View {
         Group {
@@ -160,55 +168,74 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - Étape 3 : immeubles
+    // MARK: - Étape : nombre de propriétés
 
-    private var propertiesStep: some View {
-        ForEach(AppConfig.properties) { prop in
+    private var propertyCountStep: some View {
+        Group {
             Section {
-                Toggle("Suivre cet immeuble", isOn: enabledBinding(prop.id))
-                if propEnabled[prop.id] ?? true {
+                Stepper(value: Binding(
+                    get: { drafts.count },
+                    set: { resizeDrafts(to: $0) }
+                ), in: 1...10) {
                     HStack {
-                        Text("Nom affiché").font(.subheadline)
-                        Spacer()
-                        TextField(prop.name, text: nameBinding(prop.id, default: prop.name))
-                            .multilineTextAlignment(.trailing)
+                        Text("Nombre de propriétés")
                             .font(.subheadline)
-                    }
-                    NumberField(title: "Votre % de propriété",
-                                value: Binding(
-                                    get: { propPcts[prop.id] ?? 100 },
-                                    set: { propPcts[prop.id] = min(100, max(0, $0)) }
-                                ),
-                                unit: "%")
-                    HStack {
-                        Text("Copropriétaire").font(.subheadline)
                         Spacer()
-                        TextField("Nom (vide si aucun)", text: coOwnerBinding(prop.id))
-                            .multilineTextAlignment(.trailing)
-                            .font(.subheadline)
+                        Text("\(drafts.count)")
+                            .font(.title3.bold())
+                            .foregroundStyle(AppConfig.Palette.blue)
                     }
                 }
             } header: {
-                Text(prop.name)
+                Text("Combien de propriétés locatives possédez-vous ?")
             } footer: {
-                Text("Unités : \(prop.revenueCategories.joined(separator: ", ")). Le % de propriété et le copropriétaire figurent sur le T776 / TP-128.")
+                Text("Une page de configuration s'affichera pour chaque propriété : type (maison, plex, appartement), unités, adresse, % de propriété.")
+            }
+
+            Section("Aperçu") {
+                ForEach(drafts.indices, id: \.self) { i in
+                    HStack(spacing: 10) {
+                        Image(systemName: drafts[i].kind.icon)
+                            .foregroundStyle(AppConfig.Palette.blue)
+                            .frame(width: 24)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(drafts[i].displayName.isEmpty ? "Propriété \(i + 1)" : drafts[i].displayName)
+                                .font(.subheadline.bold())
+                            Text("\(drafts[i].kind.label) — \(drafts[i].unitNames.count) unité(s)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
         }
     }
 
-    private func enabledBinding(_ id: String) -> Binding<Bool> {
-        Binding(get: { propEnabled[id] ?? true }, set: { propEnabled[id] = $0 })
+    private func resizeDrafts(to count: Int) {
+        let target = max(1, min(10, count))
+        if drafts.count > target {
+            drafts.removeLast(drafts.count - target)
+        }
+        while drafts.count < target {
+            drafts.append(PropertyDraft())
+        }
     }
 
-    private func nameBinding(_ id: String, default def: String) -> Binding<String> {
-        Binding(get: { propNames[id] ?? def }, set: { propNames[id] = $0 })
+    // MARK: - Étape : une propriété
+
+    @ViewBuilder
+    private func propertyStep(_ i: Int) -> some View {
+        if drafts.indices.contains(i) {
+            Section {
+                Text("Propriété \(i + 1) sur \(drafts.count)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            PropertyEditorForm(draft: $drafts[i])
+        }
     }
 
-    private func coOwnerBinding(_ id: String) -> Binding<String> {
-        Binding(get: { propCoOwners[id] ?? "" }, set: { propCoOwners[id] = $0 })
-    }
-
-    // MARK: - Étape 4 : apparence + résumé
+    // MARK: - Étape : apparence + résumé cliquable
 
     private var finalStep: some View {
         Group {
@@ -223,38 +250,66 @@ struct OnboardingView: View {
                 .labelsHidden()
             }
 
-            Section("Résumé de votre configuration") {
+            Section {
                 summaryRow(icon: "car.fill", label: "Déplacements",
-                           value: wantsTrips ? "Activé" : "Masqué")
-                summaryRow(icon: "building.2.fill", label: "Logements locatifs",
-                           value: activePropertySummary)
+                           value: wantsTrips ? "Activé" : "Masqué",
+                           target: .modules)
                 summaryRow(icon: "car.2.fill", label: "Uber / Lyft",
-                           value: wantsRideshare ? "Activé" : "Masqué")
+                           value: wantsRideshare ? "Activé" : "Masqué",
+                           target: .modules)
                 if wantsTrips || wantsRideshare {
                     summaryRow(icon: "gauge.with.needle", label: "Véhicule",
-                               value: "\(vehicleModel) — \(AppConfig.currency(kmRate))/km")
+                               value: "\(vehicleModel) — \(AppConfig.currency(kmRate))/km",
+                               target: .vehicle)
                 }
+                if wantsProperties {
+                    ForEach(drafts.indices, id: \.self) { i in
+                        summaryRow(icon: drafts[i].kind.icon,
+                                   label: drafts[i].displayName.isEmpty ? "Propriété \(i + 1)" : drafts[i].displayName,
+                                   value: propertySummary(drafts[i]),
+                                   target: .property(i))
+                    }
+                } else {
+                    summaryRow(icon: "building.2.fill", label: "Logements locatifs",
+                               value: "Masqué", target: .modules)
+                }
+            } header: {
+                Text("Résumé de votre configuration")
+            } footer: {
+                Text("Touchez une ligne pour revenir la modifier.")
             }
         }
     }
 
-    private var activePropertySummary: String {
-        guard wantsProperties else { return "Masqué" }
-        let names = AppConfig.properties
-            .filter { propEnabled[$0.id] ?? true }
-            .map { propNames[$0.id]?.isEmpty == false ? propNames[$0.id]! : $0.name }
-        return names.isEmpty ? "Aucun immeuble" : names.joined(separator: " • ")
+    private func propertySummary(_ d: PropertyDraft) -> String {
+        var parts = ["\(d.kind.label) · \(d.unitNames.count) unité(s)"]
+        if d.ownershipPct < 100 {
+            parts.append("\(AppConfig.percent(d.ownershipPct / 100))"
+                         + (d.coOwners.isEmpty ? "" : " avec \(d.coOwners)"))
+        }
+        return parts.joined(separator: " · ")
     }
 
-    private func summaryRow(icon: String, label: String, value: String) -> some View {
-        HStack(alignment: .top) {
-            Label(label, systemImage: icon)
-                .font(.subheadline)
-            Spacer()
-            Text(value)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.trailing)
+    /// Ligne de résumé cliquable : ramène à l'étape concernée.
+    private func summaryRow(icon: String, label: String, value: String, target: Step) -> some View {
+        Button {
+            if let idx = steps.firstIndex(of: target) {
+                stepIndex = idx
+            }
+        } label: {
+            HStack(alignment: .top) {
+                Label(label, systemImage: icon)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text(value)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 
@@ -302,12 +357,9 @@ struct OnboardingView: View {
         vehicleModel = fy.vehicleModel
         kmRate = fy.kmRate
         vehicleKm = fy.vehicleTotalKm
-        for prop in AppConfig.properties {
-            propEnabled[prop.id] = AppSetup.propertyEnabled(prop.id)
-            propNames[prop.id] = AppSetup.displayName(prop.id)
-            propPcts[prop.id] = fy.ownershipPct(propertyId: prop.id)
-            propCoOwners[prop.id] = fy.coOwner(propertyId: prop.id)
-        }
+
+        let existing = data.properties()
+        drafts = existing.isEmpty ? [PropertyDraft()] : existing.map(PropertyDraft.from)
     }
 
     private func finish() {
@@ -322,19 +374,8 @@ struct OnboardingView: View {
             fy.kmRate = kmRate
             fy.vehicleTotalKm = vehicleKm
         }
-        for prop in AppConfig.properties {
-            AppSetup.setPropertyEnabled(prop.id, propEnabled[prop.id] ?? true)
-            let name = propNames[prop.id] ?? ""
-            AppSetup.setDisplayName(prop.id, name == prop.name ? "" : name)
-            let pct = propPcts[prop.id] ?? 100
-            let coOwner = propCoOwners[prop.id] ?? ""
-            if prop.id == AppConfig.p470.id {
-                fy.ownershipPct470 = pct
-                fy.coOwner470 = coOwner
-            } else {
-                fy.ownershipPct1090 = pct
-                fy.coOwner1090 = coOwner
-            }
+        if wantsProperties {
+            PropertyStore.apply(drafts: drafts, context: context)
         }
 
         AppSetup.onboardingDone = true

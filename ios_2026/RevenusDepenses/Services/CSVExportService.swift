@@ -10,11 +10,12 @@ struct CSVExportService {
         lines.append("Sommaire fiscal \(fy.year);;;")
         lines.append("Source;Revenus;Dépenses déductibles;Bénéfice")
 
-        // Seuls les modules/immeubles suivis (assistant de configuration) sont exportés.
-        for prop in AppSetup.activeProperties {
-            let rev = data.sectionAnnualTotal(propertyId: prop.id, section: .revenue)
-            let ded = data.sectionAnnualTotal(propertyId: prop.id, section: .deductible)
-            lines.append("\(escape(AppSetup.displayName(prop.id)));\(number(rev));\(number(ded));\(number(rev - ded))")
+        // Seuls les modules suivis (assistant de configuration) sont exportés.
+        let props = AppSetup.moduleProperties ? data.properties() : []
+        for prop in props {
+            let rev = data.sectionAnnualTotal(propertyId: prop.propId, section: .revenue)
+            let ded = data.sectionAnnualTotal(propertyId: prop.propId, section: .deductible)
+            lines.append("\(escape(prop.name));\(number(rev));\(number(ded));\(number(rev - ded))")
         }
 
         let uberDed = data.vehicleDeductionUber()
@@ -31,14 +32,14 @@ struct CSVExportService {
         lines.append(";;;")
         lines.append("Détail par propriété et catégorie;;;")
         lines.append("Propriété;Section;Catégorie;Total annuel")
-        for prop in AppSetup.activeProperties {
+        for prop in props {
             for (section, cats) in [(EntrySection.revenue, prop.revenueCategories),
                                     (.deductible, prop.deductibleCategories),
                                     (.capital, prop.capitalCategories)] {
                 for cat in cats {
-                    let total = data.categoryAnnualTotal(propertyId: prop.id, section: section, category: cat)
+                    let total = data.categoryAnnualTotal(propertyId: prop.propId, section: section, category: cat)
                     if total != 0 {
-                        lines.append("\(escape(AppSetup.displayName(prop.id)));\(sectionName(section));\(escape(cat));\(number(total))")
+                        lines.append("\(escape(prop.name));\(sectionName(section));\(escape(cat));\(number(total))")
                     }
                 }
             }
