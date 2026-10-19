@@ -20,14 +20,16 @@ struct CSVExportService {
 
         let uberDed = data.vehicleDeductionUber()
         let lyftDed = data.vehicleDeductionLyft()
+        let uberRev = data.uberNetIncome()
+        let lyftRev = data.lyftNetTotal()
         if AppSetup.moduleRideshare {
-            lines.append("Uber — véhicule;\(number(0));\(number(uberDed));\(number(-uberDed))")
-            lines.append("Lyft — véhicule;\(number(0));\(number(lyftDed));\(number(-lyftDed))")
+            lines.append("Uber (net des frais Uber);\(number(uberRev));\(number(uberDed));\(number(uberRev - uberDed))")
+            lines.append("Lyft (net des frais Lyft);\(number(lyftRev));\(number(lyftDed));\(number(lyftRev - lyftDed))")
         }
 
-        let totalRev = data.totalRevenueAll()
+        let totalRev = data.totalRevenueAll() + (AppSetup.moduleRideshare ? uberRev + lyftRev : 0)
         let totalDed = data.totalDeductibleAll() + (AppSetup.moduleRideshare ? uberDed + lyftDed : 0)
-        lines.append("TOTAL;\(number(totalRev));\(number(totalDed));\(number(data.globalNet()))")
+        lines.append("TOTAL;\(number(totalRev));\(number(totalDed));\(number(data.globalNet(includeRideshare: AppSetup.moduleRideshare)))")
 
         lines.append(";;;")
         lines.append("Détail par propriété et catégorie;;;")

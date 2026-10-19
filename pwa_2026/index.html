@@ -1024,7 +1024,7 @@ function switchYear(year) {
   localStorage.setItem('depenses_active_year', year)
   try {
     const s = localStorage.getItem(storeKey())
-    state = s ? Object.assign(defaultState(), JSON.parse(s)) : defaultState()
+    state = s ? mergeState(JSON.parse(s)) : defaultState()
   } catch(e) { state = defaultState() }
   updateYearLabels()
   refreshAll()
@@ -1116,10 +1116,23 @@ function defaultState() {
   }
 }
 
+// Fusionne un état sauvegardé avec l'état par défaut, SANS remplacer `settings` en bloc.
+// Object.assign(defaultState(), data) écrasait tout l'objet `settings` : un réglage ajouté
+// après la sauvegarde de l'utilisateur arrivait alors `undefined` — un `kmTotalAnnuel`
+// manquant mettait silencieusement toute la proration véhicule à 0.
+function mergeState(raw) {
+  const data = raw || {}
+  const merged = Object.assign(defaultState(), data)
+  merged.settings = Object.assign(defaultState().settings, data.settings || {})
+  merged.vehicule = Object.assign({ depenses: {} }, data.vehicule || {})
+  merged.vehicule.depenses = merged.vehicule.depenses || {}
+  return merged
+}
+
 let state = (() => {
   try {
     const s = localStorage.getItem(storeKey())
-    if (s) return Object.assign(defaultState(), JSON.parse(s))
+    if (s) return mergeState(JSON.parse(s))
   } catch(e) {}
   return defaultState()
 })()
@@ -1782,7 +1795,9 @@ function setMonthlyVal(propId, section, cat, mi, val) {
 
 function getTripAmount(propId, mi) {
   return state.trips
-    .filter(t => t.property === propId && monthOf(t.date) === mi)
+    .filter(t => t.property === propId
+              && yearOf(t.date) === activeYear
+              && monthOf(t.date) === mi)
     .reduce((s, t) => s + (parseFloat(t.km) || 0) * rate(), 0)
 }
 
@@ -2616,7 +2631,7 @@ function renderSummary() {
   const uberDed  = totalVehDep * (kmTotal > 0 ? kmUber/kmTotal : 0)
   const lyftDed  = totalVehDep * (kmTotal > 0 ? kmLyft/kmTotal : 0)
 
-  const uberNet  = UBER_FIELDS.filter(f=>!f.sep && f.key==='rides_gross').reduce((_,f)=>parseFloat(state.uber[f.key])||0, 0)
+  const uberNet  = uberNetIncome()
   const lyftNet  = Array.from({length:12},(_,mi)=>state.lyft[mi]||{})
     .reduce((s,m) => s+(parseFloat(m.taxable)||0)+(parseFloat(m.bonuses)||0)+(parseFloat(m.tips)||0)-(parseFloat(m.fees)||0), 0)
 
@@ -2625,9 +2640,13 @@ function renderSummary() {
   const mRide = setup.modules.rideshare
   const dedUberShown = mRide ? uberDed : 0
   const dedLyftShown = mRide ? lyftDed : 0
+  const revUberShown = mRide ? uberNet : 0
+  const revLyftShown = mRide ? lyftNet : 0
 
   const netLoc = totalRev - totalDep
-  const net = netLoc - dedUberShown - dedLyftShown
+  const revTotal = totalRev + revUberShown + revLyftShown
+  const depTotal = totalDep + dedUberShown + dedLyftShown
+  const net = revTotal - depTotal
 
   document.getElementById('summary-body').innerHTML = `
     ${mProps ? `
@@ -2657,14 +2676,14 @@ function renderSummary() {
       </tr></thead>
       <tbody>
         ${mProps ? perProp.map(x => summaryRow(propIcon(x.prop) + ' ' + onbEsc(shortLabel(x.prop.label)), x.t.rev, x.t.dep, x.t.net)).join('') : ''}
-        ${mRide ? summaryRow('🟠 Uber — véhicule', '-', uberDed, '-', true) : ''}
-        ${mRide ? summaryRow('💗 Lyft — véhicule', fmt(lyftNet)+' $', lyftDed, '-', true) : ''}
+        ${mRide ? summaryRow('🟠 Uber (net des frais Uber)', uberNet, uberDed, uberNet - uberDed) : ''}
+        ${mRide ? summaryRow('💗 Lyft (net des frais Lyft)', lyftNet, lyftDed, lyftNet - lyftDed) : ''}
       </tbody>
       <tfoot>
         <tr class="total-tr">
           <td>TOTAL</td>
-          <td style="text-align:right">${fmt(totalRev)} $</td>
-          <td style="text-align:right">${fmt(totalDep + dedUberShown + dedLyftShown)} $</td>
+          <td style="text-align:right">${fmt(revTotal)} $</td>
+          <td style="text-align:right">${fmt(depTotal)} $</td>
           <td style="text-align:right">${fmt(net)} $</td>
         </tr>
       </tfoot>
@@ -2735,8 +2754,40 @@ function exportCSV() {
   toast('✅ CSV exporté')
 }
 
+// Enveloppe v3 : la configuration (immeubles, adresses, % de propriété, copropriétaires,
+// modules) et l'année fiscale accompagnent les données. Sans elles, une restauration
+// ramenait le % de propriété à 100 %, perdait les copropriétaires et affichait les
+// immeubles créés par l'utilisateur comme « Immeuble importé ».
+function backupPayload() {
+  return { format: 'pwa-depenses', version: 3, year: activeYear, setup, state }
+}
+
+/// Restaure une sauvegarde webapp : enveloppe v3 (configuration + année) ou ancien
+/// format (le `state` à plat). Retourne { year, rebuilt } — `year` nul si le fichier
+/// n'en déclarait pas, `rebuilt` = nombre d'immeubles reconstruits depuis les données.
+function restoreFromBackup(data) {
+  const env = (data && data.format === 'pwa-depenses' && data.state) ? data : null
+  const importedYear = env ? parseInt(env.year) || 0 : 0
+
+  if (importedYear && importedYear !== activeYear) {
+    activeYear = importedYear
+    localStorage.setItem('depenses_active_year', activeYear)
+    updateYearLabels()
+  }
+  if (env && env.setup) {
+    const d = defaultSetup()
+    setup = { ...d, ...env.setup, modules: { ...d.modules, ...(env.setup.modules || {}) } }
+    saveSetup()
+    applyTheme()
+    applyModules()
+    renderPropSubtabs()
+  }
+  state = mergeState(env ? env.state : data)
+  return { year: importedYear, rebuilt: reconcilePropsFromState() }
+}
+
 function exportJSON() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'})
+  const blob = new Blob([JSON.stringify(backupPayload(), null, 2)], {type:'application/json'})
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
   a.download = `Depenses_${activeYear}_backup.json`
@@ -2760,11 +2811,12 @@ function handleImport(e) {
         importIOSBackup(data)   // sauvegarde de l'app iOS (v1/v2)
         return
       }
-      state = Object.assign(defaultState(), data)
-      const rebuilt = reconcilePropsFromState()
+      const { year: importedYear, rebuilt } = restoreFromBackup(data)
       save()
       refreshAll()
-      toast('✅ Données restaurées' + (rebuilt ? ` — ${rebuilt} immeuble(s) reconstruit(s)` : ''))
+      toast('✅ Données restaurées'
+        + (importedYear ? ` — année ${importedYear}` : '')
+        + (rebuilt ? ` — ${rebuilt} immeuble(s) reconstruit(s)` : ''))
     } catch(err) {
       toast('❌ Fichier JSON invalide')
     }
@@ -3245,7 +3297,7 @@ async function syncPull(manual = false) {
     }
 
     const localReceipts = state.receipts || {}
-    state = Object.assign(defaultState(), remote)
+    state = mergeState(remote)
     state.receipts = localReceipts
     reconcilePropsFromState()
     localStorage.setItem(storeKey(), JSON.stringify(state))
@@ -3575,6 +3627,20 @@ const UBER_GROUPS = [
   ['Autres revenus', [['eats_gross','Tarif brut Uber Eats'],['eats_tips','Pourboires Uber Eats'],['other_income','Autres revenus']]]
 ]
 
+// Revenu net Uber = revenus de courses (hors taxes collectées des passagers) + autres
+// revenus − frais payés à Uber. Une seule définition, utilisée par le sommaire ET par le
+// rapport PDF, pour que l'écran et le document remis au comptable ne puissent pas diverger.
+function uberValue(k) { return parseFloat((state.uber || {})[k]) || 0 }
+function uberRevenueTotal() {
+  return UBER_GROUPS[0][1].filter(([k]) => !k.startsWith('gst') && !k.startsWith('qst'))
+           .reduce((s, [k]) => s + uberValue(k), 0)
+       + UBER_GROUPS[2][1].reduce((s, [k]) => s + uberValue(k), 0)
+}
+function uberFeesTotal() {
+  return uberValue('service_fee') + uberValue('other_fees') - uberValue('fee_discount')
+}
+function uberNetIncome() { return uberRevenueTotal() - uberFeesTotal() }
+
 async function generatePDF() {
   toast('⏳ Génération du rapport…')
   try {
@@ -3677,9 +3743,8 @@ async function generatePDF() {
     const pctLyft = kmTotalAnnuel > 0 ? kmLyft / kmTotalAnnuel : 0
     const pctRental = kmTotalAnnuel > 0 ? kmRental / kmTotalAnnuel : 0
     const dedUber = totalVeh * pctUber, dedLyft = totalVeh * pctLyft
-    const uberRevenue = UBER_GROUPS[0][1].filter(([k]) => !k.startsWith('gst') && !k.startsWith('qst')).reduce((s, [k]) => s + uv(k), 0)
-      + UBER_GROUPS[2][1].reduce((s, [k]) => s + uv(k), 0)
-    const uberFees = uv('service_fee') + uv('other_fees') - uv('fee_discount')
+    const uberRevenue = uberRevenueTotal()
+    const uberFees = uberFeesTotal()
     const uberNet = uberRevenue - uberFees
     const lyftMonths = Object.keys(state.lyft || {}).map(k => ({ mi: parseInt(k), ...state.lyft[k] }))
       .filter(m => ['taxable','bonuses','tips','fees','km'].some(f => parseFloat(m[f])))

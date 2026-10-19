@@ -149,10 +149,21 @@ struct BackupService {
         if let snapshot = try? decoder.decode(Snapshot.self, from: jsonData) {
             return restoreIOS(snapshot, context: context)
         }
-        if let object = (try? JSONSerialization.jsonObject(with: jsonData)) as? [String: Any],
-           object["settings"] is [String: Any],
-           object["appVersion"] == nil {
-            return try restorePWA(object, context: context, fallbackYear: fallbackYear)
+        if let object = (try? JSONSerialization.jsonObject(with: jsonData)) as? [String: Any] {
+            // Enveloppe v3 de la webapp : la configuration (immeubles, % de propriété,
+            // copropriétaires) et l'année fiscale accompagnent les données.
+            if object["format"] as? String == "pwa-depenses",
+               let state = object["state"] as? [String: Any] {
+                return try restorePWA(state,
+                                      setup: object["setup"] as? [String: Any],
+                                      declaredYear: double(object["year"]).map { Int($0) },
+                                      context: context, fallbackYear: fallbackYear)
+            }
+            // Ancien format : le `state` à plat, sans configuration ni année.
+            if object["settings"] is [String: Any], object["appVersion"] == nil {
+                return try restorePWA(object, setup: nil, declaredYear: nil,
+                                      context: context, fallbackYear: fallbackYear)
+            }
         }
         throw BackupError.invalidFile
     }
@@ -260,11 +271,13 @@ struct BackupService {
 
     // MARK: - Format webapp (state JSON de la PWA)
 
-    private static func restorePWA(_ state: [String: Any], context: ModelContext,
+    private static func restorePWA(_ state: [String: Any], setup: [String: Any]?,
+                                   declaredYear: Int?, context: ModelContext,
                                    fallbackYear: Int) throws -> Int {
-        // L'export webapp ne contient pas l'année : on la déduit des trajets.
+        // L'enveloppe v3 porte l'année ; l'ancien format ne l'a pas et on la déduit des
+        // trajets — un fichier sans trajet atterrissait alors dans la mauvaise année.
         let tripDicts = (state["trips"] as? [[String: Any]]) ?? []
-        let year = inferYear(tripDicts: tripDicts) ?? fallbackYear
+        let year = declaredYear ?? inferYear(tripDicts: tripDicts) ?? fallbackYear
 
         let data = DataService(context: context, year: year)
         data.eraseYearData()
@@ -287,12 +300,28 @@ struct BackupService {
             ("revenus", .revenue), ("deductibles", .deductible), ("capital", .capital)
         ]
 
-        for def in AppConfig.legacyProperties {
-            guard let bucket = state[def.id] as? [String: Any] else { continue }
+        // D'abord les immeubles décrits par la configuration (enveloppe v3) : nom,
+        // adresse, % de propriété et copropriétaires sont alors préservés, et les
+        // immeubles créés par l'utilisateur ne sont plus perdus.
+        var propertyIds: [String] = []
+        for (i, dto) in ((setup?["propsList"] as? [[String: Any]]) ?? []).enumerated() {
+            guard let propId = dto["id"] as? String else { continue }
+            propertyIds.append(propId)
+            ensurePWAProperty(dto, sortOrder: i, context: context, data: data)
+        }
+        // Puis tout immeuble présent dans les données mais absent de la configuration
+        // (ancien format sans `setup`) : recréé depuis les immeubles historiques.
+        for def in AppConfig.legacyProperties
+        where state[def.id] != nil && !propertyIds.contains(def.id) {
+            propertyIds.append(def.id)
             ensureLegacyProperty(def, kind: def.id == AppConfig.p470.id ? .plex : .appart,
                                  subtype: def.id == AppConfig.p470.id ? "triplex" : "colocation",
                                  pct: nil, coOwners: nil, context: context, data: data)
+        }
+        try? context.save()
 
+        for propId in propertyIds {
+            guard let bucket = state[propId] as? [String: Any] else { continue }
             for (pwaSection, section) in sectionMap {
                 guard let cats = bucket[pwaSection] as? [String: Any] else { continue }
                 for (category, rawValues) in cats {
@@ -300,11 +329,11 @@ struct BackupService {
                           let values = rawValues as? [Any] else { continue }
                     for (month, raw) in values.prefix(12).enumerated() {
                         let amount = double(raw) ?? 0
-                        let noteKey = "\(def.id)_\(pwaSection)_\(category)_\(month)"
+                        let noteKey = "\(propId)_\(pwaSection)_\(category)_\(month)"
                         let note = notes[noteKey] as? String ?? ""
                         let receipt = dataURLImage(receipts[noteKey])
                         guard amount != 0 || !note.isEmpty || receipt != nil else { continue }
-                        let entry = EntryAmount(year: year, propertyId: def.id, section: section,
+                        let entry = EntryAmount(year: year, propertyId: propId, section: section,
                                                 category: category, month: month, amount: amount)
                         entry.note = note
                         entry.receiptImage = receipt
@@ -323,7 +352,8 @@ struct BackupService {
             guard let dateStr = t["date"] as? String, let date = df.date(from: dateStr) else { continue }
             let propertyId = (t["property"] as? String) ?? "other"
             let custom = (t["customDest"] as? String) ?? ""
-            let label = AppConfig.legacyProperty(id: propertyId)?.name
+            let label = data.property(id: propertyId)?.name
+                ?? AppConfig.legacyProperty(id: propertyId)?.name
                 ?? (custom.isEmpty ? "Autre destination" : custom)
             context.insert(Trip(year: year, date: date, propertyId: propertyId,
                                 destinationLabel: label, km: double(t["km"]) ?? 0,
@@ -379,6 +409,38 @@ struct BackupService {
         try? context.save()
 
         return year
+    }
+
+    /// Immeuble décrit par la configuration webapp (`setup.propsList`) :
+    /// { id, label, kind, subtype, revenus[], deductibles[], capital[],
+    ///   address, distanceKm, pct, coOwners }
+    private static func ensurePWAProperty(_ dto: [String: Any], sortOrder: Int,
+                                          context: ModelContext, data: DataService) {
+        guard let propId = dto["id"] as? String else { return }
+        let pct = double(dto["pct"]) ?? 100
+        let coOwners = (dto["coOwners"] as? String) ?? ""
+        if let existing = data.property(id: propId) {
+            existing.ownershipPct = pct
+            existing.coOwners = coOwners
+            if let name = dto["label"] as? String, !name.isEmpty { existing.name = name }
+            if let address = dto["address"] as? String, !address.isEmpty { existing.address = address }
+            return
+        }
+        let strings: (Any?) -> [String] = { ($0 as? [Any] ?? []).compactMap { $0 as? String } }
+        context.insert(RentalProperty(
+            propId: propId,
+            name: (dto["label"] as? String) ?? propId,
+            address: (dto["address"] as? String) ?? "",
+            kind: PropertyKind(rawValue: (dto["kind"] as? String) ?? "") ?? .plex,
+            subtypeCode: (dto["subtype"] as? String) ?? "autre",
+            oneWayKm: double(dto["distanceKm"]) ?? 0,
+            ownershipPct: pct,
+            coOwners: coOwners,
+            revenueCategories: strings(dto["revenus"]),
+            deductibleCategories: strings(dto["deductibles"]),
+            capitalCategories: strings(dto["capital"]),
+            sortOrder: sortOrder
+        ))
     }
 
     /// Année la plus fréquente parmi les dates des trajets ("YYYY-MM-DD").

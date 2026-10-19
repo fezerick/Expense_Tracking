@@ -83,8 +83,16 @@ struct SummaryView: View {
                 AmountRow(label: "Déduction véhicule — Lyft", amount: data.vehicleDeductionLyft(),
                           color: AppConfig.Palette.pink)
             }
-            AmountRow(label: "Bénéfice global", amount: data.globalNet(), bold: true,
-                      color: data.globalNet() >= 0 ? AppConfig.Palette.green : .red)
+            if moduleRideshare {
+                AmountRow(label: "Revenu net Uber", amount: data.uberNetIncome(),
+                          color: AppConfig.Palette.orange)
+                AmountRow(label: "Net reçu Lyft", amount: data.lyftNetTotal(),
+                          color: AppConfig.Palette.pink)
+            }
+            AmountRow(label: "Bénéfice global",
+                      amount: data.globalNet(includeRideshare: moduleRideshare), bold: true,
+                      color: data.globalNet(includeRideshare: moduleRideshare) >= 0
+                             ? AppConfig.Palette.green : .red)
         }
     }
 
@@ -100,11 +108,14 @@ struct SummaryView: View {
                 }
             }
             if moduleRideshare {
-                sourceRow(name: "Uber — véhicule", revenue: 0, expenses: data.vehicleDeductionUber())
-                sourceRow(name: "Lyft — véhicule", revenue: 0, expenses: data.vehicleDeductionLyft())
+                sourceRow(name: "Uber (net des frais Uber)", revenue: data.uberNetIncome(),
+                          expenses: data.vehicleDeductionUber())
+                sourceRow(name: "Lyft (net des frais Lyft)", revenue: data.lyftNetTotal(),
+                          expenses: data.vehicleDeductionLyft())
             }
             sourceRow(name: "TOTAL",
-                      revenue: data.totalRevenueAll(),
+                      revenue: data.totalRevenueAll()
+                          + (moduleRideshare ? data.uberNetIncome() + data.lyftNetTotal() : 0),
                       expenses: data.totalDeductibleAll()
                           + (moduleRideshare ? data.vehicleDeductionUber() + data.vehicleDeductionLyft() : 0),
                       bold: true)

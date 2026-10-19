@@ -242,9 +242,18 @@ struct DataService {
         totalRevenueAll() - totalDeductibleAll()
     }
 
-    /// benefice_global = bénéfice locatif − déduction véhicule Uber − déduction véhicule Lyft
-    func globalNet() -> Double {
-        rentalNetGlobal() - vehicleDeductionUber() - vehicleDeductionLyft()
+    /// benefice_global = bénéfice locatif + revenu net Uber + net Lyft
+    ///                    − déduction véhicule Uber − déduction véhicule Lyft
+    ///
+    /// Les revenus rideshare entrent bien dans le total : les soustraire les déductions
+    /// véhicule sans ajouter les revenus correspondants donnait un bénéfice global
+    /// fortement négatif alors que le rapport PDF, lui, était correct.
+    /// `includeRideshare` suit le module « Uber / Lyft » de l'assistant : module masqué,
+    /// ni les revenus ni les déductions rideshare ne comptent.
+    func globalNet(includeRideshare: Bool = true) -> Double {
+        guard includeRideshare else { return rentalNetGlobal() }
+        return rentalNetGlobal() + uberNetIncome() + lyftNetTotal()
+             - vehicleDeductionUber() - vehicleDeductionLyft()
     }
 
     // MARK: - Uber

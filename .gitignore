@@ -3,3 +3,6 @@ xcuserdata/
 DerivedData/
 *.xcuserstate
 Backup/
+.playwright-mcp/
+.firebase/
+Boussole/
