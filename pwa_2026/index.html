@@ -963,24 +963,24 @@ html.theme-dark .onb-section{background:#1a222d}
      moment du chargement. L'ordre est significatif : données fiscales, socle,
      puis les modules. Le paramètre ?v= force le service worker à reprendre le
      fichier après un déploiement. -->
-<script src="js/fiscal-data.js?v=2.2.0"></script>
-<script src="js/app-modules.js?v=2.2.0"></script>
-<script src="js/baux.js?v=2.2.0"></script>
-<script src="js/dpa.js?v=2.2.0"></script>
-<script src="js/impot.js?v=2.2.0"></script>
-<script src="js/tps-tvq.js?v=2.2.0"></script>
-<script src="js/vehicule-methodes.js?v=2.2.0"></script>
-<script src="js/coproprietaires.js?v=2.2.0"></script>
-<script src="js/ventilation.js?v=2.2.0"></script>
-<script src="js/recus.js?v=2.2.0"></script>
-<script src="js/kilometrage.js?v=2.2.0"></script>
-<script src="js/import-bancaire.js?v=2.2.0"></script>
-<script src="js/cloture.js?v=2.2.0"></script>
-<script src="js/dossier.js?v=2.2.0"></script>
-<script src="js/tableau-bord.js?v=2.2.0"></script>
-<script src="js/simulateur.js?v=2.2.0"></script>
-<script src="js/vente.js?v=2.2.0"></script>
-<script src="js/recommandations.js?v=2.2.0"></script>
+<script src="js/fiscal-data.js?v=2.2.1"></script>
+<script src="js/app-modules.js?v=2.2.1"></script>
+<script src="js/baux.js?v=2.2.1"></script>
+<script src="js/dpa.js?v=2.2.1"></script>
+<script src="js/impot.js?v=2.2.1"></script>
+<script src="js/tps-tvq.js?v=2.2.1"></script>
+<script src="js/vehicule-methodes.js?v=2.2.1"></script>
+<script src="js/coproprietaires.js?v=2.2.1"></script>
+<script src="js/ventilation.js?v=2.2.1"></script>
+<script src="js/recus.js?v=2.2.1"></script>
+<script src="js/kilometrage.js?v=2.2.1"></script>
+<script src="js/import-bancaire.js?v=2.2.1"></script>
+<script src="js/cloture.js?v=2.2.1"></script>
+<script src="js/dossier.js?v=2.2.1"></script>
+<script src="js/tableau-bord.js?v=2.2.1"></script>
+<script src="js/simulateur.js?v=2.2.1"></script>
+<script src="js/vente.js?v=2.2.1"></script>
+<script src="js/recommandations.js?v=2.2.1"></script>
 
 <script>
 // ════════════════════════════════════════════════════════════
@@ -999,7 +999,7 @@ html.theme-dark .onb-section{background:#1a222d}
 //   MAJEUR   — changement du format des donnees qui demande une migration
 //   MINEUR   — nouvelle fonctionnalite
 //   CORRECTIF— correction sans nouvelle fonctionnalite
-const APP_VERSION = '2.2.0'
+const APP_VERSION = '2.2.1'
 const APP_BUILD   = '2026-10-20'
 const APP_NOM     = 'Mon Plex'
 
@@ -3242,52 +3242,159 @@ async function loadPDFJS() {
   })
 }
 
-async function extractPDFText(file) {
+// ── Lecture du texte d'un PDF, avec repli OCR ──────────────────────────────
+// Deux sortes de relevés arrivent ici :
+//   • un PDF « texte », produit par la plateforme : pdf.js en lit la couche
+//     texte directement ;
+//   • un PDF « image » — relevé scanné, capture d'écran exportée en PDF, ou
+//     relevé dont la plateforme a aplati le texte. Il n'a AUCUNE couche texte,
+//     pdf.js renvoie une chaîne vide, et l'import annonçait alors « aucune
+//     donnée détectée » comme si les libellés ne correspondaient pas. Rien
+//     n'était pourtant lu du tout.
+// On bascule donc sur l'OCR — Tesseract, déjà embarqué pour les reçus — dès
+// que la couche texte est trop maigre pour être crédible.
+let dernierTextePDF = ''          // conservé pour le bouton de diagnostic
+let dernierModePDF  = ''          // 'texte' | 'OCR'
+
+const PDF_SEUIL_TEXTE = 80        // caractères utiles en deçà desquels on soupçonne un PDF image
+const KM_PAR_MILLE    = 1.609344
+
+function texteUtileLen(s) { return String(s || '').replace(/\s/g, '').length }
+
+async function extractPDFText(file, onProgress) {
   await loadPDFJS()
   const buf = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise
+  const pages = []
   let fullText = ''
   for (let pi = 1; pi <= pdf.numPages; pi++) {
     const page = await pdf.getPage(pi)
     const content = await page.getTextContent()
-    // Sort top→bottom, left→right to reconstruct reading order
+    // Tri haut→bas puis gauche→droite, pour reconstituer l'ordre de lecture.
     const items = [...content.items].sort((a, b) => {
       const dy = b.transform[5] - a.transform[5]
       return Math.abs(dy) > 3 ? dy : a.transform[4] - b.transform[4]
     })
+    pages.push(page)
     fullText += items.map(it => it.str).join(' ') + '\n'
   }
-  return fullText
+
+  if (texteUtileLen(fullText) >= PDF_SEUIL_TEXTE) {
+    dernierTextePDF = fullText; dernierModePDF = 'texte'
+    return fullText
+  }
+
+  // Pas de couche texte : on lit l'image de chaque page.
+  if (typeof chargerOCR !== 'function') {
+    dernierTextePDF = fullText; dernierModePDF = 'texte'
+    throw new Error('Ce PDF ne contient pas de texte et le module de lecture d’image est indisponible.')
+  }
+  onProgress && onProgress('PDF sans texte — lecture par OCR…')
+  await chargerOCR()
+  let ocr = ''
+  for (let i = 0; i < pages.length; i++) {
+    onProgress && onProgress('OCR page ' + (i + 1) + ' / ' + pages.length + '…')
+    ocr += await ocrPagePDF(pages[i], onProgress) + '\n'
+  }
+  dernierTextePDF = ocr; dernierModePDF = 'OCR'
+  return ocr
+}
+
+// Rend une page dans un canvas puis la passe à Tesseract. L'échelle 2 double la
+// résolution : en dessous, les montants à deux décimales se lisent mal.
+async function ocrPagePDF(page, onProgress) {
+  const viewport = page.getViewport({ scale: 2 })
+  const canvas = document.createElement('canvas')
+  canvas.width = viewport.width; canvas.height = viewport.height
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise
+  const res = await Tesseract.recognize(canvas, 'fra+eng', {
+    logger: p => { if (p.status && onProgress) onProgress(p.status + (p.progress ? ' ' + Math.round(p.progress * 100) + ' %' : '')) }
+  })
+  return (res && res.data && res.data.text) || ''
 }
 
 function parseAmountStr(s) {
   if (!s) return null
   s = String(s).replace(/\s/g, '')
-  // French decimal: "1 234,56" → comma before exactly 2 digits at end
+  // Décimale française : virgule suivie d'exactement deux chiffres en fin.
   if (/,\d{2}$/.test(s) && !s.includes('.')) {
     s = s.replace(/,/, '.')
   } else {
-    // English: commas are thousands separators
+    // Anglaise : les virgules sont des séparateurs de milliers.
     s = s.replace(/,/g, '')
   }
   const v = parseFloat(s)
   return isNaN(v) ? null : v
 }
 
-function findAmountNear(text, labels, win = 500) {
-  const lower = text.toLowerCase()
-  for (const lbl of [].concat(labels)) {
-    const pos = lower.indexOf(lbl.toLowerCase())
-    if (pos < 0) continue
-    const seg = text.slice(pos + lbl.length, pos + lbl.length + win)
-    // Match: optional negative, optional $, digits with separators
-    const m = seg.match(/(-?)\s*\$?\s*(\d[\d ,]*\.?\d{0,2})/)
-    if (!m) continue
-    const sign = m[1] === '-' ? -1 : 1
-    const v = sign * parseAmountStr(m[2])
-    if (v !== null && !isNaN(v) && Math.abs(v) > 0 && Math.abs(v) < 1e6) return v
+// Premier montant plausible d'un fragment de texte. Renvoie null plutôt qu'un
+// nombre douteux : mieux vaut un champ vide à remplir qu'un montant faux
+// appliqué sans que personne ne le remarque.
+function premierMontantPos(seg) {
+  const re = /(\()?\s*(-?)\s*\$?\s*(\d[\d  ,]*\.?\d{0,2})\s*(\))?\s*(%)?/g
+  let m
+  while ((m = re.exec(seg)) !== null) {
+    if (m[5] === '%') continue                       // un pourcentage n'est pas un montant
+    const v = parseAmountStr(m[3])
+    if (v === null || isNaN(v)) continue
+    const neg = m[2] === '-' || (m[1] === '(' && m[4] === ')')
+    const val = neg ? -v : v
+    if (Math.abs(val) >= 1e6) continue
+    return { valeur: val, pos: m.index }
   }
   return null
+}
+
+function premierMontant(seg) {
+  const r = premierMontantPos(seg)
+  return r ? r.valeur : null
+}
+
+// Cherche le montant qui suit un libellé. Trois corrections par rapport à la
+// version précédente, qui rendait des champs vides sur des relevés pourtant
+// lisibles :
+//   • toutes les occurrences du libellé sont essayées, et c'est celle dont le
+//     montant est le PLUS PROCHE qui gagne — un libellé figure souvent d'abord
+//     en prose dans un sommaire (« Pourboires, primes et frais »), où le
+//     premier chiffre rencontré appartient à une autre ligne ;
+//   • la fenêtre de recherche passe de 500 à 160 caractères, puis s'élargit
+//     seulement si rien n'a été trouvé : à 500, un libellé sans montant
+//     attrapait le chiffre de la ligne suivante ;
+//   • le libellé retenu est renvoyé, ce qui permet de convertir les milles en
+//     kilomètres (un relevé Lyft en anglais compte en milles).
+function findAmountNearLbl(text, labels, win = 160) {
+  const lower = String(text || '').toLowerCase()
+  for (const lbl of [].concat(labels)) {
+    const cible = lbl.toLowerCase()
+    let meilleur = null
+    for (const fenetre of [win, 500]) {
+      let pos = lower.indexOf(cible)
+      while (pos >= 0) {
+        const debut = pos + cible.length
+        const r = premierMontantPos(text.slice(debut, debut + fenetre))
+        if (r && (!meilleur || r.pos < meilleur.pos)) meilleur = r
+        pos = lower.indexOf(cible, pos + 1)
+      }
+      if (meilleur) break      // la fenêtre large ne sert qu'en dernier recours
+    }
+    if (meilleur) return { valeur: meilleur.valeur, libelle: lbl }
+  }
+  return null
+}
+
+function findAmountNear(text, labels, win = 160) {
+  const r = findAmountNearLbl(text, labels, win)
+  return r ? r.valeur : null
+}
+
+// Un relevé en anglais compte en milles. Sans conversion, 1 200 milles étaient
+// enregistrés comme 1 200 km : la déduction kilométrique s'en trouvait sous-
+// estimée de 38 %.
+function findDistanceKm(text, labels) {
+  const r = findAmountNearLbl(text, labels)
+  if (!r) return null
+  const enMilles = /mile|mille/i.test(r.libelle)
+  return enMilles ? Math.round(r.valeur * KM_PAR_MILLE) : r.valeur
 }
 
 function parseUberPDF(text) {
@@ -3312,46 +3419,78 @@ function parseUberPDF(text) {
     other_income:    f('Other earnings','Autres revenus','Other income'),
     gst_remitted:    f('GST/HST remitted by Uber','TPS versée par Uber','GST remitted by Uber'),
     qst_remitted:    f('QST remitted by Uber','TVQ versée par Uber','TVQ remise par Uber'),
-    km_on_trip:      f('km on trip','On-trip km','Km en course','Miles on trip','On trip'),
-    km_online:       f('km online','Online km','Km en ligne','Total online km','Total km online','Online miles')
+    km_on_trip:      findDistanceKm(text, ['km on trip','On-trip km','Km en course','Miles on trip','On trip','Milles en course']),
+    km_online:       findDistanceKm(text, ['km online','Online km','Km en ligne','Total online km','Total km online','Online miles','Milles en ligne'])
   }
 }
 
+// Les libellés de Lyft varient selon la langue du compte, le type de relevé
+// (hebdomadaire, mensuel, sommaire fiscal annuel) et l'année. La liste est donc
+// longue à dessein, du plus précis au plus général : le premier qui tombe sur
+// un montant gagne.
 function parseLyftPDF(text) {
   const f = (...lbls) => findAmountNear(text, lbls)
   return {
-    taxable: f('Base pay','Rémunération de base','Taxable earnings','Ride earnings','Gross earnings'),
-    bonuses: f('Bonuses','Primes','Incentives','Streak bonus','Challenge bonus','Bonus pay'),
-    tips:    f('Tips','Pourboires','Tip amount','Total tips','Passenger tips'),
-    fees:    f('Lyft fee','Frais de service Lyft','Service fee','Lyft service fee','Commission','Lyft platform fee'),
-    km:      f('Kilometers','km driven','Distance (km)','Total distance','Miles driven','Km parcourus'),
-    courses: f('Rides completed','Total rides','Courses complétées','Trips completed','Number of rides','Rides given')
+    taxable: f('Gains de course','Revenu des courses','Revenus bruts','Gains bruts','Revenu brut',
+               'Rémunération de base','Remuneration de base','Base taxable','Revenu total','Total des gains',
+               'Ride earnings','Gross earnings','Total gross earnings','Taxable earnings','Base pay','Ride payments'),
+    bonuses: f('Primes','Bonis','Bonus','Incitatifs','Défis','Defis',
+               'Bonuses','Incentives','Streak bonus','Challenge bonus','Bonus pay','Promotions'),
+    tips:    f('Pourboires','Total des pourboires','Pourboire',
+               'Tips','Total tips','Passenger tips','Tip amount'),
+    fees:    f('Frais de la plateforme Lyft','Frais de plateforme','Frais de service Lyft','Frais Lyft',
+               'Frais de service','Commission Lyft','Commission',
+               'Lyft platform fees','Lyft platform fee','Lyft service fee','Lyft fee','Service fee','Platform fee'),
+    km:      findDistanceKm(text, ['Kilomètres parcourus','Kilometres parcourus','Km parcourus','Kilomètres','Kilometres',
+                                   'Distance parcourue','Distance (km)','Distance totale',
+                                   'Kilometers driven','Kilometers','km driven','Total distance',
+                                   'Milles en ligne','Online miles','Miles driven','Total miles']),
+    courses: f('Courses complétées','Courses completees','Nombre de courses','Courses effectuées','Trajets effectués','Courses','Trajets',
+               'Rides completed','Total rides','Trips completed','Number of rides','Rides given','Rides')
   }
 }
 
 function importUberPDF() { document.getElementById('uber-pdf-input').click() }
 function importLyftPDF() { document.getElementById('lyft-pdf-input').click() }
 
+// La lecture peut durer : l'OCR d'un relevé de deux pages prend une bonne
+// dizaine de secondes. Sans avancement affiché, l'utilisateur croit l'app figée.
+function showPDFProgress(titre) {
+  document.getElementById('pdf-sheet-title').textContent = titre
+  document.getElementById('pdf-sheet-body').innerHTML = `
+    <div style="text-align:center;padding:26px 10px">
+      <div style="font-size:30px">⏳</div>
+      <div id="pdf-progress" style="font-size:13px;color:var(--text2);margin-top:10px">Ouverture du PDF…</div>
+    </div>`
+  document.getElementById('pdf-overlay').classList.add('open')
+  requestAnimationFrame(() => document.getElementById('pdf-sheet').classList.add('open'))
+}
+
+function setPDFProgress(msg) {
+  const el = document.getElementById('pdf-progress')
+  if (el) el.textContent = msg
+}
+
 async function handleUberPDF(e) {
   const file = e.target.files[0]; e.target.value = ''
   if (!file) return
-  toast('⏳ Analyse du PDF Uber en cours…', 6000)
+  showPDFProgress('🟠 Lecture du relevé Uber')
   try {
-    const text = await extractPDFText(file)
+    const text = await extractPDFText(file, setPDFProgress)
     pdfReviewData = { type: 'uber', data: parseUberPDF(text), month: -1 }
     showPDFReview()
-  } catch(err) { toast('❌ ' + err.message) }
+  } catch(err) { closePDFSheet(); toast('❌ ' + err.message, 5000) }
 }
 
 async function handleLyftPDF(e) {
   const file = e.target.files[0]; e.target.value = ''
   if (!file) return
-  toast('⏳ Analyse du PDF Lyft en cours…', 6000)
+  showPDFProgress('💗 Lecture du relevé Lyft')
   try {
-    const text = await extractPDFText(file)
+    const text = await extractPDFText(file, setPDFProgress)
     pdfReviewData = { type: 'lyft', data: parseLyftPDF(text), month: lyftViewMonth }
     showPDFReview()
-  } catch(err) { toast('❌ ' + err.message) }
+  } catch(err) { closePDFSheet(); toast('❌ ' + err.message, 5000) }
 }
 
 function showPDFReview() {
@@ -3383,9 +3522,15 @@ function showPDFReview() {
   const found = rows.filter(r => r.value !== null && r.value !== undefined).length
   document.getElementById('pdf-sheet-title').textContent = title
 
+  const lu = texteUtileLen(dernierTextePDF)
   let html = found === 0
-    ? `<div class="warn-box">⚠️ Aucune donnée détectée automatiquement. Le format de ce PDF est peut-être différent. Vous pouvez saisir les valeurs manuellement ci-dessous ou fermer et saisir directement dans le formulaire.</div>`
-    : `<div class="info-box">✅ <strong>${found} / ${rows.length}</strong> valeurs extraites. Les champs en bleu ont été détectés — vérifiez et corrigez si nécessaire avant d'appliquer.</div>`
+    ? `<div class="warn-box">⚠️ Aucune donnée détectée automatiquement.
+        ${lu === 0
+          ? 'Aucun texte n\'a pu être lu dans ce PDF.'
+          : `Le PDF a bien été lu (${lu} caractères, mode ${escH(dernierModePDF)}), mais aucun libellé connu n'y figure.`}
+        Saisissez les valeurs ci-dessous, ou ouvrez le texte lu pour voir ce que contient le relevé.</div>`
+    : `<div class="info-box">✅ <strong>${found} / ${rows.length}</strong> valeurs extraites (mode ${escH(dernierModePDF)}).
+        Les champs en bleu ont été détectés — vérifiez et corrigez si nécessaire avant d'appliquer.</div>`
 
   html += '<div style="margin-bottom:14px">'
   rows.forEach(r => {
@@ -3403,6 +3548,7 @@ function showPDFReview() {
   })
   html += '</div>'
   html += `
+    <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:10px" onclick="voirTextePDF()">🔍 Voir le texte lu dans le PDF</button>
     <div style="display:flex;gap:8px;padding-bottom:8px">
       <button class="btn btn-primary" style="flex:1" onclick="applyPDFExtracted()">✅ Appliquer ces valeurs</button>
       <button class="btn btn-ghost" style="min-width:90px" onclick="closePDFSheet()">Annuler</button>
@@ -3411,6 +3557,33 @@ function showPDFReview() {
   document.getElementById('pdf-sheet-body').innerHTML = html
   document.getElementById('pdf-overlay').classList.add('open')
   requestAnimationFrame(() => document.getElementById('pdf-sheet').classList.add('open'))
+}
+
+// Diagnostic : montre ce que l'app a réellement lu. Sans lui, un import qui ne
+// trouve rien ne laisse aucune prise — on ne sait pas si le PDF était vide ou
+// si les libellés diffèrent. Le texte est copiable pour pouvoir être envoyé.
+function voirTextePDF() {
+  const t = dernierTextePDF || ''
+  const extrait = t.slice(0, 4000)
+  openSheet('🔍 Texte lu dans le PDF', `
+    ${infoBox(`Mode de lecture : <strong>${escH(dernierModePDF || '—')}</strong> ·
+      ${texteUtileLen(t)} caractères utiles${t.length > 4000 ? ' (4 000 premiers affichés)' : ''}.
+      Si les montants sont visibles ci-dessous mais pas détectés, ce sont les libellés qui diffèrent.`)}
+    <textarea readonly id="pdf-texte-brut" style="width:100%;height:46vh;font-family:ui-monospace,monospace;
+      font-size:11px;line-height:1.45;padding:10px;border:1px solid var(--border);border-radius:8px;
+      background:var(--gray);color:var(--text)">${escH(extrait || '(aucun texte)')}</textarea>
+    <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px" onclick="copierTextePDF()">📋 Copier le texte</button>`)
+}
+
+async function copierTextePDF() {
+  try {
+    await navigator.clipboard.writeText(dernierTextePDF || '')
+    toast('📋 Texte copié')
+  } catch (e) {
+    const el = document.getElementById('pdf-texte-brut')
+    if (el) { el.focus(); el.select() }
+    toast('Sélectionnez puis copiez manuellement')
+  }
 }
 
 function closePDFSheet() {

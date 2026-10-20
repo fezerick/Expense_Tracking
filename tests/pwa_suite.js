@@ -360,6 +360,62 @@
     check('T55', 'Le bénéfice global du sommaire n\'est plus négatif (régression BUG-7)',
        '> 0', nombre(pieds[3] ? pieds[3].textContent : ''), benefAffiche > 0)
 
+    // ══ 12b. Lecture des relevés PDF Uber / Lyft ═════════════════════════════
+    // Le texte ci-dessous reproduit ce que pdf.js rend : les cellules d'un
+    // tableau arrivent à la file, séparées par des espaces, sans retour ligne
+    // fiable. Les trois formats couverts sont ceux qui circulent réellement :
+    // relevé Lyft français, relevé Lyft anglais (en milles), relevé Uber.
+    const LYFT_FR = `Lyft Relevé mensuel Juillet 2026 Conducteur
+      Gains de course 2 480,55 $ Primes 125,00 $ Pourboires 318,40 $
+      Frais de la plateforme Lyft -612,30 $ Taxes perçues 371,06 $
+      Kilomètres parcourus 1 842 Courses complétées 214`
+    const lyftFR = parseLyftPDF(LYFT_FR)
+    eq('T56', 'PDF Lyft FR : les gains de course sont lus', 2480.55, lyftFR.taxable)
+    eq('T57', 'PDF Lyft FR : les primes sont lues', 125, lyftFR.bonuses)
+    eq('T58', 'PDF Lyft FR : les pourboires sont lus', 318.40, lyftFR.tips)
+    eq('T59', 'PDF Lyft FR : les frais de plateforme sont lus, signe compris', -612.30, lyftFR.fees)
+    eq('T60', 'PDF Lyft FR : les kilomètres sont lus', 1842, lyftFR.km)
+    eq('T61', 'PDF Lyft FR : le nombre de courses est lu', 214, lyftFR.courses)
+
+    const LYFT_EN = `Lyft Driver Monthly Summary July 2026
+      Ride earnings $1,204.18 Bonuses $0.00 Tips $96.25
+      Lyft platform fees -$301.05 Online miles 742 Rides given 88`
+    const lyftEN = parseLyftPDF(LYFT_EN)
+    eq('T62', 'PDF Lyft EN : les gains sont lus malgré le séparateur de milliers', 1204.18, lyftEN.taxable)
+    eq('T63', 'PDF Lyft EN : les pourboires sont lus', 96.25, lyftEN.tips)
+    // 742 milles = 1 194 km. Sans conversion, la déduction kilométrique était
+    // sous-estimée de 38 % sur tout relevé anglophone.
+    eq('T64', 'PDF Lyft EN : les milles en ligne sont convertis en kilomètres',
+       Math.round(742 * 1.609344), lyftEN.km)
+    eq('T65', 'PDF Lyft EN : le nombre de courses est lu', 88, lyftEN.courses)
+
+    const vide = parseLyftPDF('Document sans aucun libellé connu ni montant')
+    eq('T66', 'PDF illisible : tous les champs valent null, aucun chiffre inventé',
+       6, Object.values(vide).filter(v => v === null).length)
+
+    const UBER = `Uber Relevé fiscal 2026 Tarifs bruts 18 450,22 $
+      Frais de service Uber -3 215,66 $ Pourboires 1 402,10 $
+      TPS/TVH collectée des passagers 922,51 $ Miles on trip 9 300`
+    const uber = parseUberPDF(UBER)
+    eq('T67', 'PDF Uber : les tarifs bruts sont lus', 18450.22, uber.rides_gross)
+    eq('T68', 'PDF Uber : les frais de service sont lus, signe compris', -3215.66, uber.service_fee)
+    eq('T69', 'PDF Uber : les milles en course sont convertis en kilomètres',
+       Math.round(9300 * 1.609344), uber.km_on_trip)
+
+    // Un libellé qui apparaît d'abord dans un sommaire sans chiffre, puis dans
+    // le tableau : la version précédente ne regardait que la 1re occurrence et
+    // rendait null (ou le montant de la ligne suivante, à 500 caractères).
+    const DEUX_FOIS = `Sommaire : Pourboires, primes et frais. Détail du mois
+      Primes 42,00 $ Pourboires 211,75 $`
+    const deuxFois = parseLyftPDF(DEUX_FOIS)
+    eq('T70', 'PDF : un libellé présent deux fois est lu à son occurrence chiffrée',
+       211.75, deuxFois.tips)
+
+    eq('T71', 'premierMontant() ignore un pourcentage', null, premierMontant(' 15 % '))
+    eq('T72', 'premierMontant() lit un négatif comptable entre parenthèses',
+       -84.5, premierMontant(' (84,50) $'))
+    eq('T73', 'texteUtileLen() ne compte pas les espaces', 6, texteUtileLen('  a b\nc d e f  '))
+
     // ══ 13. Robustesse : état vide ════════════════════════════════════════════
     const stateSauve = state
     state = defaultState()

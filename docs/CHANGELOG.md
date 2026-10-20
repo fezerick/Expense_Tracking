@@ -18,6 +18,40 @@ La version est écrite aux six endroits par `scripts/version.sh`, seul outil aut
 
 ---
 
+## 2.2.1 — 20 octobre 2026
+
+### Corrigé
+- **Import des relevés PDF Uber et Lyft : rien n'était détecté.** Trois causes
+  distinctes, toutes réparées :
+  - **Aucun OCR.** `extractPDFText()` ne lisait que la couche texte du PDF. Un relevé
+    scanné, ou exporté en image, n'en a pas : pdf.js rendait une chaîne vide et la
+    feuille annonçait « aucune donnée détectée » comme si les libellés étaient en cause.
+    Elle bascule maintenant sur Tesseract — déjà embarqué pour les reçus — dès que la
+    couche texte fait moins de 80 caractères utiles, avec l'avancement affiché.
+  - **Une seule occurrence du libellé examinée.** `findAmountNear()` s'arrêtait à la
+    première, souvent une mention en prose dans un sommaire, et ramenait le chiffre
+    d'une autre ligne. C'est désormais l'occurrence dont le montant est le **plus
+    proche** qui gagne, et la fenêtre de recherche passe de 500 à 160 caractères
+    (élargie seulement si rien n'est trouvé).
+  - **Libellés trop peu nombreux.** Lyft change de vocabulaire selon la langue du
+    compte et le type de relevé. Chaque champ accepte maintenant de 6 à 16 variantes,
+    françaises et anglaises.
+- **Les milles étaient enregistrés comme des kilomètres.** Un relevé anglophone compte
+  en milles ; `Online miles 742` devenait 742 km au lieu de 1 194. La déduction
+  kilométrique était sous-estimée de 38 % sur tout relevé en anglais. La conversion est
+  faite quand le libellé retenu parle de milles (Uber et Lyft).
+- Les montants négatifs entre parenthèses — `(612,30)`, la convention comptable — sont
+  lus comme négatifs, et un pourcentage n'est plus pris pour un montant.
+
+### Ajouté
+- **« 🔍 Voir le texte lu dans le PDF »** dans la feuille d'import : montre ce que
+  l'application a réellement lu, le mode (texte ou OCR) et le nombre de caractères, avec
+  copie en un geste. Un import qui ne trouve rien laisse désormais une prise.
+- Couverture de tests T56–T73 : relevé Lyft français, relevé Lyft anglais en milles,
+  relevé Uber, PDF illisible, libellé présent deux fois, négatif comptable, pourcentage.
+
+---
+
 ## 2.2.0 — 20 octobre 2026
 
 Identité de l'application, et les besoins repérés pendant l'implémentation de la couche

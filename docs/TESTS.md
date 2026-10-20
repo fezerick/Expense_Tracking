@@ -5,13 +5,13 @@ Campagne du 18 octobre 2026, sur les deux applications : PWA (`pwa_2026/`) et iO
 l'interface, et vérification à l'exécution des sorties remises au comptable (PDF, CSV,
 sauvegardes).
 
-**État au 20 octobre 2026, version 2.2.0** — deux suites et quatre vérifications de
+**État au 20 octobre 2026, version 2.2.1** — deux suites et quatre vérifications de
 fichiers, **toutes vertes**, exécutables **sans navigateur** par `npm test` :
 
 | Suite | Portée | Résultat |
 |---|---|---|
 | `tests/run-headless.js` | concordance de la version aux six emplacements | **V1–V4** |
-| `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **64 / 64** |
+| `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **82 / 82** |
 | `tests/pwa_modules_suite.js` | les 18 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **209 / 209** |
 
 Dix défauts ont été corrigés et revérifiés depuis la campagne initiale : BUG-1, BUG-7
@@ -138,6 +138,41 @@ que la colonne Total ne s'additionnait de toute façon pas verticalement dans un
 
 ```
 {"total":64,"pass":64,"fail":0,"echecs":[]}
+```
+
+### Lecture des relevés PDF — T56 à T73, ajoutés le 20 octobre 2026 (version 2.2.1)
+
+L'import d'un relevé Lyft de juillet ne détectait **aucune** valeur. Trois causes
+distinctes se cachaient derrière le même message, et rien ne permettait de les
+distinguer depuis l'écran :
+
+1. `extractPDFText()` ne lisait que la couche texte. Un relevé sans couche texte — scanné,
+   ou exporté en image — produisait une chaîne vide, et l'app annonçait « aucune donnée
+   détectée » comme si les libellés étaient en cause.
+2. `findAmountNear()` n'examinait que la **première** occurrence du libellé. Un mot cité
+   en prose dans un sommaire (« Pourboires, primes et frais ») captait la recherche, et
+   la fenêtre de 500 caractères ramenait alors le montant d'une autre ligne.
+3. Les libellés couverts étaient ceux d'un seul format de relevé.
+
+Les assertions verrouillent le comportement corrigé sur du texte reproduisant ce que
+pdf.js rend réellement — cellules à la file, séparées par des espaces :
+
+| Test | Ce qu'il verrouille |
+|---|---|
+| T56–T61 | relevé Lyft français : gains, primes, pourboires, frais négatifs, km, courses |
+| T62–T63, T65 | relevé Lyft anglais : séparateur de milliers `1,204.18`, pourboires, courses |
+| **T64, T69** | **les milles sont convertis en kilomètres** (× 1,609344) |
+| T66 | un PDF illisible rend six `null` — aucun chiffre n'est inventé |
+| T67–T68 | relevé Uber : tarifs bruts et frais de service, signe compris |
+| T70 | un libellé présent deux fois est lu à son occurrence **chiffrée**, pas à la première |
+| T71–T73 | un pourcentage n'est pas un montant ; `(84,50)` vaut −84,50 ; `texteUtileLen()` |
+
+T64 et T69 corrigent une erreur de déclaration, pas seulement d'affichage : `Online miles
+742` était enregistré comme 742 km au lieu de 1 194, soit une déduction kilométrique
+sous-estimée de 38 % sur tout relevé anglophone.
+
+```
+{"total":82,"pass":82,"fail":0,"echecs":[]}
 ```
 
 ### Le compteur de colonnes était faux — corrigé le 20 octobre 2026
