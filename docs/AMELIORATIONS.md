@@ -90,17 +90,25 @@ et un `kmTotalAnnuel` absent met toute la proration véhicule à 0 en silence.
 
 ---
 
-> **Non corrigé volontairement** : BUG-2 (ligne CSV `Lyft - Revenus` à 16 colonnes) est
-> resté hors du lot approuvé. C'est le seul défaut encore rouge dans la suite (T29, T30).
-> Il est traité en 2.1 ci-dessous.
+> **Mise à jour du 20 octobre 2026** : BUG-2, laissé hors du lot approuvé du 19, est
+> corrigé — T29 et T30 passent. Les deux suites sont vertes (63/63 et 159/159). Trois
+> défauts découverts par la nouvelle suite des modules ont été corrigés au passage :
+> BUG-11 (NaN dans tout le calcul d'impôt), BUG-12 (fausse alerte de l'empreinte de
+> clôture) et BUG-13 (pas de bouton reçu sur les lignes d'ajout en capital) — détail au
+> § 2b de [TESTS.md](TESTS.md).
 
 ## Priorité 2 — qualité des sorties remises au comptable
 
-### 2.1 Réparer la ligne CSV `Lyft - Revenus` (16 colonnes au lieu de 15)
+### 2.1 ~~Réparer la ligne CSV `Lyft - Revenus`~~ · ✅ fait le 20 octobre 2026
 
-Et surtout : **ajouter Uber et les dépenses véhicule au CSV**. Aujourd'hui l'export omet
-32 000 $ de revenus Uber et 7 000 $ de dépenses véhicule — un comptable qui travaille à
-partir du CSV seul passe à côté de l'essentiel du dossier.
+La ligne comptait 16 colonnes pour un en-tête de 15, et son montant n'apparaissait dans
+aucune colonne de mois — donc invisible à toute somme par colonne dans un tableur. Le net
+mensuel est maintenant porté dans la colonne de son mois.
+
+**Reste à faire, et c'est le plus important** : **ajouter Uber et les dépenses véhicule
+au CSV**. L'export omet toujours les revenus Uber et les dépenses du véhicule — un
+comptable qui travaille à partir du CSV seul passe à côté de l'essentiel du dossier.
+Repris en E.1 de [FEATURES.md](FEATURES.md).
 
 ### 2.2 Remplacer `−` et `→` dans les libellés PDF — PWA
 
@@ -180,18 +188,24 @@ premier poste de consommation.
 
 ## Priorité 4 — pérennité
 
-### 4.1 Faire tourner la suite de tests à chaque modification
+### 4.1 Faire tourner les deux suites à chaque modification
 
-`tests/pwa_suite.js` couvre 50 assertions et a détecté 6 défauts réels. Elle s'exécute en
-une ligne dans la console de la page :
+`tests/pwa_suite.js` (63 assertions, socle) et `tests/pwa_modules_suite.js`
+(159 assertions, couche `js/`) ont détecté **10 défauts réels** à ce jour. Elles
+s'exécutent en une ligne dans la console de la page :
 
 ```js
 eval(await (await fetch('/tests/pwa_suite.js?cb=' + Date.now())).text())
+eval(await (await fetch('/tests/pwa_modules_suite.js?cb=' + Date.now())).text())
 ```
 
-Prochains ajouts utiles : un test par défaut corrigé ci-dessus (pour éviter les
-régressions), et une assertion de cohérence « ligne 9200 du PDF == total de l'annexe A »,
-qui aurait attrapé BUG-1 seule.
+Les deux restaurent l'état réel dans un `finally`, donc une suite interrompue n'écrase
+plus les vraies données (§ 2b de [TESTS.md](TESTS.md)).
+
+Prochains ajouts utiles : une assertion de cohérence « ligne 9200 du PDF == total de
+l'annexe A », qui aurait attrapé BUG-1 seule ; et surtout une exécution **sans
+navigateur** (harnais jsdom), seule façon d'empêcher un correctif de partir en production
+sans que les 222 assertions aient tourné — repris en E.3 de [FEATURES.md](FEATURES.md).
 
 ### 4.2 Étendre le harnais iOS
 
@@ -200,24 +214,34 @@ le plus efficace de tester iOS sans interface. L'étendre à l'export Snapshot v
 calcul des totaux donnerait une couverture comparable à celle de la PWA, à coût très
 faible.
 
-### 4.3 Automatiser le bump du cache du service worker
+### 4.3 Automatiser le bump du cache du service worker — devenu plus urgent
 
-Le nom `depenses-2026-v3` est incrémenté à la main : un oubli laisse les anciens caches
+Le nom `depenses-2026-v6` est incrémenté à la main : un oubli laisse les anciens caches
 en place. Un script de déploiement qui incrémente `CACHE` puis lance
 `firebase deploy --only hosting` supprime la classe entière d'incidents.
+
+Depuis l'ajout de la couche modulaire, il y a **18 endroits** à incrémenter et non un :
+`CACHE` dans `sw.js`, plus le `?v=` des 17 balises `<script src="js/…">`. C'est devenu la
+cause la plus fréquente de « le correctif ne prend pas », constatée plusieurs fois
+pendant l'implémentation du 20 octobre. Voir E.2 de [FEATURES.md](FEATURES.md).
 
 Noter aussi que le service worker sert les ressources non-HTML en *cache-first* sans
 révision : pendant cette campagne, une ancienne version du fichier de tests a été servie
 depuis le cache. Une stratégie *stale-while-revalidate* pour les ressources non-HTML
 éviterait ce piège.
 
-### 4.4 Découper `index.html` — à peser
+### 4.4 ~~Découper `index.html`~~ · ✅ partiellement fait le 20 octobre 2026
 
-4 155 lignes et 164 fonctions dans une seule portée globale. Le monofichier a de vraies
-vertus (déploiement en une commande, aucune chaîne de build à maintenir, lisible
-intégralement) et la taille reste gérable. Un découpage en modules ES, sans bundler,
-resterait déployable tel quel et permettrait de tester les fonctions de calcul hors
-navigateur — mais ce n'est à entreprendre que si le fichier continue de grossir.
+Les 14 fonctionnalités fiscales ont été écrites dans `pwa_2026/js/`, 17 fichiers de
+130 à 512 lignes, avec un registre de modules (§ 2.8 de [ARCHITECTURE.md](ARCHITECTURE.md)).
+`index.html` est resté à 4 435 lignes au lieu d'en absorber 5 226 de plus.
+
+Choix à connaître : des **scripts classiques**, pas des modules ES. La portée globale
+reste donc partagée — il n'y a rien à importer, mais rien n'est cloisonné non plus, et
+deux modules ne peuvent pas déclarer une fonction du même nom (d'où les préfixes par
+domaine). Le gain visé — tester les calculs hors navigateur — n'est donc **pas** obtenu :
+il faudra un harnais jsdom (§ 4.1). Découper le socle lui-même reste à peser, et n'a pas
+plus d'urgence qu'avant.
 
 ### 4.5 Mettre à jour `ios_2026/README.md`
 

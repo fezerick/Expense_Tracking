@@ -5,11 +5,17 @@ Campagne du 18 octobre 2026, sur les deux applications : PWA (`pwa_2026/`) et iO
 l'interface, et vérification à l'exécution des sorties remises au comptable (PDF, CSV,
 sauvegardes).
 
-**État au 19 octobre 2026** — cinq défauts ont été corrigés et revérifiés après la
-campagne : BUG-1, BUG-7 (PWA + iOS), BUG-9 et BUG-10 (les deux côtés) et BUG-3. La suite
-passe à **61/63**, les 2 échecs restants étant les assertions qui documentent BUG-2, non
-corrigé volontairement (hors du lot approuvé). Les défauts encore ouverts sont listés
-dans [AMELIORATIONS.md](AMELIORATIONS.md).
+**État au 20 octobre 2026** — deux suites, **toutes vertes** :
+
+| Suite | Portée | Résultat |
+|---|---|---|
+| `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **63 / 63** |
+| `tests/pwa_modules_suite.js` | les 17 modules de `pwa_2026/js/` (§ 2.8 de l'architecture) | **159 / 159** |
+
+Dix défauts ont été corrigés et revérifiés depuis la campagne initiale : BUG-1, BUG-7
+(PWA + iOS), BUG-9, BUG-10, BUG-3, puis BUG-2 et les quatre défauts de la couche
+modulaire décrits au § 2b. Les défauts encore ouverts sont listés dans
+[AMELIORATIONS.md](AMELIORATIONS.md).
 
 ---
 
@@ -73,7 +79,7 @@ eval(await (await fetch('/tests/pwa_suite.js?cb=' + Date.now())).text())
 Les 6 échecs étaient des défauts réels de l'application, pas des assertions fautives :
 chacun a été reproduit ensuite dans l'interface réelle (§ 3).
 
-### Après correctifs : 61 réussis / 2 échecs sur 63
+### Après correctifs : 63 réussis / 63
 
 La suite a été étendue (13 assertions de plus) pour couvrir le comportement corrigé :
 
@@ -86,15 +92,117 @@ La suite a été étendue (13 assertions de plus) pour couvrir le comportement c
 | T51–T55 | `uberNetIncome()`, puis les 3 cellules TOTAL du Sommaire (revenus, dépenses, bénéfice) et le signe du bénéfice |
 | T44–T50 | inchangés (rendu des onglets, état vierge) |
 
-Les **2 échecs restants sont T29 et T30** : ils documentent BUG-2 (ligne CSV
-`Lyft - Revenus` à 16 colonnes), qui n'était pas dans le lot de correctifs approuvé et
-reste donc ouvert volontairement. Aucun autre test n'échoue.
+**T29 et T30 passent désormais** : ils documentaient BUG-2 (ligne CSV `Lyft - Revenus`
+à 16 colonnes), corrigé le 20 octobre 2026. Le montant est maintenant porté dans la
+colonne du mois concerné, comme toutes les autres sections — une ligne qui ne remplissait
+que la colonne Total ne s'additionnait de toute façon pas verticalement dans un tableur.
 
 ```
-{"total":63,"pass":61,"fail":2,
- "echecs":[{"id":"T29", ... "obtenu":[{"n":15,"cols":16,"extrait":"\"Lyft - Revenus\",\"Janvier\",,,…"}]},
-           {"id":"T30","attendu":15,"obtenu":16}]}
+{"total":63,"pass":63,"fail":0,"echecs":[]}
 ```
+
+---
+
+## 2b. Suite automatisée des modules — `tests/pwa_modules_suite.js`
+
+**159 assertions, 159 réussies.** Elle couvre la couche `pwa_2026/js/` (§ 2.8 de
+[ARCHITECTURE.md](ARCHITECTURE.md)), que la première suite ignore. Même principe :
+exécution *dans* la page, fixture déterministe, restauration de l'état réel à la fin.
+
+```bash
+python3 -m http.server 8099        # à la RACINE du dépôt, pas dans pwa_2026/
+```
+```js
+// dans la console de http://localhost:8099/pwa_2026/index.html?t=<horodatage>
+eval(await (await fetch('/tests/pwa_modules_suite.js?cb=' + Date.now())).text())
+```
+
+Le serveur doit être lancé à la racine : la page vit sous `/pwa_2026/` mais les suites
+sous `/tests/`. Et l'URL de la page doit porter un paramètre anti-cache **différent à
+chaque correctif de module**, car les modules sont chargés avec leur propre `?v=N`
+(voir § 2.7 de l'architecture) — un `?v=` non incrémenté fait tester l'ancien code.
+
+### Couverture
+
+| Assertions | Module | Ce qui est verrouillé |
+|---|---|---|
+| M01–M09 | `app-modules` | `num()` (virgule décimale, espace insécable, notation comptable `(123,45)`, format anglais, milliers), `escH()`, `csvLigne()`, aller-retour `writeYear`/`readYear` |
+| M10–M18 | `cloture` | stabilité et sensibilité de l'empreinte fiscale, exclusion des reçus, refus de saisie sur année clôturée, totaux figés |
+| M19–M33 | `dpa` | taux par catégorie, terrain non amortissable, IIA 2024–2027, demi-taux rétabli en 2028, plafond 1100(11), classe distincte 1101(1ac), plafond de la classe 10.1, FNACC de clôture et son report |
+| M34–M44 | `vehicule-methodes`, `kilometrage` | paliers de l'indemnité par km, méthode 1 vs méthode 2, parts par activité, contrôles de cohérence de l'odomètre |
+| M45–M52 | `tps-tvq` | extraction TPS/TVQ d'un montant TTC (TVQ sur le prix **hors** TPS), CTI au prorata commercial, solde après la TPS déjà versée par Uber |
+| M53–M63 | `impot` | assiettes locatif / entreprise, cotisations RRQ-RQAP-FSS, absence de NaN, taux marginal plausible, quatre acomptes provisionnels |
+| M64–M67 | `coproprietaires` | part de chaque copropriétaire, somme des parts = total, détection de la propriété partagée |
+| M68–M72 | `recus` | ajout en capital sans pièce signalé, exclusion des frais de déplacement, taux de couverture, effet du seuil |
+| M73–M79 | `ventilation` | application d'une répartition, somme des parts, retrait qui restitue exactement les cellules d'origine, refus au-delà de 100 % |
+| M80–M97 | `import-bancaire` | découpage CSV avec guillemets, dates `AAAA-MM-JJ` / `AAAAMMJJ` / `JJ-MM` vs ordre US, signe des retraits, empreinte anti-doublon, règle la plus spécifique gagnante |
+| M98–M103 | `baux` | report d'un bail à l'année suivante, indexation, décalage des dates, nouvel identifiant, bail en vigueur au 31 décembre pour le RL-31 |
+| M104–M121 | `simulateur` | taux mensuel canadien `(1+r/2)^(1/6)−1`, amortissement qui solde en 25 ans, droits de mutation par paliers, mise de fonds 20 %, RNO, flux de trésorerie, 1100(11) appliqué au scénario, test de résistance +2 points, scénario Uber |
+| M122–M124 | `tableau-bord` | lecture d'une autre année, année absente, séries pluriannuelles |
+| M126–M130 | `recommandations` | au moins une piste, structure complète (quoi/pourquoi/action/montant), horizon connu, tri décroissant, aucun montant NaN |
+| M137 | socle | `exportCSV({retourner:true})` rend le CSV sans déclencher de téléchargement |
+
+### Défauts trouvés par cette suite — tous corrigés
+
+| # | Gravité | Défaut | Correctif |
+|---|---|---|---|
+| BUG-11 | **ÉLEVÉ** | `cotisationFSS()` et `cotisationRQAP()` retournaient un nombre nu alors que `impot.js` lit `.montant`. Résultat : `undefined` propagé en **NaN** à travers tout le calcul — impôt estimé, acomptes provisionnels et provision d'accueil affichaient `NaN $` dès que le module était atteint. | [fiscal-data.js](../pwa_2026/js/fiscal-data.js) : les deux fonctions retournent un objet `{ montant, assiette, … }` comme `cotisationRRQ()`. Vérifié : `cotisationRQAP(50 000, 2026) → 382 $`, `cotisationFSS(60 000, 2026) → 150 $`. M56–M60 et M121 le verrouillent. |
+| BUG-12 | MOYEN | `empreinteFiscale()` changeait sans qu'aucun chiffre change : ouvrir un écran crée des structures vides (`ensurePropBucket()` ajoute `state.recurring[id] = {}`), ce qui allongeait la chaîne canonique. Annuler une modification ne restituait donc pas l'empreinte, et l'app annonçait « les chiffres ne correspondent plus à la clôture » à tort. | [cloture.js](../pwa_2026/js/cloture.js) : la sérialisation **élague** récursivement `''`, `null`, `0` et les objets devenus vides. Les positions dans un tableau de 12 mois sont conservées. M13 le verrouille. Changer le format d'empreinte était sans risque : la clôture n'était pas encore déployée, donc aucune empreinte n'existait en base. |
+| BUG-13 | MOYEN | Les lignes d'**ajout en capital** de la grille mensuelle n'avaient pas de bouton reçu, alors que ce sont précisément les montants qu'un vérificateur demande en premier. | [index.html:2428–2445](../pwa_2026/index.html#L2428) : même bouton 📷/🧾 que les lignes de dépenses. M68 le verrouille. |
+| BUG-2 | MOYEN | Ligne CSV `Lyft - Revenus` à 16 colonnes (voir § 5). | Corrigé ; T29/T30. |
+
+### Quatre défauts de la suite elle-même
+
+Quatre échecs initiaux étaient des erreurs de la fixture, pas de l'application. Ils sont
+notés ici parce qu'un test faux est plus coûteux qu'un test absent : il fait « corriger »
+du code juste.
+
+| Test | Erreur de la fixture | Correction |
+|---|---|---|
+| M49 | les 10 000 $ de dépenses véhicule étaient logés dans `VEH_CATS[0]`, l'immatriculation — des droits de la SAAQ, non taxables. Le test attendait un CTI là où l'app avait raison de n'en accorder aucun. | montant porté sur « Frais de carburant » |
+| M42 | lisait `state.km`, alors que `kilometrage.js` travaille sur `state.kmJournal` | fixture sur `state.kmJournal` |
+| M32 | l'année source ne décrivait pas sa propre année (acquisition et DPA réclamée dans une autre année) : `calculDPA()` n'y voyait ni ajout ni réclamation, donc une FNACC de clôture nulle à reporter | acquisition et DPA de l'année source datées de cette année-là |
+| M121 | aucun kilomètre supplémentaire saisi : `simulerUber()` retourne `null`, ce qui est le comportement attendu | M121a vérifie désormais le `null`, puis la fixture saisit 5 000 km et M121/M121b vérifient le scénario |
+
+### Filet de sécurité : une suite interrompue ne doit pas écraser les vraies données
+
+Risque constaté pendant la campagne : le `localStorage` du profil Playwright contenait la
+**fixture** comme état persisté. Autrement dit, une exception au milieu de la suite
+laissait les données de test enregistrées par-dessus les données réelles — et `save()`
+pouvait les pousser vers Firestore.
+
+Les deux suites enveloppent donc leur corps dans un `try / catch / finally` :
+
+```js
+const ANNEES_TEST = [2098, 2099, 2028]   // hors des années réelles
+let erreurFatale = null
+try {  /* … les tests … */ }
+catch (e) { erreurFatale = (e && e.message) ? e.message : String(e) }
+finally {
+  state = backup.state; setup = backup.setup; activeYear = backup.activeYear
+  ANNEES_TEST.forEach(an => { try { localStorage.removeItem(STORE_PREFIX + an) } catch (e) {} })
+  save(); saveSetup(); try { refreshAll() } catch (e) {}
+}
+if (erreurFatale) results.push({ id: 'FATAL', statut: 'FAIL', obtenu: erreurFatale })
+```
+
+Deux pièges rencontrés :
+
+1. **Portée.** Après enveloppement, le `finally` référençait `ANNEES_TEST`, devenu un
+   `const` *à l'intérieur* du `try` — `node --check` ne détecte pas cette erreur, elle ne
+   se manifeste qu'à l'exécution, et seulement dans le chemin d'erreur. Les constantes
+   ont été remontées au-dessus du `try`.
+2. **Années de test.** Elles sont volontairement 2098/2099/2028, loin des années réelles,
+   et supprimées dans le `finally` même quand la suite s'interrompt.
+
+Vérifié de bout en bout avec un état réel marqué d'une sentinelle : exécution normale
+→ 159/159 et sentinelle intacte ; exécution avec une exception forcée → ligne `FATAL`,
+sentinelle intacte, aucune clé `depenses_2098 / 2099 / 2028` résiduelle.
+
+> **Note sur la synchronisation.** `save()` ne pousse vers Firestore qu'après 5 secondes
+> et seulement si un utilisateur est connecté. Une suite synchrone ne peut donc
+> programmer qu'un seul envoi : celui qui suit la restauration de l'état réel. Lancer les
+> suites en étant connecté reste néanmoins déconseillé.
 
 ---
 
@@ -277,11 +385,17 @@ n'y figure pas.
 
 Le format iOS (Snapshot v2) transporte, lui, tout cela correctement.
 
-### BUG-2 — MOYEN · PWA · une ligne CSV a une colonne de trop
+### BUG-2 — MOYEN · PWA · une ligne CSV a une colonne de trop — ✅ CORRIGÉ
 
 L'entête compte 15 colonnes (Section, Catégorie, 12 mois, Total) ; la ligne
-`Lyft - Revenus` en produit **16**. Reproduit sur un export réel. Le CSV omet par
-ailleurs complètement Uber (32 000 $) et les dépenses véhicule (7 000 $).
+`Lyft - Revenus` en produisait **16**. Reproduit sur un export réel.
+
+Corrigé le 20 octobre 2026 ([index.html](../pwa_2026/index.html)) : le net mensuel Lyft
+est écrit dans la colonne de son mois (`vals = Array(12).fill(0); vals[mi] = net`) et la
+ligne compte 15 colonnes. Le défaut était double — une colonne de trop *et* un montant
+qui n'apparaissait dans aucun mois, donc invisible à toute somme par colonne dans un
+tableur. T29/T30 verrouillent les deux. Le CSV omet toujours Uber et les dépenses
+véhicule : c'est une limite connue de l'export, pas le défaut corrigé ici.
 
 ### BUG-8 — MOYEN · PWA · deux libellés illisibles dans le PDF
 

@@ -176,6 +176,11 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
   transition:all .15s;
 }
 .sub-tab.active{background:var(--white);color:var(--dark);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+/* Onglet Fiscal : dix sous-onglets ne tiennent pas en flex:1 sur un téléphone.
+   On passe en bande défilante horizontalement, sans barre de défilement visible. */
+.sub-tabs.scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.sub-tabs.scroll::-webkit-scrollbar{display:none}
+.sub-tabs.scroll .sub-tab{flex:0 0 auto;padding:8px 12px;white-space:nowrap}
 
 /* ── MONTH NAV ─────────────────────────────────────────────────── */
 .month-nav{
@@ -471,6 +476,10 @@ html.theme-dark .onb-section{background:#1a222d}
   <!-- ══════════ TAB: ACCUEIL ══════════ -->
   <section id="tab-home" class="tab-panel active">
     <div class="summary-row" id="home-cards"></div>
+    <!-- Injections des modules js/ : provision d'impôt, recommandations, rappel de registre -->
+    <div id="home-provision"></div>
+    <div id="home-reco"></div>
+    <div id="home-rappel-km"></div>
 
     <!-- Quick add trip -->
     <div class="card" id="trip-form-card">
@@ -547,6 +556,9 @@ html.theme-dark .onb-section{background:#1a222d}
 
     <!-- Un groupe par immeuble configuré + « Autres destinations », générés dynamiquement -->
     <div id="trips-groups"></div>
+
+    <!-- js/kilometrage.js : odomètre, mesure GPS, contrôles du registre -->
+    <div id="km-body"></div>
   </section>
 
   <!-- ══════════ TAB: LOGEMENTS ══════════ -->
@@ -578,6 +590,9 @@ html.theme-dark .onb-section{background:#1a222d}
     <div id="prop-annual-view" style="display:none">
       <div id="prop-annual-content"></div>
     </div>
+
+    <!-- js/ventilation.js : répartition d'une dépense entre plusieurs postes -->
+    <div id="ventil-body"></div>
   </section>
 
   <!-- ══════════ TAB: REVENUS AUTO ══════════ -->
@@ -655,6 +670,9 @@ html.theme-dark .onb-section{background:#1a222d}
         <div class="card-header blue">📊 Répartition Uber / Lyft</div>
         <div class="card-body" id="veh-proration-summary"></div>
       </div>
+
+      <!-- js/vehicule-methodes.js : frais réels contre taux par kilomètre -->
+      <div id="veh-methodes"></div>
     </div>
   </section>
 
@@ -687,12 +705,35 @@ html.theme-dark .onb-section{background:#1a222d}
       </div>
     </div>
 
+    <!-- js/coproprietaires.js : part de chacun dans les revenus et les dépenses -->
+    <div id="copro-body"></div>
+
     <!-- Checklist -->
     <div class="card">
       <div class="card-header" style="background:#5c6bc0">☑️ Checklist — Déclaration <span class="year-badge">2026</span></div>
       <div class="card-body" id="checklist-body"></div>
     </div>
 
+  </section>
+
+  <!-- ══════════ TAB: FISCAL ══════════
+       Tout ce qui est produit par les modules js/ : estimations, registres et
+       documents. Chaque panneau est rempli par le render() de son module. -->
+  <section id="tab-fiscal" class="tab-panel">
+    <div class="sub-tabs scroll" id="fiscal-subtabs"></div>
+    <div id="fiscal-reco"   class="fiscal-panel"><div id="reco-body"></div></div>
+    <div id="fiscal-impot"  class="fiscal-panel" style="display:none"><div id="impot-body"></div></div>
+    <div id="fiscal-taxes"  class="fiscal-panel" style="display:none"><div id="taxes-body"></div></div>
+    <div id="fiscal-dpa"    class="fiscal-panel" style="display:none"><div id="dpa-body"></div></div>
+    <div id="fiscal-baux"   class="fiscal-panel" style="display:none"><div id="baux-body"></div></div>
+    <div id="fiscal-recus"  class="fiscal-panel" style="display:none"><div id="recus-body"></div></div>
+    <div id="fiscal-import" class="fiscal-panel" style="display:none"><div id="import-body"></div></div>
+    <div id="fiscal-simu"   class="fiscal-panel" style="display:none"><div id="simu-body"></div></div>
+    <div id="fiscal-bord"   class="fiscal-panel" style="display:none"><div id="bord-body"></div></div>
+    <div id="fiscal-cloture" class="fiscal-panel" style="display:none">
+      <div id="cloture-body"></div>
+      <div id="dossier-body"></div>
+    </div>
   </section>
 
 </main>
@@ -713,6 +754,9 @@ html.theme-dark .onb-section{background:#1a222d}
   </button>
   <button class="nav-btn" onclick="showTab('summary')" id="nav-summary">
     <span class="nav-icon">📊</span><span>Sommaire</span>
+  </button>
+  <button class="nav-btn" onclick="showTab('fiscal')" id="nav-fiscal">
+    <span class="nav-icon">📑</span><span>Fiscal</span>
   </button>
 </nav>
 
@@ -902,6 +946,31 @@ html.theme-dark .onb-section{background:#1a222d}
 <!-- CAMERA INPUT -->
 <input type="file" id="receipt-camera" accept="image/*" capture="environment" style="display:none" onchange="handleReceiptPhoto(event)">
 
+<!-- ════════ MODULES ════════
+     Scripts CLASSIQUES (pas de type="module") : ils partagent la portée globale
+     de la page. `state`, `setup` et `activeYear`, déclarés dans le script en
+     ligne qui suit, leur sont donc accessibles au moment de l'APPEL — jamais au
+     moment du chargement. L'ordre est significatif : données fiscales, socle,
+     puis les modules. Le paramètre ?v= force le service worker à reprendre le
+     fichier après un déploiement. -->
+<script src="js/fiscal-data.js?v=6"></script>
+<script src="js/app-modules.js?v=6"></script>
+<script src="js/baux.js?v=6"></script>
+<script src="js/dpa.js?v=6"></script>
+<script src="js/impot.js?v=6"></script>
+<script src="js/tps-tvq.js?v=6"></script>
+<script src="js/vehicule-methodes.js?v=6"></script>
+<script src="js/coproprietaires.js?v=6"></script>
+<script src="js/ventilation.js?v=6"></script>
+<script src="js/recus.js?v=6"></script>
+<script src="js/kilometrage.js?v=6"></script>
+<script src="js/import-bancaire.js?v=6"></script>
+<script src="js/cloture.js?v=6"></script>
+<script src="js/dossier.js?v=6"></script>
+<script src="js/tableau-bord.js?v=6"></script>
+<script src="js/simulateur.js?v=6"></script>
+<script src="js/recommandations.js?v=6"></script>
+
 <script>
 // ════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -1027,6 +1096,10 @@ function switchYear(year) {
     state = s ? mergeState(JSON.parse(s)) : defaultState()
   } catch(e) { state = defaultState() }
   updateYearLabels()
+  // La DPA memorise ses calculs par annee et les modules gardent des caches :
+  // les invalider AVANT refreshAll(), qui va les relire.
+  invalidateDPA()
+  notifyModulesYearChange()
   refreshAll()
   closeYearSheet()
   toast('✅ Année ' + year + ' activée')
@@ -1070,7 +1143,39 @@ function closeYearSheet() {
 
 function createNewYear(year) {
   if (!confirm(`Créer une nouvelle année ${year} ?\n\nLes données de ${activeYear} seront conservées.\nVous pourrez y revenir à tout moment.`)) return
+  const source = activeYear
   switchYear(year)
+  reporterElementsAnnee(source, year)
+}
+
+// Les biens amortissables et les baux survivent au changement d'année : sans
+// report, la FNACC d'ouverture repartirait de zéro (donc une DPA fausse) et les
+// baux reconduits de plein droit seraient à retaper. On demande, on ne décide
+// pas : ce sont des données déclarées.
+function reporterElementsAnnee(source, cible) {
+  const src = readYear(source)
+  if (!src) return
+  const nbBiens = Array.isArray(src.biens) ? src.biens.length : 0
+  const nbBaux  = Array.isArray(src.baux)  ? src.baux.length  : 0
+  if (!nbBiens && !nbBaux) return
+
+  const quoi = []
+  if (nbBiens) quoi.push('• ' + nbBiens + ' bien(s) amortissable(s), avec la FNACC de fermeture ' + source + ' en ouverture ' + cible)
+  if (nbBaux)  quoi.push('• ' + nbBaux + ' bail/baux (loyers indexables)')
+  if (!confirm('Reporter de ' + source + ' vers ' + cible + ' ?\n\n' + quoi.join('\n') +
+               '\n\nAucun montant de revenu ou de dépense n’est copié.')) return
+
+  if (nbBiens) importerBiensAnneePrecedente(source)
+  if (nbBaux) {
+    const pct = prompt('Indexation des loyers ' + cible + ' en pourcentage ?\n' +
+                       '(0 pour reconduire les loyers tels quels)', '0')
+    if (pct !== null) {
+      const n = reporterBaux(source, cible, pct)
+      if (n) toast('📄 ' + n + ' bail/baux reporté(s)' + (num(pct) ? ' à +' + fmt(num(pct), 2) + ' %' : ''))
+    }
+  }
+  invalidateDPA()
+  refreshAll()
 }
 
 function updateYearLabels() {
@@ -1787,6 +1892,7 @@ function getMonthlyVal(propId, section, cat, mi) {
 }
 
 function setMonthlyVal(propId, section, cat, mi, val) {
+  if (guardClosed()) return
   ensurePropBucket(propId)
   if (!state[propId][section][cat]) state[propId][section][cat] = Array(12).fill('')
   state[propId][section][cat][mi] = val
@@ -1847,6 +1953,45 @@ function showTab(tab) {
   if (tab === 'property') renderProperty()
   if (tab === 'rideshare') renderRideshare()
   if (tab === 'summary') { renderSummary(); renderChecklist() }
+  if (tab === 'fiscal') showFiscalSub(activeFiscalSub)
+}
+
+// ── ONGLET FISCAL ───────────────────────────────────────────────────────────
+// Un sous-onglet = un module js/. Les panneaux sont rendus À LA DEMANDE : le
+// tableau de bord pluriannuel relit toutes les années de localStorage, et le
+// faire à chaque refresh ralentirait toute l'app.
+const FISCAL_SUBS = [
+  { id: 'reco',    label: '💡 Recommandations', render: () => renderRecommandations() },
+  { id: 'impot',   label: '📊 Impôt',           render: () => renderImpot() },
+  { id: 'taxes',   label: '🧾 TPS/TVQ',         render: () => renderTaxes(),  si: () => setup.modules.rideshare },
+  { id: 'dpa',     label: '📉 DPA',             render: () => renderDPA() },
+  { id: 'baux',    label: '📄 Baux',            render: () => renderBaux(),   si: () => setup.modules.props },
+  { id: 'recus',   label: '📎 Reçus',           render: () => renderAuditRecus(), si: () => setup.modules.props },
+  { id: 'import',  label: '📥 Import',          render: () => renderImportBancaire() },
+  { id: 'simu',    label: '🧮 Simulateur',      render: () => renderSimulateur() },
+  { id: 'bord',    label: '📈 Évolution',       render: () => renderTableauBord() },
+  { id: 'cloture', label: '🔒 Clôture',         render: () => { renderCloture(); renderDossier() } }
+]
+let activeFiscalSub = 'reco'
+
+function fiscalSubsVisibles() { return FISCAL_SUBS.filter(x => !x.si || x.si()) }
+
+function showFiscalSub(id) {
+  const visibles = fiscalSubsVisibles()
+  if (!visibles.some(x => x.id === id)) id = visibles[0].id
+  activeFiscalSub = id
+  document.getElementById('fiscal-subtabs').innerHTML = visibles.map(x =>
+    `<button class="sub-tab${x.id === id ? ' active' : ''}" onclick="showFiscalSub('${x.id}')">${x.label}</button>`
+  ).join('')
+  document.querySelectorAll('.fiscal-panel').forEach(p => { p.style.display = 'none' })
+  const panneau = document.getElementById('fiscal-' + id)
+  if (panneau) panneau.style.display = ''
+  const sub = visibles.find(x => x.id === id)
+  try { sub.render() }
+  catch (e) {
+    console.error('[fiscal ' + id + ']', e)
+    panneau.innerHTML = `<div class="warn-box">⚠️ Ce panneau n'a pas pu s'afficher : ${e.message}</div>`
+  }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1855,11 +2000,18 @@ function showTab(tab) {
 function renderHome() {
   renderHomeCards()
   renderRecentTrips()
+  // Bandeaux produits par les modules js/. Chacun efface son propre conteneur
+  // s'il n'a rien a dire, donc l'accueil reste vide quand tout est en ordre.
+  renderBandeauProvision()
+  renderRecoAccueil()
+  renderRappelKm()
 }
 
 function renderHomeCards() {
   const rev = totalRevAll()
-  const dep = totalDepAll()
+  // Les cartes sont etiquetees « locatif » : elles doivent donc exclure la part
+  // vehicule d'Uber/Lyft que totalDepAll() ajoute pour le sommaire fiscal.
+  const dep = totalDepLocatif()
   const net = rev - dep
   const tripsActive = state.trips.filter(t => yearOf(t.date) === activeYear)
   const tripTotal = tripsActive.reduce((s, t) => s + (parseFloat(t.km)||0) * rate(), 0)
@@ -1975,6 +2127,7 @@ function updateKmPreview() {
 }
 
 function addTrip() {
+  if (guardClosed()) return
   const date = document.getElementById('trip-date').value
   const property = document.getElementById('trip-property').value
   const km = parseFloat(document.getElementById('trip-km').value)
@@ -1998,6 +2151,7 @@ function addTrip() {
 }
 
 function deleteTrip(id) {
+  if (guardClosed()) return
   if (!confirm('Supprimer ce déplacement ?')) return
   state.trips = state.trips.filter(t => t.id !== id)
   save()
@@ -2100,6 +2254,7 @@ function renderTrips() {
   const others = tripsActive.filter(t => !propById(t.property))
   groups.push(tripGroupHTML('📍 Autres destinations', 'var(--text2)', others, false))
   document.getElementById('trips-groups').innerHTML = groups.join('')
+  renderKilometrage()
 }
 
 function tripGroupHTML(title, color, trips, alwaysShow) {
@@ -2186,6 +2341,7 @@ function renderProperty() {
   } else {
     renderPropertyMonthly(propId, mi)
   }
+  renderVentilations()
 }
 
 function renderPropertyMonthly(propId, mi) {
@@ -2262,18 +2418,32 @@ function renderPropertyMonthly(propId, mi) {
   html += `<div class="cat-section" style="margin-top:8px"><div class="cat-section-hdr brown">🔨 Dépenses en capital</div>`
   html += `<div class="card" style="border-radius:0 0 8px 8px;overflow:hidden">`
   let capTotal = 0
+  // Les ajouts en capital alimentent la DPA : la facture est exigee aussi
+  // longtemps que le bien est amorti, donc ces lignes portent les memes
+  // boutons note/recu que les depenses deductibles.
   prop.capital.forEach(cat => {
     const val = getMonthlyVal(propId,'capital',cat,mi)
     capTotal += val
+    const rcptKeyCap = `${propId}_capital_${cat}_${mi}`
+    const hasReceiptCap = !!(state.receipts && state.receipts[rcptKeyCap])
+    const hasNoteCap = !!(state.notes && state.notes[rcptKeyCap])
+    const catEscCap = cat.replace(/'/g,"\\'")
     html += `
       <div class="cat-row">
         <div class="cat-label">${cat}</div>
         <div class="cat-input-wrap">
           <input type="number" class="inp-money" step="0.01" min="0" value="${val||''}"
             placeholder="0,00"
-            oninput="setMonthlyVal('${propId}','capital','${cat.replace(/'/g,"\\'")}',${mi},this.value);refreshNet()">
+            oninput="setMonthlyVal('${propId}','capital','${catEscCap}',${mi},this.value);refreshNet()">
         </div>
-        <span style="font-size:12px;color:var(--text2);width:12px">$</span>
+        <button onclick="openNoteSheet('${rcptKeyCap}','${catEscCap}')"
+          style="background:none;border:none;cursor:pointer;font-size:15px;padding:0 2px;opacity:${hasNoteCap?1:.3};filter:${hasNoteCap?'none':'grayscale(1)'}"
+          title="${hasNoteCap ? 'Modifier la note' : 'Ajouter une note'}">✏️</button>
+        <button onclick="${hasReceiptCap ? `viewReceipt('${rcptKeyCap}')` : `openReceiptCamera('${rcptKeyCap}')`}"
+          style="background:none;border:none;cursor:pointer;font-size:16px;padding:0 2px;opacity:${hasReceiptCap?1:.35}"
+          title="${hasReceiptCap ? 'Voir le reçu' : 'Ajouter un reçu'}">
+          ${hasReceiptCap ? '🧾' : '📷'}
+        </button>
       </div>`
   })
   html += `<div class="cat-total-row" style="background:var(--brown)"><span>Total capital</span><span>${fmt(capTotal)} $</span></div>`
@@ -2380,11 +2550,13 @@ function renderUber() {
 }
 
 function saveUberField(key, val) {
+  if (guardClosed()) return
   state.uber[key] = val
   autoSave()
 }
 
 function saveUber() {
+  if (guardClosed()) return
   state.uber.km_on_trip = document.getElementById('uber-km-trip').value
   state.uber.km_online  = document.getElementById('uber-km-online').value
   autoSave()
@@ -2430,6 +2602,7 @@ function renderLyft() {
 }
 
 function saveLyftField(mi, key, val) {
+  if (guardClosed()) return
   if (!state.lyft[mi]) state.lyft[mi] = {}
   state.lyft[mi][key] = val
   autoSave()
@@ -2537,9 +2710,12 @@ function renderVehicle() {
       </div>
     </div>
     <div class="info-box">Formule : Déduc. Uber = Dépense totale × (km Uber Online ÷ km total annuel)</div>`
+
+  renderComparaisonMethodes()
 }
 
 function saveVehDep(cat, val) {
+  if (guardClosed()) return
   state.vehicule.depenses[cat] = val
   autoSave()
 }
@@ -2566,6 +2742,24 @@ function totalRevAll() {
     prop.revenus.forEach(cat => {
       const d = bucket.revenus[cat] || []
       t += d.reduce((s,v) => s+(parseFloat(v)||0), 0)
+    })
+  })
+  return t
+}
+
+// Depenses deductibles des immeubles SEULEMENT (sans la part vehicule des
+// activites de transport), pour tout affichage etiquete « locatif ».
+function totalDepLocatif() {
+  let t = 0
+  propsList().forEach(prop => {
+    const bucket = ensurePropBucket(prop.id)
+    prop.deductibles.forEach(cat => {
+      if (cat === 'Frais de déplacement') {
+        for (let mi = 0; mi < 12; mi++) t += getTripAmount(prop.id, mi)
+        return
+      }
+      const d = bucket.deductibles[cat] || []
+      t += d.reduce((s, v) => s + (parseFloat(v) || 0), 0)
     })
   })
   return t
@@ -2689,6 +2883,7 @@ function renderSummary() {
       </tfoot>
     </table>`
 
+  renderCoproprietaires()
 }
 
 function summaryRow(label, rev, dep, ben, isDed=false) {
@@ -2707,7 +2902,7 @@ function summaryRow(label, rev, dep, ben, isDed=false) {
 // ════════════════════════════════════════════════════════════
 // EXPORT / IMPORT
 // ════════════════════════════════════════════════════════════
-function exportCSV() {
+function exportCSV(opts) {
   let csv = 'Section,Catégorie'
   MONTHS_FR.forEach(m => csv += ',' + m)
   csv += ',Total Annuel\n'
@@ -2743,8 +2938,19 @@ function exportCSV() {
   for (let mi=0; mi<12; mi++) {
     const m = state.lyft[mi] || {}
     const net = (parseFloat(m.taxable)||0)+(parseFloat(m.bonuses)||0)+(parseFloat(m.tips)||0)-(parseFloat(m.fees)||0)
-    if (net) csv += `"Lyft - Revenus","${MONTHS_FR[mi]}",,,,,,,,,,,,,,${net.toFixed(2)}\n`
+    if (!net) continue
+    // Le montant est porte dans la colonne du mois concerne, comme toutes les
+    // autres sections : une ligne qui ne remplit que le total ne s'additionne pas
+    // verticalement dans un tableur. (Avant ce correctif, la ligne comptait en
+    // plus une colonne de trop et decalait tout le tableau.)
+    const vals = Array(12).fill(0)
+    vals[mi] = net.toFixed(2)
+    csv += `"Lyft - Revenus","${MONTHS_FR[mi]}",${vals.join(',')},${net.toFixed(2)}\n`
   }
+
+  // Le dossier comptable en ZIP réutilise ce même CSV au lieu d'en réécrire un
+  // second, qui divergerait de celui-ci au premier changement de catégorie.
+  if (opts && opts.retourner) return csv
 
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'})
   const a = document.createElement('a')
@@ -2922,6 +3128,7 @@ function refreshAll() {
   if (currentTab === 'property') renderProperty()
   if (currentTab === 'rideshare') renderRideshare()
   if (currentTab === 'summary') renderSummary()
+  if (currentTab === 'fiscal') showFiscalSub(activeFiscalSub)
 }
 
 function refreshVehicleCalcs() {
@@ -3641,8 +3848,8 @@ function uberFeesTotal() {
 }
 function uberNetIncome() { return uberRevenueTotal() - uberFeesTotal() }
 
-async function generatePDF() {
-  toast('⏳ Génération du rapport…')
+async function generatePDF(opts) {
+  if (!(opts && opts.retourner)) toast('⏳ Génération du rapport…')
   try {
     await loadJsPDF()
     const { jsPDF } = window.jspdf
@@ -4067,10 +4274,14 @@ async function generatePDF() {
     }
 
     generatePDF._lastPages = pages
+    // `retourner` : le dossier comptable en ZIP a besoin du document, pas d'un
+    // téléchargement. Le rapport reste rigoureusement le même dans les deux cas.
+    if (opts && opts.retourner) return doc
     doc.save(`Sommaire_fiscal_${activeYear}.pdf`)
     toast(`✅ Rapport PDF généré (${pages} pages)`)
   } catch(e) {
     toast('❌ Erreur PDF : ' + e.message)
+    if (opts && opts.retourner) throw e
   }
 }
 
@@ -4207,6 +4418,10 @@ function init() {
   document.getElementById('trip-km').addEventListener('input', updateKmPreview)
 
   updateYearLabels()
+  // Les modules js/ s'enregistrent au chargement ; initModules() injecte la
+  // feuille modale partagée et exécute leurs init(). À faire AVANT renderHome(),
+  // qui remplit déjà les bandeaux d'accueil produits par les modules.
+  initModules()
   renderHome()
   initFirebase()
 
