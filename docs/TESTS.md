@@ -5,13 +5,13 @@ Campagne du 18 octobre 2026, sur les deux applications : PWA (`pwa_2026/`) et iO
 l'interface, et vérification à l'exécution des sorties remises au comptable (PDF, CSV,
 sauvegardes).
 
-**État au 20 octobre 2026, version 2.2.1** — deux suites et quatre vérifications de
+**État au 20 octobre 2026, version 2.2.2** — deux suites et quatre vérifications de
 fichiers, **toutes vertes**, exécutables **sans navigateur** par `npm test` :
 
 | Suite | Portée | Résultat |
 |---|---|---|
 | `tests/run-headless.js` | concordance de la version aux six emplacements | **V1–V4** |
-| `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **82 / 82** |
+| `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **96 / 96** |
 | `tests/pwa_modules_suite.js` | les 18 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **209 / 209** |
 
 Dix défauts ont été corrigés et revérifiés depuis la campagne initiale : BUG-1, BUG-7
@@ -171,8 +171,47 @@ T64 et T69 corrigent une erreur de déclaration, pas seulement d'affichage : `On
 742` était enregistré comme 742 km au lieu de 1 194, soit une déduction kilométrique
 sous-estimée de 38 % sur tout relevé anglophone.
 
+### Le vrai relevé Lyft — T74 à T87, ajoutés le 20 octobre 2026 (version 2.2.2)
+
+Le relevé effectivement remis au chauffeur est le **« Sommaire fiscal mensuel »**
+bilingue : page 1 en anglais, page 2 en français, donc les deux langues arrivent à la
+suite dans le texte extrait. Son vocabulaire n'était celui d'aucun des formats déjà
+couverts, et sa mise en forme portait trois pièges :
+
+| Ce que contient le relevé | Ce que le code faisait |
+|---|---|
+| `Taxable Base` / `Base imposable` | aucun des 16 libellés de `taxable` ne correspondait → `null` |
+| `Lyft & 3rd Party Fees` / `Lyft et les frais de tiers` | aucun des 13 libellés de `fees` ne correspondait → `null` |
+| `Total Kilometres` / `Kilométrage total` | `Kilometers` (orthographe américaine) ne correspondait pas → `null` |
+| `CA$527.60` | le code de devise collé au symbole passait, par chance |
+| `(CA$88.42)` — négatif comptable | la parenthèse n'était plus reconnue à cause du `CA$` : **les frais revenaient positifs**, donc ajoutés au revenu |
+| `512.473` — trois décimales | tronqué à `512.47` par la limite à deux décimales |
+
+Mesure faite sur ce format avec le code de la 2.2.0 : **3 champs sur 6** (primes,
+pourboires, courses). La capture envoyée en montrait **0** — le relevé n'avait donc pas
+livré sa couche texte sur l'appareil, ce que le repli OCR de la 2.2.1 couvre. Les deux
+correctifs étaient nécessaires : l'OCR pour obtenir le texte, les libellés pour en
+tirer des chiffres.
+
+| Test | Ce qu'il verrouille |
+|---|---|
+| T74–T79 | page anglaise : `Taxable Base`, `Bonuses`, `Tips`, frais, km à trois décimales, `Total Rides` |
+| **T77, T83** | **les frais retenus sont les −88,42 de la ligne de frais, pas les −4,42 de la TPS *sur* ces frais** |
+| T80–T85 | page française : `Base imposable`, `Primes`, `Pourboires`, `Lyft et les frais de tiers`, `Kilométrage total`, `Courses totales` |
+| **T81** | **`Primes` reparaît dans « TPS perçue des primes » : c'est la ligne de gains qui gagne** |
+| T86 | le PDF bilingue entier donne exactement le même résultat qu'une page seule |
+| T87 | un montant préfixé du code de devise (`CA$1,234.56`) est lu |
+
+Le libellé anglais `Lyft and 3rd party fees` est **volontairement absent** du code : la
+même suite de mots figure dans `GST paid on Lyft and 3rd party fees`, dont le montant
+aurait remplacé les frais réels. Seules les deux formes propres à la ligne de frais sont
+acceptées — l'anglaise avec son esperluette, la française avec son « les ».
+
+Les montants des jeux d'essai sont fictifs : seule la **forme** du relevé est reproduite,
+aucune donnée personnelle n'entre dans le dépôt.
+
 ```
-{"total":82,"pass":82,"fail":0,"echecs":[]}
+{"total":96,"pass":96,"fail":0,"echecs":[]}
 ```
 
 ### Le compteur de colonnes était faux — corrigé le 20 octobre 2026

@@ -18,6 +18,44 @@ La version est écrite aux six endroits par `scripts/version.sh`, seul outil aut
 
 ---
 
+## 2.2.2 — 20 octobre 2026
+
+### Corrigé
+- **Le relevé Lyft réellement remis au chauffeur n'était pas reconnu.** Il s'agit du
+  « Sommaire fiscal mensuel » bilingue — page 1 en anglais, page 2 en français — dont le
+  vocabulaire n'était couvert par aucun des formats prévus en 2.2.1 :
+  - `Taxable Base` / `Base imposable` pour la base taxable ;
+  - `Lyft & 3rd Party Fees` / `Lyft et les frais de tiers` pour les frais ;
+  - `Total Kilometres` / `Kilométrage total` pour la distance — l'orthographe
+    américaine `Kilometers`, seule prévue, ne correspondait pas ;
+  - `Total Rides` / `Courses totales` pour le nombre de courses.
+- **Les frais Lyft étaient lus en positif, donc ajoutés au revenu.** Ce relevé note les
+  montants négatifs à la façon comptable, parenthèses comprises, avec le code de devise
+  **dans** la parenthèse : `(CA$88.42)`. Le `CA$` empêchait de rattacher la parenthèse
+  ouvrante au nombre, et le signe était perdu. Un préfixe de devise collé au symbole est
+  désormais reconnu, et le signe négatif accepté des deux côtés de ce préfixe.
+- **Le kilométrage perdait sa troisième décimale.** Lyft écrit `512.473` ; la lecture
+  s'arrêtait à deux décimales (`512.47`) et le champ de révision, à pas entier, refusait
+  la valeur. Les montants acceptent maintenant un nombre quelconque de décimales et le
+  champ « Kilomètres parcourus » un pas de 0,001.
+- **Un libellé ne capte plus la ligne de taxe qui le cite.** `Primes` figure aussi dans
+  « TPS perçue des primes », et `Lyft and 3rd party fees` dans « GST paid on Lyft and
+  3rd party fees » : c'est la ligne de gains qui est retenue, pas la taxe calculée
+  dessus. La variante anglaise sans esperluette est écartée exprès du code pour cela.
+
+> Note sur le diagnostic : mesure faite sur ce format avec le code de la 2.2.0,
+> **3 champs sur 6** étaient trouvés. La capture d'écran à l'origine du correctif en
+> montrait **0**, ce qui signifie que le PDF n'avait pas livré sa couche texte sur
+> l'appareil — le repli OCR ajouté en 2.2.1 couvre ce cas. Les deux correctifs étaient
+> donc nécessaires : l'OCR pour obtenir le texte, les libellés pour en tirer des chiffres.
+
+### Tests
+- 14 assertions de plus (**T74 à T87**, socle à 96/96), construites sur la forme exacte
+  du relevé — montants fictifs, aucune donnée personnelle dans le dépôt. Elles couvrent
+  les deux pages séparément, le PDF bilingue entier, et les deux pièges de libellé.
+
+---
+
 ## 2.2.1 — 20 octobre 2026
 
 ### Corrigé

@@ -416,6 +416,68 @@
        -84.5, premierMontant(' (84,50) $'))
     eq('T73', 'texteUtileLen() ne compte pas les espaces', 6, texteUtileLen('  a b\nc d e f  '))
 
+    // ── Le « Sommaire fiscal mensuel » réellement remis par Lyft ──────────────
+    // Ce relevé-là est bilingue : page 1 en anglais, page 2 en français, donc
+    // pdf.js rend les deux à la suite. Son vocabulaire n'est celui d'AUCUN des
+    // formats ci-dessus — « Taxable Base », « Lyft & 3rd Party Fees »,
+    // « Kilométrage total » — et il porte trois pièges de forme :
+    //   • les montants sont préfixés du code de devise, collé : « CA$527.60 » ;
+    //   • un négatif enferme ce préfixe dans la parenthèse : « (CA$88.42) » ;
+    //   • les distances ont trois décimales : « 512.473 ».
+    // Les montants ci-dessous sont fictifs ; seule la forme est celle du vrai
+    // relevé (aucune donnée personnelle dans le dépôt).
+    const LYFT_TS_EN = `Lyft Monthly Tax Summary Report Period: July 2026 Driver: PRENOM NOM
+      Earnings Breakdown Stats Breakdown
+      Lyft's GSTRegistration Number: 000000000RT0001 Lyft's QSTRegistration Number: 0000000000TQ0001
+      Taxable Base CA$527.60 Bonuses CA$34.48 Tips CA$13.40
+      Lyft & 3rd Party Fees (CA$88.42) Tolls CA$0.00
+      Total Rides 31 Total Kilometres 512.473
+      GST received from passengers CA$26.38 GST remitted by Lyft on your behalf (CA$26.38)
+      GST received on bonuses CA$1.72 GST paid on Lyft and 3rd party fees (CA$4.42)
+      QST received from passengers CA$52.63 QST remitted by Lyft on your behalf (CA$52.63)`
+    const tsEN = parseLyftPDF(LYFT_TS_EN)
+    eq('T74', 'Sommaire fiscal Lyft EN : « Taxable Base » est lu malgré le préfixe CA$',
+       527.60, tsEN.taxable)
+    eq('T75', 'Sommaire fiscal Lyft EN : « Bonuses » est lu', 34.48, tsEN.bonuses)
+    eq('T76', 'Sommaire fiscal Lyft EN : « Tips » est lu', 13.40, tsEN.tips)
+    // Deux pièges en un : le signe est porté par la parenthèse qui englobe
+    // « CA$ », et la même suite de mots reparaît dans « GST paid on Lyft and
+    // 3rd party fees (CA$4.42) » — c'est bien 88,42 qu'il faut retenir.
+    eq('T77', 'Sommaire fiscal Lyft EN : les frais de tiers sont négatifs, pas la TPS sur ces frais',
+       -88.42, tsEN.fees)
+    eq('T78', 'Sommaire fiscal Lyft EN : « Total Kilometres » garde ses trois décimales',
+       512.473, tsEN.km)
+    eq('T79', 'Sommaire fiscal Lyft EN : « Total Rides » est lu', 31, tsEN.courses)
+
+    const LYFT_TS_FR = `Sommaire fiscal mensuel Lyft Période visée : juillet 2026 Chauffeur : PRENOM NOM
+      Répartition des gains Répartition des statistiques
+      Base imposable CA$527.60 Primes CA$34.48 Pourboires CA$13.40
+      Lyft et les frais de tiers (CA$88.42) Péages CA$0.00
+      Courses totales 31 Kilométrage total 512.473
+      TPS perçue des passagers CA$26.38 TPS versée par Lyft en votre nom (CA$26.38)
+      TPS perçue des primes CA$1.72 TPS payée sur Lyft et frais de tiers (CA$4.42)
+      TVQ perçue des passagers CA$52.63 TVQ versée par Lyft en votre nom (CA$52.63)`
+    const tsFR = parseLyftPDF(LYFT_TS_FR)
+    eq('T80', 'Sommaire fiscal Lyft FR : « Base imposable » est lue', 527.60, tsFR.taxable)
+    // « Primes » reparaît dans « TPS perçue des primes CA$1.72 » : à égalité de
+    // proximité, c'est la première occurrence — la ligne de gains — qui gagne.
+    eq('T81', 'Sommaire fiscal Lyft FR : les primes ne sont pas celles de la ligne de TPS',
+       34.48, tsFR.bonuses)
+    eq('T82', 'Sommaire fiscal Lyft FR : les pourboires sont lus', 13.40, tsFR.tips)
+    eq('T83', 'Sommaire fiscal Lyft FR : « Lyft et les frais de tiers » est lu, signe compris',
+       -88.42, tsFR.fees)
+    eq('T84', 'Sommaire fiscal Lyft FR : « Kilométrage total » est lu', 512.473, tsFR.km)
+    eq('T85', 'Sommaire fiscal Lyft FR : « Courses totales » est lu', 31, tsFR.courses)
+
+    // Le PDF entier : les deux pages à la suite doivent donner le même résultat
+    // qu'une page seule, sans jamais additionner les deux langues.
+    const tsBI = parseLyftPDF(LYFT_TS_EN + '\n' + LYFT_TS_FR)
+    eq('T86', 'Sommaire fiscal Lyft bilingue : les six champs valent ceux d\'une seule page',
+       '527.6|34.48|13.4|-88.42|512.473|31',
+       [tsBI.taxable, tsBI.bonuses, tsBI.tips, tsBI.fees, tsBI.km, tsBI.courses].join('|'))
+    eq('T87', 'premierMontant() lit un montant préfixé du code de devise',
+       1234.56, premierMontant(' CA$1,234.56 '))
+
     // ══ 13. Robustesse : état vide ════════════════════════════════════════════
     const stateSauve = state
     state = defaultState()

@@ -963,24 +963,24 @@ html.theme-dark .onb-section{background:#1a222d}
      moment du chargement. L'ordre est significatif : données fiscales, socle,
      puis les modules. Le paramètre ?v= force le service worker à reprendre le
      fichier après un déploiement. -->
-<script src="js/fiscal-data.js?v=2.2.1"></script>
-<script src="js/app-modules.js?v=2.2.1"></script>
-<script src="js/baux.js?v=2.2.1"></script>
-<script src="js/dpa.js?v=2.2.1"></script>
-<script src="js/impot.js?v=2.2.1"></script>
-<script src="js/tps-tvq.js?v=2.2.1"></script>
-<script src="js/vehicule-methodes.js?v=2.2.1"></script>
-<script src="js/coproprietaires.js?v=2.2.1"></script>
-<script src="js/ventilation.js?v=2.2.1"></script>
-<script src="js/recus.js?v=2.2.1"></script>
-<script src="js/kilometrage.js?v=2.2.1"></script>
-<script src="js/import-bancaire.js?v=2.2.1"></script>
-<script src="js/cloture.js?v=2.2.1"></script>
-<script src="js/dossier.js?v=2.2.1"></script>
-<script src="js/tableau-bord.js?v=2.2.1"></script>
-<script src="js/simulateur.js?v=2.2.1"></script>
-<script src="js/vente.js?v=2.2.1"></script>
-<script src="js/recommandations.js?v=2.2.1"></script>
+<script src="js/fiscal-data.js?v=2.2.2"></script>
+<script src="js/app-modules.js?v=2.2.2"></script>
+<script src="js/baux.js?v=2.2.2"></script>
+<script src="js/dpa.js?v=2.2.2"></script>
+<script src="js/impot.js?v=2.2.2"></script>
+<script src="js/tps-tvq.js?v=2.2.2"></script>
+<script src="js/vehicule-methodes.js?v=2.2.2"></script>
+<script src="js/coproprietaires.js?v=2.2.2"></script>
+<script src="js/ventilation.js?v=2.2.2"></script>
+<script src="js/recus.js?v=2.2.2"></script>
+<script src="js/kilometrage.js?v=2.2.2"></script>
+<script src="js/import-bancaire.js?v=2.2.2"></script>
+<script src="js/cloture.js?v=2.2.2"></script>
+<script src="js/dossier.js?v=2.2.2"></script>
+<script src="js/tableau-bord.js?v=2.2.2"></script>
+<script src="js/simulateur.js?v=2.2.2"></script>
+<script src="js/vente.js?v=2.2.2"></script>
+<script src="js/recommandations.js?v=2.2.2"></script>
 
 <script>
 // ════════════════════════════════════════════════════════════
@@ -999,7 +999,7 @@ html.theme-dark .onb-section{background:#1a222d}
 //   MAJEUR   — changement du format des donnees qui demande une migration
 //   MINEUR   — nouvelle fonctionnalite
 //   CORRECTIF— correction sans nouvelle fonctionnalite
-const APP_VERSION = '2.2.1'
+const APP_VERSION = '2.2.2'
 const APP_BUILD   = '2026-10-20'
 const APP_NOM     = 'Mon Plex'
 
@@ -3330,14 +3330,19 @@ function parseAmountStr(s) {
 // Premier montant plausible d'un fragment de texte. Renvoie null plutôt qu'un
 // nombre douteux : mieux vaut un champ vide à remplir qu'un montant faux
 // appliqué sans que personne ne le remarque.
+// Le montant peut être précédé d'un code de devise collé au symbole — Lyft
+// écrit « CA$414.13 » — et le négatif comptable enferme le tout dans la
+// parenthèse : « (CA$69.91) ». Sans le préfixe, la parenthèse ouvrante n'était
+// pas reconnue comme faisant partie du nombre et les frais revenaient positifs,
+// donc ajoutés au revenu au lieu d'en être retranchés.
 function premierMontantPos(seg) {
-  const re = /(\()?\s*(-?)\s*\$?\s*(\d[\d  ,]*\.?\d{0,2})\s*(\))?\s*(%)?/g
+  const re = /(\()?\s*(-?)\s*(?:[A-Z]{1,3}\s*)?\$?\s*(-?)\s*(\d[\d  ,]*(?:[.,]\d+)?)\s*(\))?\s*(%)?/g
   let m
   while ((m = re.exec(seg)) !== null) {
-    if (m[5] === '%') continue                       // un pourcentage n'est pas un montant
-    const v = parseAmountStr(m[3])
+    if (m[6] === '%') continue                       // un pourcentage n'est pas un montant
+    const v = parseAmountStr(m[4])
     if (v === null || isNaN(v)) continue
-    const neg = m[2] === '-' || (m[1] === '(' && m[4] === ')')
+    const neg = m[2] === '-' || m[3] === '-' || (m[1] === '(' && m[5] === ')')
     const val = neg ? -v : v
     if (Math.abs(val) >= 1e6) continue
     return { valeur: val, pos: m.index }
@@ -3431,21 +3436,32 @@ function parseUberPDF(text) {
 function parseLyftPDF(text) {
   const f = (...lbls) => findAmountNear(text, lbls)
   return {
-    taxable: f('Gains de course','Revenu des courses','Revenus bruts','Gains bruts','Revenu brut',
+    // Les libellés exacts du « Tax Summary » mensuel, bilingue, viennent en
+    // premier : c'est le relevé que Lyft remet aux chauffeurs du Québec.
+    taxable: f('Taxable Base','Base imposable',
+               'Gains de course','Revenu des courses','Revenus bruts','Gains bruts','Revenu brut',
                'Rémunération de base','Remuneration de base','Base taxable','Revenu total','Total des gains',
                'Ride earnings','Gross earnings','Total gross earnings','Taxable earnings','Base pay','Ride payments'),
     bonuses: f('Primes','Bonis','Bonus','Incitatifs','Défis','Defis',
                'Bonuses','Incentives','Streak bonus','Challenge bonus','Bonus pay','Promotions'),
     tips:    f('Pourboires','Total des pourboires','Pourboire',
                'Tips','Total tips','Passenger tips','Tip amount'),
-    fees:    f('Frais de la plateforme Lyft','Frais de plateforme','Frais de service Lyft','Frais Lyft',
+    // « Lyft and 3rd party fees » est VOLONTAIREMENT absent : la même suite de
+    // mots figure dans « GST paid on Lyft and 3rd party fees », dont le montant
+    // (−3,79 $) aurait remplacé les frais réels (−69,91 $). Seules les deux
+    // formes propres à la ligne de frais sont acceptées : l'anglaise avec son
+    // esperluette, la française avec son « les ».
+    fees:    f('Lyft & 3rd Party Fees','Lyft et les frais de tiers',
+               'Frais de la plateforme Lyft','Frais de plateforme','Frais de service Lyft','Frais Lyft',
                'Frais de service','Commission Lyft','Commission',
                'Lyft platform fees','Lyft platform fee','Lyft service fee','Lyft fee','Service fee','Platform fee'),
-    km:      findDistanceKm(text, ['Kilomètres parcourus','Kilometres parcourus','Km parcourus','Kilomètres','Kilometres',
+    km:      findDistanceKm(text, ['Total Kilometres','Total Kilometers','Kilométrage total','Kilometrage total',
+                                   'Kilomètres parcourus','Kilometres parcourus','Km parcourus','Kilomètres','Kilometres',
                                    'Distance parcourue','Distance (km)','Distance totale',
-                                   'Kilometers driven','Kilometers','km driven','Total distance',
+                                   'Kilometers driven','km driven','Total distance',
                                    'Milles en ligne','Online miles','Miles driven','Total miles']),
-    courses: f('Courses complétées','Courses completees','Nombre de courses','Courses effectuées','Trajets effectués','Courses','Trajets',
+    courses: f('Total Rides','Courses totales','Nombre de courses',
+               'Courses complétées','Courses completees','Courses effectuées','Trajets effectués','Courses','Trajets',
                'Rides completed','Total rides','Trips completed','Number of rides','Rides given','Rides')
   }
 }
@@ -3514,7 +3530,7 @@ function showPDFReview() {
       { key:'bonuses', label:'Primes ($)',            value:data.bonuses },
       { key:'tips',    label:'Pourboires ($)',        value:data.tips    },
       { key:'fees',    label:'Frais Lyft ($)',        value:data.fees    },
-      { key:'km',      label:'Kilomètres parcourus', value:data.km,      isUnit:true },
+      { key:'km',      label:'Kilomètres parcourus', value:data.km,      isUnit:true, pas:'0.001' },
       { key:'courses', label:'Nombre de courses',    value:data.courses, isUnit:true }
     ]
   }
@@ -3538,7 +3554,7 @@ function showPDFReview() {
     html += `
       <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
         <div style="flex:1;font-size:13px;line-height:1.3;color:${ok?'var(--text)':'var(--text2)'}">${r.label}</div>
-        <input type="number" step="${r.isUnit?'1':'0.01'}" value="${ok?r.value:''}" placeholder="—"
+        <input type="number" step="${r.pas || (r.isUnit?'1':'0.01')}" value="${ok?r.value:''}" placeholder="—"
           id="pdfr-${r.key}"
           style="width:115px;padding:7px 9px;border:1.5px solid ${ok?'var(--blue)':'var(--border)'};
             border-radius:6px;font-size:14px;text-align:right;
