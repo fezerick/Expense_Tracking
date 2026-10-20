@@ -12,8 +12,8 @@ fichiers, **toutes vertes**, exécutables **sans navigateur** par `npm test` :
 |---|---|---|
 | `tests/run-headless.js` | concordance de la version aux six emplacements | **V1–V4** |
 | `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **111 / 111** |
-| `tests/pwa_modules_suite.js` | les 19 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **263 / 263** |
-| `tests/pwa_sync_suite.js` | le raccordement à Firestore, contre un Firestore de pacotille (§ 2c) | **15 / 15** |
+| `tests/pwa_modules_suite.js` | les 19 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **267 / 267** |
+| `tests/pwa_sync_suite.js` | le raccordement à Firestore, contre un Firestore de pacotille (§ 2c) | **18 / 18** |
 
 Dix défauts ont été corrigés et revérifiés depuis la campagne initiale : BUG-1, BUG-7
 (PWA + iOS), BUG-9, BUG-10, BUG-3, puis BUG-2 et les quatre défauts de la couche
@@ -307,7 +307,7 @@ sens.
 
 ## 2b. Suite automatisée des modules — `tests/pwa_modules_suite.js`
 
-**263 assertions, 263 réussies.** Elle couvre la couche `pwa_2026/js/` (§ 2.8 de
+**267 assertions, 267 réussies.** Elle couvre la couche `pwa_2026/js/` (§ 2.8 de
 [ARCHITECTURE.md](ARCHITECTURE.md)), que la première suite ignore. Même principe :
 exécution *dans* la page, fixture déterministe, restauration de l'état réel à la fin.
 
@@ -351,7 +351,7 @@ chaque correctif de module**, car les modules sont chargés avec leur propre `?v
 | M202–M204 | version | format *majeur.mineur.correctif*, `?v=` sur **chaque** balise de module, version affichée dans les Réglages |
 | M210+ | tous | un panneau par module : chaque `render()` produit du contenu sans lever |
 | M250–M251 | tous | **état vierge** : tous les calculs des modules tournent sur un `state` où aucune clé de module n'existe |
-| M260–M304 | `sync` | **fusion entre appareils** : aplatissement de l'arbre, les trois formes de tableau (par `id`, par position, en ensemble), la valeur la plus récente gagne, une valeur qu'un seul côté possède est conservée, pierre tombale au plus court préfixe, règle d'effacement, idempotence, convergence des deux sens de fusion, désaccord signalé à dates égales, une case qui naît vide n'est pas datée (M300–M304) |
+| M260–M304 | `sync` | **fusion entre appareils** : aplatissement de l'arbre, les trois formes de tableau (par `id`, par position, en ensemble), la valeur la plus récente gagne, une valeur qu'un seul côté possède est conservée, pierre tombale au plus court préfixe, règle d'effacement, idempotence, convergence des deux sens de fusion, départage d'égalité symétrique et point fixe de la fusion (M272a–M272d), une case qui naît vide n'est pas datée (M300–M304) |
 
 ### Défauts trouvés par cette suite — tous corrigés
 
@@ -437,7 +437,7 @@ sentinelle intacte, aucune clé `depenses_2098 / 2099 / 2028` résiduelle.
 
 ## 2c. Suite du raccordement Firestore — `tests/pwa_sync_suite.js`
 
-**15 assertions, 15 réussies.** La suite des modules couvre le *moteur* de fusion
+**18 assertions, 18 réussies.** La suite des modules couvre le *moteur* de fusion
 (`js/sync.js`, M260–M304) : du calcul pur. Celle-ci couvre le *raccordement*, où vivent
 les erreurs qui coûtent des données — un envoi qui écrase au lieu de fusionner ne se voit
 nulle part dans les tests du moteur.
@@ -458,6 +458,7 @@ C'est la seule suite **asynchrone** : chaque envoi est un aller-retour `await`, 
 | F10–F12 | la clé d'un reçu (`p1090:deductibles:Eau / Égouts:3`) donne un identifiant de document sans « / », la photo monte dans son propre document, et sa ligne entre dans l'index synchronisé |
 | F13 | une photo annoncée par l'index et absente d'ici se télécharge |
 | F14–F15 | retirer un reçu pose une tombale sur sa ligne d'index et retire la copie locale — sinon le reçu supprimé reviendrait au prochain passage |
+| F16–F18 | **le cas réel de la mise à jour** : deux appareils dont aucun n'est daté et qui divergent retiennent la même valeur, le désaccord est signalé, et le document ne repart plus (point fixe) |
 
 **Ce qu'elle ne prouve pas.** Un Firestore de pacotille ne reproduit ni les règles de
 sécurité, ni la latence, ni un échec de transaction pour cause de conflit, ni le mode hors

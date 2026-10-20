@@ -1036,13 +1036,40 @@ ${FIX_YEAR}-04-12,QUINCAILLERIE TEST,-45.00`
     eq('M270', 'Une valeur écartée est signalée comme conflit',
        1, syncFusionner({ state: sC, meta: mC }, { state: sD, meta: mD }).conflits.length)
 
-    // Données écrites avant la 2.5.0 : aucune date, donc union.
+    // Données écrites avant la 2.5.0 : aucune date, donc union — et pour la case
+    // que les deux côtés portent avec des valeurs différentes, un départage qui
+    // ne regarde que les valeurs. « Garder le local » tomberait pourtant sous le
+    // sens : c'est ce que faisait la première version, et à deux appareils elle
+    // ne convergeait jamais — chacun gardait le sien et le renvoyait à l'autre
+    // toutes les deux secondes et demie, indéfiniment.
     const sE = { uber: { rides_gross: '100', tolls: '5' } }
     const sG = { uber: { rides_gross: '200', tips_rides: '9' } }
     const fUnion = syncFusionner({ state: sE, meta: null }, { state: sG, meta: null })
     eq('M271', 'Sans dates, la fusion est une union : rien ne disparaît',
-       { rides_gross: '100', tolls: '5', tips_rides: '9' }, fUnion.state.uber)
+       { rides_gross: '200', tolls: '5', tips_rides: '9' }, fUnion.state.uber)
     eq('M272', 'Sans dates, le désaccord est signalé', 1, fUnion.conflits.length)
+    // LE point : le même résultat vu des deux appareils.
+    const fUnionInverse = syncFusionner({ state: sG, meta: null }, { state: sE, meta: null })
+    eq('M272a', 'Un départage d\'égalité donne le même état sur les deux appareils',
+       syncEmpreinteEtat(fUnion.state), syncEmpreinteEtat(fUnionInverse.state))
+    eq('M272b', 'Et chacun signale le désaccord de son côté', 1, fUnionInverse.conflits.length)
+    // Le va-et-vient sans fin se jouait ici : chaque appareil comparait le
+    // résultat de sa fusion au document reçu, le trouvait différent et
+    // renvoyait le sien. Une fois l'union publiée, plus personne n'a de raison
+    // de renvoyer quoi que ce soit — c'est le point fixe.
+    const docUnion = { state: fUnion.state, meta: fUnion.meta }
+    const revuA = syncFusionner({ state: fUnion.state, meta: fUnion.meta }, docUnion)
+    const revuB = syncFusionner({ state: fUnionInverse.state, meta: fUnionInverse.meta }, docUnion)
+    check('M272c', 'Une fois l\'union publiée, aucun appareil ne la renvoie',
+          'les deux renvois à false',
+          [syncDoitRenvoyer(revuA, docUnion), syncDoitRenvoyer(revuB, docUnion)].join(','),
+          !syncDoitRenvoyer(revuA, docUnion) && !syncDoitRenvoyer(revuB, docUnion))
+    eq('M272d', 'À égalité, une vraie valeur bat une case vide, dans les deux sens',
+       ['450', '450'],
+       [syncFusionner({ state: { uber: { rides_gross: '' } }, meta: meta0({ uber: { rides_gross: 'x' } }, 7000) },
+                      { state: { uber: { rides_gross: '450' } }, meta: meta0({ uber: { rides_gross: '450' } }, 7000) }).state.uber.rides_gross,
+        syncFusionner({ state: { uber: { rides_gross: '450' } }, meta: meta0({ uber: { rides_gross: '450' } }, 7000) },
+                      { state: { uber: { rides_gross: '' } }, meta: meta0({ uber: { rides_gross: 'x' } }, 7000) }).state.uber.rides_gross])
 
     // Règle d'effacement : une case vide jamais remplie ne vaut pas une valeur.
     const sVide = { uber: { rides_gross: '' } }, sPlein = { uber: { rides_gross: '450' } }

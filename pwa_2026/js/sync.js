@@ -216,7 +216,16 @@ function syncSupprimerA(cible, chemin) {
 function syncMetaVide() { return { v: 1, feuilles: {}, sup: {} } }
 function syncMetaNormalisee(meta) {
   const m = meta || {}
-  return { v: 1, feuilles: m.feuilles || {}, sup: m.sup || {} }
+  // Une date à 0 n'est pas une date : c'est « aucune information », et c'est ce
+  // que portent les données écrites avant la 2.5.0. L'inscrire au journal ferait
+  // croire à une feuille datée que l'autre appareil ignore, donc à une version
+  // plus récente à renvoyer — un va-et-vient d'envois sur des données que
+  // personne n'a touchées. On ne garde que les dates réelles.
+  const feuilles = {}
+  Object.keys(m.feuilles || {}).forEach(k => { if (m.feuilles[k] > 0) feuilles[k] = m.feuilles[k] })
+  const sup = {}
+  Object.keys(m.sup || {}).forEach(k => { if (m.sup[k] > 0) sup[k] = m.sup[k] })
+  return { v: 1, feuilles, sup }
 }
 
 // Compare deux états et date ce qui a changé. Appelé à chaque sauvegarde avec
@@ -320,6 +329,15 @@ function syncDateSuppression(meta, chemin) {
 // ── La fusion ──────────────────────────────────────────────────────────────
 // `local` et `distant` sont deux { state, meta }. Rend l'état fusionné, la méta
 // fusionnée, la liste des conflits et de quoi afficher un résumé honnête.
+// Départage d'une égalité de dates, sans savoir lequel des deux côtés est
+// « ici » : les deux appareils doivent en tirer la même conclusion, sinon la
+// fusion ne converge pas. Retourne vrai si c'est la valeur distante qui gagne.
+function syncTrancherEgalite(local, distant) {
+  const vl = syncEstVide(local), vd = syncEstVide(distant)
+  if (vl !== vd) return vl               // une vraie valeur bat une case vide
+  return JSON.stringify(distant) > JSON.stringify(local)
+}
+
 function syncFusionner(local, distant) {
   const stLocal = local && local.state ? local.state : {}
   const stDist  = distant && distant.state ? distant.state : {}
@@ -382,12 +400,33 @@ function syncFusionner(local, distant) {
       syncEcrireA(resultat, ch, fDist[ch], stDist)
       meta.feuilles[ch] = tsD
       stats.prisDistant++
+    } else if (tsD === tsL) {
+      // Égalité de dates et valeurs différentes : les deux côtés ont écrit dans
+      // la même seconde, ou — le cas courant — aucun des deux n'est daté parce
+      // que les données précèdent la 2.5.0.
+      //
+      // « Garder le local » serait stable sur un appareil et ruineux à deux :
+      // chacun garderait le sien, chacun verrait le document de l'autre comme
+      // différent du résultat de sa fusion, chacun renverrait le sien — les
+      // deux appareils se seraient renvoyé la même case toutes les deux
+      // secondes et demie, indéfiniment, avec un avertissement à chaque tour.
+      // Il faut donc trancher PAREIL des deux côtés, sans savoir qui est
+      // « ici ». La règle ne regarde que les deux valeurs : la valeur non vide
+      // gagne, et entre deux valeurs non vides, la plus grande des deux
+      // écritures canoniques. Arbitraire, mais identique sur les deux appareils
+      // — donc les deux convergent, et le désaccord est dit.
+      const gagneDistant = syncTrancherEgalite(fLocal[ch], fDist[ch])
+      if (gagneDistant) { syncEcrireA(resultat, ch, fDist[ch], stDist); stats.prisDistant++ }
+      else stats.gardesLocal++
+      conflits.push({
+        chemin: ch,
+        garde:   gagneDistant ? fDist[ch]  : fLocal[ch],
+        ecarte:  gagneDistant ? fLocal[ch] : fDist[ch],
+        origine: gagneDistant ? 'distant'  : 'local'
+      })
+      stats.conflits++
     } else {
       stats.gardesLocal++
-      // Égalité de dates et valeurs différentes : les deux côtés ont écrit dans
-      // la même seconde, ou aucun n'est daté. On garde le local — choix
-      // arbitraire mais STABLE — et on le dit.
-      if (tsD === tsL) { conflits.push({ chemin: ch, garde: fLocal[ch], ecarte: fDist[ch], origine: 'local' }); stats.conflits++ }
     }
   })
 
@@ -451,6 +490,8 @@ function syncDoitRenvoyer(fusion, distant) {
   if (syncEmpreinteEtat(fusion && fusion.state) !== syncEmpreinteEtat(distant && distant.state)) return true
   const a = syncMetaNormalisee(fusion && fusion.meta)
   const b = syncMetaNormalisee(distant && distant.meta)
-  const plusRecent = (x, y) => Object.keys(x).some(k => !(k in y) || x[k] > y[k])
+  // « Absente là-bas » ne veut pas dire « plus récente ici » : une feuille sans
+  // date vaut 0 des deux côtés.
+  const plusRecent = (x, y) => Object.keys(x).some(k => x[k] > (y[k] || 0))
   return plusRecent(a.feuilles, b.feuilles) || plusRecent(a.sup, b.sup)
 }

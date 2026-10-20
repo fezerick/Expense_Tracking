@@ -157,8 +157,17 @@ par feuille** et la fusion garde, pour chaque valeur terminale, la plus récente
 - **Chaque envoi est une transaction** Firestore (lire, fusionner, écrire), puis
   `syncDoitRenvoyer()` compare une **empreinte canonique** de l'état : sans elle, deux
   appareils se renverraient le même document sans fin.
-- **Égalité de dates = désaccord signalé.** Le local gagne, mais la pastille affiche
+- **Égalité de dates : un départage symétrique, et un désaccord signalé.** Deux
+  valeurs différentes à la même date — ou, le cas courant, sans date de part et d'autre
+  parce qu'elles précèdent la 2.5.0 — sont tranchées par une règle qui ne regarde que les
+  valeurs : la non vide gagne, puis la plus grande des deux écritures canoniques.
+  Arbitraire, mais **identique sur les deux appareils**, et c'est tout l'intérêt :
+  « garder le local » revenait à ce que chacun garde le sien et renvoie son document à
+  l'autre toutes les deux secondes et demie, indéfiniment. La pastille affiche
   « ⚠️ N désaccord(s) » plutôt que de trancher en silence.
+- **Une date à `0` n'est pas une date.** `syncMetaNormalisee()` écarte les dates nulles :
+  inscrites au journal, elles faisaient passer une feuille que l'autre appareil ignore
+  pour une version plus récente à renvoyer — l'autre moitié du même va-et-vient.
 
 **Disposition Firestore** (tout sous `users/<uid>`, après connexion Google —
 `signInWithGoogle`, index.html:3947) :

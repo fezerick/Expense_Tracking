@@ -18,6 +18,33 @@ La version est écrite aux six endroits par `scripts/version.sh`, seul outil aut
 
 ---
 
+## 2.5.1 — 20 octobre 2026
+
+### Corrigé
+- **Deux appareils pouvaient se renvoyer le même document sans fin.** Sur des données
+  écrites avant la 2.5.0 — donc sans aucune date — deux appareils qui ne portaient pas la
+  même valeur dans la même case gardaient chacun la sienne : chacun voyait le document de
+  l'autre comme différent du résultat de sa fusion, chacun renvoyait le sien, toutes les
+  deux secondes et demie, indéfiniment, avec un avertissement à chaque tour. C'est
+  exactement la situation d'une première synchronisation entre un téléphone et un
+  ordinateur contenant déjà des données. Deux causes, les deux corrigées :
+  - à égalité de dates, le départage ne regarde plus *qui* est l'appareil local mais
+    seulement les deux valeurs — la valeur non vide gagne, puis la plus grande des deux
+    écritures. Arbitraire, mais **identique sur les deux appareils**, donc les deux
+    convergent ; le désaccord est signalé comme avant ;
+  - une date à `0` (c'est-à-dire *aucune* date) n'entre plus dans le journal, et une
+    feuille absente du journal de l'autre appareil n'y est plus prise pour une version
+    plus récente.
+- Vérifié en navigateur sur deux appareils simulés dont aucun n'est daté et dont trois
+  cases divergent : même état des deux côtés, trois désaccords signalés de chaque côté, et
+  plus aucun envoi.
+
+### Interne
+- Assertions ajoutées : M272a–M272d (le départage est symétrique, et la fusion a un point
+  fixe) et F16–F18 (le cas réel, au niveau du raccordement Firestore).
+
+---
+
 ## 2.5.0 — 20 octobre 2026
 
 ### Ajouté

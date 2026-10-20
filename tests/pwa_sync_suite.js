@@ -187,6 +187,36 @@
          syncDateSuppression(stateMeta, syncPath(['recusIndex', cle])) > 0)
     await recusReconcilier()
     vrai('F15', 'Et la copie locale de la photo s\'en va aussi', !state.receipts[cle])
+
+    // ── F16–F18 · Deux appareils dont AUCUN n'est daté ────────────────────────
+    // Le cas réel de la mise à jour : le téléphone et l'ordinateur portent tous
+    // deux des données écrites avant la 2.5.0, donc sans aucune date, et pas les
+    // mêmes. La première version gardait « le local » de chaque côté : les deux
+    // appareils se renvoyaient leur document toutes les deux secondes et demie,
+    // indéfiniment, avec un avertissement à chaque tour. Ce qui suit est la
+    // garantie que cela ne peut plus arriver.
+    state.uber = { rides_gross: '100' }
+    stateMeta = syncMetaVide()
+    sauverMeta(an, stateMeta)
+    rechargerMeta()
+    store.set(chAn, { year: an, device: 'autre',
+                      data: JSON.stringify({ uber: { rides_gross: '200' } }),
+                      meta: JSON.stringify(syncMetaVide()) })
+    emettreCol(chAn, 'modified', false)
+    const choix = state.uber.rides_gross
+    await syncPushAnnee(an)
+    const apresEnvoi = lu(chAn)
+    // Le départage ne regarde que les valeurs : les deux appareils tranchent
+    // pareil, donc l'état publié est celui que les deux portent.
+    eq('F16', 'À égalité sans dates, les deux appareils retiennent la même valeur',
+       choix, apresEnvoi && apresEnvoi.data.uber.rides_gross)
+    vrai('F17', 'Le désaccord est signalé plutôt que tranché en silence', syncConflits.length > 0)
+    // Le point fixe : le document revient tel quel, personne ne le renvoie.
+    const avant = JSON.stringify(store.get(chAn))
+    emettreCol(chAn, 'modified', false)
+    await syncPushAnnee(an)
+    vrai('F18', 'Et le document ne repart plus : la fusion a un point fixe',
+         JSON.stringify(store.get(chAn)) === avant && state.uber.rides_gross === choix)
   } catch (e) {
     erreurFatale = (e && e.message) || String(e)
   } finally {
