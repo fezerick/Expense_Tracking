@@ -105,11 +105,12 @@ Dans **App Store Connect** (<https://appstoreconnect.apple.com>) → *Entreprise
 <https://appstoreconnect.apple.com/apps> → **+** → *Nouvelle app* :
 
 - Plateforme : **iOS**
-- Nom : `Revenus & Dépenses` — **doit être unique dans tout l'App Store**. S'il
-  est pris, essayez `Revenus & Dépenses 2026` ou `Loyers & Kilomètres`.
+- Nom : `Mon Plex` — le nom retenu depuis la version 2.2.0 de la PWA ; il **doit être
+  unique dans tout l'App Store**. S'il est pris, essayez `Mon Plex — Revenus et
+  dépenses` ou `Loyers & Kilomètres`.
 - Langue principale : **Français (Canada)**
 - Bundle ID : celui créé en 3.1
-- SKU : un code interne libre, par exemple `REVDEP-2026`
+- SKU : un code interne libre, par exemple `MONPLEX-2026`
 - Accès utilisateur : *Accès complet*
 
 ---

@@ -163,7 +163,12 @@ function parseOFX(texte) {
     const date = isoValide(dt.slice(0, 4), dt.slice(4, 6), dt.slice(6, 8))
     const montant = num(tag('TRNAMT'))
     const libelle = [tag('NAME'), tag('MEMO')].filter(Boolean).join(' — ') || 'Transaction'
-    if (date && montant) out.push({ date, libelle, montant })
+    // FITID : identifiant unique attribué par l'institution financière, stable
+    // d'un téléchargement à l'autre (spec OFX 2.x, § 11.4.3). C'est la seule
+    // clé de dédoublonnage fiable ; l'empreinte date+montant+libellé, elle,
+    // confond deux achats identiques du même jour au même commerçant.
+    const fitid = tag('FITID')
+    if (date && montant) out.push({ date, libelle, montant, fitid })
   })
   return out
 }
@@ -216,8 +221,32 @@ function majRegle(id, champ, val) {
 }
 
 // ── IMPORT ─────────────────────────────────────────────────────────────────
+// Empreinte HEURISTIQUE : la seule possible pour un CSV, qui ne porte aucun
+// identifiant. Deux achats du même montant, le même jour, au même commerçant
+// sont indistinguables — l'un des deux sera pris pour un doublon. C'est le
+// compromis accepté pour le CSV, et la raison pour laquelle l'OFX est préféré.
 function empreinteTx(t) {
   return t.date + '|' + Math.round(num(t.montant) * 100) + '|' + normaliserLibelle(t.libelle).slice(0, 24)
+}
+
+// Clés sous lesquelles une transaction est ENREGISTRÉE une fois traitée : les
+// deux quand le FITID existe. Enregistrer aussi l'empreinte heuristique protège
+// le cas où le même relevé, déjà importé en OFX, est retéléchargé en CSV — les
+// clés des deux formats ne se croiseraient pas autrement.
+function clesTx(t) {
+  const cles = []
+  if (t.fitid) cles.push('fitid|' + String(t.fitid).trim())
+  cles.push(empreinteTx(t))
+  return cles
+}
+
+// Clé sous laquelle une transaction est COMPARÉE à ce qui a déjà été vu : UNE
+// seule, la plus forte disponible. C'est la dissymétrie qui fait tout l'intérêt
+// du FITID : deux achats jumeaux (même jour, même montant, même commerçant)
+// partagent la même empreinte heuristique, donc comparer aussi celle-ci ferait
+// prendre le second pour un doublon — exactement le défaut que le FITID corrige.
+function cleMatch(t) {
+  return t.fitid ? 'fitid|' + String(t.fitid).trim() : empreinteTx(t)
 }
 
 function importerFichierBancaire(input) {
@@ -243,15 +272,21 @@ function traiterContenuBancaire(texte, nom) {
   tx = tx.filter(t => yearOf(t.date) === activeYear)
 
   const vues = new Set(empreintesImport())
-  const dejaFile = new Set(fileImport().map(empreinteTx))
+  const dejaFile = new Set()
+  fileImport().forEach(t => clesTx(t).forEach(c => dejaFile.add(c)))
   let doublons = 0, ajoutes = 0
   tx.forEach(t => {
-    const h = empreinteTx(t)
-    if (vues.has(h) || dejaFile.has(h)) { doublons++; return }
-    dejaFile.add(h)
+    const cle = cleMatch(t)
+    if (vues.has(cle) || dejaFile.has(cle)) { doublons++; return }
+    // On indexe la nouvelle transaction sous TOUTES ses clés, pour qu'un import
+    // ultérieur dans l'autre format la retrouve.
+    clesTx(t).forEach(c => dejaFile.add(c))
     const r = regleCorrespondante(t.libelle)
     fileImport().push({
       id: uid(), date: t.date, libelle: t.libelle, montant: num(t.montant),
+      // Le FITID voyage avec la transaction dans la file : sans lui, un
+      // classement fait demain ne pourrait plus enregistrer la bonne clé.
+      fitid: t.fitid || '',
       key: r ? r.key : '', auto: !!r, source: nom
     })
     ajoutes++
@@ -295,7 +330,7 @@ function appliquerTx(id, apprendre) {
   const r = regleCorrespondante(t.libelle)
   if (r) r.usages = (r.usages || 0) + 1, saveSetup()
 
-  empreintesImport().push(empreinteTx(t))
+  clesTx(t).forEach(c => empreintesImport().push(c))
   state.importQueue = fileImport().filter(x => x.id !== id)
   save()
   renderImportBancaire()
@@ -307,7 +342,7 @@ function ignorerTx(id, apprendre) {
   const t = fileImport().find(x => x.id === id)
   if (!t) return
   if (apprendre) apprendreRegle(t.libelle, 'ignore')
-  empreintesImport().push(empreinteTx(t))
+  clesTx(t).forEach(c => empreintesImport().push(c))
   state.importQueue = fileImport().filter(x => x.id !== id)
   save()
   renderImportBancaire()

@@ -1,4 +1,6 @@
-# Architecture — Revenus & Dépenses 2026
+# Architecture — Mon Plex
+
+*L'application s'appelait « Revenus & Dépenses 2026 » jusqu'à la version 2.2.0.*
 
 Deux applications indépendantes couvrent le même domaine fiscal (revenus locatifs
 québécois + travail autonome rideshare) et échangent leurs données par fichiers JSON :
@@ -7,7 +9,7 @@ québécois + travail autonome rideshare) et échangent leurs données par fichi
 |---|---|---|
 | Dossier | `pwa_2026/` | `ios_2026/` |
 | Techno | HTML/CSS/JS, aucun build | SwiftUI + SwiftData, iOS 17+ |
-| Taille | 9 661 lignes (`index.html` 4 435 + 17 modules `js/` 5 226) | 5 570 lignes Swift, 23 fichiers |
+| Taille | 10 287 lignes (`index.html` 4 553 + 18 fichiers `js/` 5 734) | 5 654 lignes Swift, 23 fichiers |
 | Stockage | `localStorage` + Firestore | SwiftData (CloudKit ou local) |
 | Hébergement | Firebase Hosting `suivi-depenses-7dc02` | Xcode / appareil |
 | Sortie comptable | PDF jsPDF + CSV | PDF UIGraphics + CSV |
@@ -51,15 +53,16 @@ et pour un taux imposé par ailleurs.
 
 ```
 pwa_2026/
-├── index.html      4 435 lignes — HTML + CSS + JS du socle (écrans 1 à 5)
-├── manifest.json   nom, couleurs #1F3864, icône SVG inline en data: URI
-├── sw.js           43 lignes — service worker, cache 'depenses-2026-v6'
-└── js/             17 modules, 5 226 lignes — couche fiscale (voir § 2.8)
+├── index.html      4 553 lignes — HTML + CSS + JS du socle (écrans 1 à 5)
+├── manifest.json   nom « Mon Plex », couleurs #1F3864, icônes de icons/
+├── sw.js           45 lignes — service worker, cache 'depenses-<version>'
+├── icons/          icône de l'application : source SVG + PNG rendus (voir § 2.9)
+└── js/             18 fichiers, 5 734 lignes — couche fiscale (voir § 2.8)
 ```
 
 Aucun bundler, aucun `node_modules`, aucune étape de compilation : le fichier servi est
 le fichier source. Les modules de `js/` sont chargés comme **scripts classiques**
-(`<script src="js/x.js?v=6">`), donc ils partagent la portée globale de la page :
+(`<script src="js/x.js?v=2.2.0">`), donc ils partagent la portée globale de la page :
 une fonction déclarée dans un module est appelable depuis `index.html` et
 réciproquement. C'est voulu — c'est ce qui permet d'ajouter une fonctionnalité
 sans toucher au socle.
@@ -69,9 +72,9 @@ sans toucher au socle.
 | Usage | Source |
 |---|---|
 | Auth + Firestore | `gstatic.com/firebasejs/10.12.2/*-compat.js` (en `<head>`) |
-| Génération PDF | `cdnjs/jspdf/2.5.1` — chargé au premier rapport (ligne 3548) |
-| Lecture PDF (relevés) | `cdnjs/pdf.js/3.11.174` — chargé au premier import (ligne 2888) |
-| Distances | `maps.googleapis.com` — seulement si une clé API est saisie (ligne 2037) |
+| Génération PDF | `cdnjs/jspdf/2.5.1` — chargé au premier rapport (ligne 3919) |
+| Lecture PDF (relevés) | `cdnjs/pdf.js/3.11.174` — chargé au premier import (ligne 3231) |
+| Distances | `maps.googleapis.com` — seulement si une clé API est saisie (ligne 2237) |
 
 ### 2.3 Modèle de données
 
@@ -148,7 +151,7 @@ assistant de configuration (`startOnboarding` 1406 / `renderOnb` 1469, 6 étapes
 | Sauvegarde JSON | `backupPayload` / `exportJSON` | enveloppe v3 : `{ format: 'pwa-depenses', version: 3, year, setup, state }` |
 | Restauration JSON | `restoreFromBackup` / `handleImport` | enveloppe v3 **ou** ancien `state` à plat ; `mergeState()` puis `reconcilePropsFromState()` 1263 |
 | Import sauvegarde iOS | `importIOSBackup` 2779 | Snapshot v2, sections `rev`/`ded`/`cap` |
-| Export CSV | — | grille mensuelle, en-tête de 15 colonnes |
+| Export CSV | `exportCSV` | grille mensuelle, 15 colonnes : section, catégorie, 12 mois, total. Les montants annuels (Uber, véhicule) laissent les cellules de mois **vides** |
 | Rapport PDF | ~3548-3900 | 1 page par immeuble + annexes (voir § 4) |
 | Import relevé PDF | `showPDFReview` 3011 | pdf.js, extraction des montants Uber/Lyft |
 
@@ -168,7 +171,7 @@ et restauration d'une sauvegarde.
 
 `sw.js` applique **network-first pour le HTML** (toujours la dernière version, repli sur
 le cache hors ligne) et **cache-first pour le reste**. Le nom du cache
-(`depenses-2026-v6`) doit être incrémenté manuellement à chaque déploiement, sinon les
+(`depenses-<version>`) doit changer à chaque déploiement, sinon les
 anciens caches ne sont pas purgés — et une ressource non-HTML (dont `tests/pwa_suite.js`)
 peut continuer à être servie figée. `firebase.json` envoie en plus `no-cache` sur `sw.js`
 et sur tout `*.html`, et `max-age=0, must-revalidate` sur tout `*.js` — ce qui règle le
@@ -176,10 +179,12 @@ cache **HTTP**, mais pas celui du service worker, qui sert les ressources non-HT
 cache-first.
 
 ⚠️ Les modules de `js/` sont référencés avec leur propre numéro de version
-(`js/dpa.js?v=6`). Recharger `index.html` avec un paramètre anti-cache ne les
-rafraîchit donc **pas** : il faut incrémenter ce `?v=` dans les 17 balises
-`<script>` **et** le nom du cache du service worker. C'est la cause la plus
-fréquente de « le correctif ne prend pas » pendant le développement.
+(`js/dpa.js?v=2.2.0`). Recharger `index.html` avec un paramètre anti-cache ne les
+rafraîchit donc **pas** : il faut incrémenter ce `?v=` dans les 18 balises
+`<script>` **et** le nom du cache du service worker. C'était la cause la plus
+fréquente de « le correctif ne prend pas » ; depuis la version 2.1.0,
+`scripts/version.sh` écrit les six emplacements d'un coup et les tests vérifient
+qu'ils concordent (§ 2.9).
 
 ### 2.8 Couche modulaire (`pwa_2026/js/`)
 
@@ -197,7 +202,7 @@ function notifyModulesYearChange()// appelé par switchYear()   — puis m.onYea
 Les erreurs d'un module sont attrapées et journalisées (`console.error('[module <id>] init', e)`) :
 un module cassé ne doit pas empêcher l'application de démarrer.
 
-**Chargement.** 17 balises `<script src="js/<module>.js?v=6">` en fin de `<body>`,
+**Chargement.** 18 balises `<script src="js/<module>.js?v=<version>">` en fin de `<body>`,
 donc des **scripts classiques** et non des modules ES. Conséquence structurante :
 tout ce qui est déclaré au niveau supérieur d'un fichier (`function`, `const`, `let`)
 vit dans la portée lexicale globale partagée. Un module appelle donc `state`, `setup`,
@@ -209,9 +214,9 @@ débogage doit les évaluer par leur nom nu.
 | Fichier | Lignes | `id` du module | Rôle |
 |---|---|---|---|
 | `app-modules.js` | 228 | — (socle) | registre, feuille modale, utilitaires (`num`, `money`, `escH`, `dl`, `csvCell`, `loadScript`, `readYear`/`writeYear`), verrou `guardClosed()` |
-| `fiscal-data.js` | 259 | — (données) | paramètres fiscaux par année (`fiscal(year)`), paliers d'impôt, RRQ / FSS / RQAP, taux de DPA |
+| `fiscal-data.js` | 269 | — (données) | paramètres fiscaux par année (`fiscal(year)`), paliers d'impôt, RRQ / FSS / RQAP, taux de DPA |
 | `recommandations.js` | 337 | `recommandations` | pistes de rentabilité classées par gain estimé + bandeau d'accueil |
-| `impot.js` | 375 | `impot` | impôt estimé, acomptes provisionnels, provision à mettre de côté |
+| `impot.js` | 447 | `impot` | impôt estimé, acomptes provisionnels avec retards et manque à verser, provision à mettre de côté |
 | `tps-tvq.js` | 250 | `taxes` | TPS/TVQ sur les revenus de transport, CTI/RTI au prorata d'affaires |
 | `dpa.js` | 512 | `dpa` | biens amortissables, catégories, règle du demi-taux, 1100(11), report de FNACC |
 | `baux.js` | 468 | `baux` | baux, loyers, indexation, Relevé 31 |
@@ -220,13 +225,14 @@ débogage doit les évaluer par leur nom nu.
 | `ventilation.js` | 287 | `ventilation` | ventilation automatique d'une dépense entre immeubles / mois |
 | `recus.js` | 273 | `recus` | audit des pièces manquantes (montant saisi sans reçu joint) |
 | `kilometrage.js` | 265 | `kilometrage` | journal de kilométrage assisté, odomètre, rappel d'accueil |
-| `import-bancaire.js` | 453 | `import-bancaire` | import CSV/relevé avec règles de classement, file de revue, anti-doublon |
+| `import-bancaire.js` | 488 | `import-bancaire` | import CSV / OFX / QFX avec règles de classement, file de revue, anti-doublon par `FITID` |
 | `simulateur.js` | 427 | `simulateur` | simulateur d'achat d'immeuble et de km Uber supplémentaires |
+| `vente.js` | 391 | `vente` | simulateur de vente : récupération de DPA (100 %), gain en capital (50 %), perte finale |
 | `tableau-bord.js` | 283 | `tableau-bord` | tableau de bord pluriannuel (lit les autres années via `readYear`) |
 | `cloture.js` | 216 | `cloture` | clôture d'année verrouillée + empreinte des chiffres déclarés |
 | `dossier.js` | 307 | `dossier` | dossier comptable complet en un ZIP |
 
-**Le 6ᵉ onglet.** `FISCAL_SUBS` (index.html:1963) décrit les 10 sous-onglets dans
+**Le 6ᵉ onglet.** `FISCAL_SUBS` (index.html:1994) décrit les 10 sous-onglets dans
 leur ordre d'affichage ; `showFiscalSub(id)` les rend. Un `si: () => …` conditionne
 l'affichage à un module activé dans `setup.modules` — l'onglet TPS/TVQ n'apparaît
 pas sans activité de transport, Baux et Reçus n'apparaissent pas sans immeuble.
@@ -249,9 +255,58 @@ FNACC de travailler sur des années non actives sans changer l'année courante.
 **Données ajoutées au `state`.** Chaque module crée paresseusement sa propre clé
 (elles sont absentes de `defaultState()`, donc une sauvegarde antérieure reste
 lisible) : `biens` (DPA), `baux`, `kmJournal`, `impot`, `taxes`, `ventilations`,
-`simu`, `importQueue` / `importHashes`, `closed` / `closedHistory`. Côté
+`simu`, `vente`, `importQueue` / `importHashes`, `closed` / `closedHistory`. Côté
 configuration, `setup.reglesImport` et `setup.importOrdreUS` restent dans
 `depenses_setup`, donc hors synchronisation.
+
+---
+
+### 2.9 Version, identité et icônes
+
+**La version est le mécanisme de mise à jour.** Sans build, un navigateur qui garde en
+cache un module périmé sert de l'ancien code à côté du nouveau — la panne la plus
+fréquente du projet. La version vit donc à **six endroits**, qui doivent concorder :
+
+| Emplacement | Rôle |
+|---|---|
+| `const APP_VERSION` (`index.html`) | source de vérité, affichée en bas des Réglages |
+| `const APP_BUILD` (`index.html`) | date du jour de l'incrément |
+| `?v=<version>` sur les 18 balises de module | force le rechargement après un déploiement |
+| `const CACHE` (`sw.js`) | renomme le cache, donc purge l'ancien à l'activation |
+| `"version"` (`manifest.json`) | version déclarée de la PWA |
+| `"version"` (`package.json`) | version affichée en en-tête de `npm test` |
+
+`scripts/version.sh` est le **seul outil autorisé à les écrire**. Il refuse d'agir si
+les six ne concordent pas déjà, ne code en dur aucun nombre de modules (il compte les
+balises présentes), et accepte `patch`, `minor`, `major`, `set X.Y.Z`, avec `--deploy`
+pour enchaîner sur Firebase. Les assertions V1–V4 de `tests/run-headless.js` et M202/M203
+de la suite modules vérifient la même concordance à chaque exécution des tests.
+
+Le numéro suit *majeur.mineur.correctif* : **mineur** pour une fonctionnalité,
+**correctif** pour un défaut, **majeur** pour une rupture du format de données.
+Chaque incrément est consigné dans [CHANGELOG.md](CHANGELOG.md).
+
+**Identité.** L'application s'appelle **Mon Plex** depuis la version 2.2.0
+(auparavant « Revenus & Dépenses 2026 »). Le nom vit dans `APP_NOM` (`index.html`), dans
+`name` / `short_name` du manifeste, dans `<title>` et dans
+`<meta name="apple-mobile-web-app-title">`.
+
+**Icônes** (`pwa_2026/icons/`) — une façade de plex sur fond #1F3864, dont une fenêtre
+verte porte un `$` :
+
+| Fichier | Rôle |
+|---|---|
+| `mon-plex.svg` | **source de vérité**, coins arrondis, `viewBox` 0 0 512 512 |
+| `mon-plex-carre.svg` | variante sans arrondi : iOS arrondit lui-même |
+| `mon-plex-masquable.svg` | variante Android masquable, dessin à 70 % dans la zone sûre |
+| `icon-192.png`, `icon-512.png` | rendus `purpose: any` du manifeste |
+| `icon-maskable-512.png` | rendu `purpose: maskable` |
+| `apple-touch-icon.png` | 180 px, carré, référencé par `<link rel="apple-touch-icon">` |
+
+Les PNG sont **rendus** depuis les SVG par Chrome sans tête
+(`--headless --screenshot --window-size=N,N`) ; ne les retouchez pas à la main : modifiez
+le SVG et régénérez. Les quatre propositions soumises au choix (`A-plex`, `B-courbe`,
+`C-flux`, `D-monogramme`) sont conservées dans le même dossier à titre d'archive.
 
 ---
 
@@ -383,10 +438,13 @@ explicite.
 **PWA** — `firebase.json` à la racine publie `pwa_2026/` sur
 `suivi-depenses-7dc02`, avec réécriture SPA vers `/index.html`. Procédure :
 
-1. incrémenter `CACHE` dans `pwa_2026/sw.js`
-2. incrémenter le `?v=` des 17 balises `<script src="js/…">` de `index.html`
-   (sinon les modules restent servis depuis le cache du navigateur — voir § 2.7)
+1. `npm test` — les suites doivent être vertes, V1–V4 comprises
+2. `scripts/version.sh minor` (ou `patch`) — écrit la version aux six emplacements
 3. `firebase deploy --only hosting`
+
+Les étapes 2 et 3 s'enchaînent avec `scripts/version.sh minor --deploy`. La connexion
+Firebase exige un terminal interactif ; sans TTY, `firebase login` échoue
+(contournement : `script -q /dev/null firebase login`).
 
 Tout fichier ajouté sous `pwa_2026/` est publié : les fichiers internes doivent rester
 hors de ce dossier (c'est pourquoi `tests/` et `docs/` sont à la racine) ou être ajoutés

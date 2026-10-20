@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img"
+     aria-label="Toit stylisé surmonté d'une courbe ascendante">
+  <!-- Candidat B — « Le rendement ». Un toit, et au-dessus la courbe qui monte.
+       Lisible à 40 px : deux formes, aucun détail. -->
+  <rect width="512" height="512" rx="112" fill="#1F3864"/>
+  <!-- Toit -->
+  <path d="M96 300 L256 170 L416 300" fill="none" stroke="#F2F4F8" stroke-width="34"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Murs -->
+  <path d="M142 300 V404 H370 V300" fill="none" stroke="#F2F4F8" stroke-width="34"
+        stroke-linecap="round" stroke-linejoin="round" opacity=".45"/>
+  <!-- Courbe ascendante + pointe -->
+  <path d="M150 268 L220 206 L286 248 L368 148" fill="none" stroke="#2E9E5B" stroke-width="30"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M310 142 H374 V206" fill="none" stroke="#2E9E5B" stroke-width="30"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

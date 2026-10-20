@@ -258,88 +258,156 @@ minimum une détection de divergence avec choix explicite, éviterait une perte 
 
 ## E. Repérées pendant l'implémentation des 14 fiches (20 octobre 2026)
 
-Ces besoins ne sont apparus qu'en écrivant le code et les tests. Rien ici n'est bloquant.
+Ces besoins ne sont apparus qu'en écrivant le code et les tests. **Huit des neuf sont
+livrés** dans la version 2.2.0 du 20 octobre 2026 ; E.4 est écarté, avec sa raison.
 
-### E.1 L'export CSV ignore Uber et les dépenses véhicule — S
+| Fiche | État | Livré sous la forme de |
+|---|---|---|
+| E.1 Export CSV incomplet | ✅ livré | `exportCSV()` dans `index.html` — sections Uber et véhicule ajoutées |
+| E.2 `?v=` automatisé | ✅ livré | `scripts/version.sh` |
+| E.3 Tests sans navigateur | ✅ livré | `tests/run-headless.js`, `npm test` |
+| E.4 Transmission XML des RL-31 | ⏸️ écarté | voir ci-dessous |
+| E.5 Rappels datés des acomptes | ✅ livré | `calculAcomptes()` + bandeau d'accueil |
+| E.6 Simulateur de vente | ✅ livré | `js/vente.js` (16ᵉ module) |
+| E.7 Import OFX/QFX | ✅ livré *(énoncé corrigé)* | dédoublonnage par `FITID` |
+| E.8 Règles d'import sauvegardées | ✅ livré *(énoncé corrigé)* | test de non-régression |
+| E.9 Parité iOS | ✅ livré *(en document)* | [PORTAGE_IOS.md](PORTAGE_IOS.md) |
 
-Découvert en corrigeant BUG-2. L'export mensuel couvre les immeubles et Lyft, mais pas
-les revenus Uber ni les dépenses du véhicule : un CSV remis au comptable sous-estime
-donc à la fois les revenus et les déductions. Le PDF, lui, est complet. Accroche :
-`exportCSV()` dans `index.html` — deux sections à ajouter sur le modèle de la boucle
-Lyft, et deux assertions de plus dans `tests/pwa_suite.js`.
+### E.1 L'export CSV ignore Uber et les dépenses véhicule — S · ✅ livré
 
-### E.2 Automatiser le `?v=` des 17 balises de module — S
+Découvert en corrigeant BUG-2. L'export mensuel couvrait les immeubles et Lyft, mais ni
+les revenus Uber ni les dépenses du véhicule : le CSV remis au comptable sous-estimait à
+la fois les revenus et les déductions. Le PDF, lui, était complet.
 
-Chaque déploiement exige d'incrémenter à la main `CACHE` dans `sw.js` **et** le `?v=` de
-17 balises `<script>`. C'est la cause la plus fréquente de « le correctif ne prend pas »
-(constaté plusieurs fois pendant cette implémentation). Un script de 20 lignes —
-`scripts/bump.sh` — qui lit le numéro, l'incrémente partout et l'écrit dans `sw.js`
-supprimerait une classe entière d'erreurs. Pas un *build* : juste un `sed` discipliné.
+**Livré.** `exportCSV()` est réécrit autour de deux fabriques de lignes — `ligneMois()`
+pour un montant d'un mois donné, `ligneAnnuelle()` pour un montant annuel — plus un
+échappement des guillemets. Les sections Uber (par groupe, via `uberNetIncome()`) et
+véhicule (par catégorie, plus le total engagé et la part d'affaires) sont ajoutées. Les
+montants annuels laissent les douze cellules de mois **vides** au lieu de tout porter en
+janvier, ce qui faussait les totaux mensuels du tableur. Les déplacements sont
+réétiquetés « détail, déjà inclus ci-dessus » et tombent dans le mois de leur date.
+Couvert par T28–T30b (socle) et M158–M166 (modules).
 
-### E.3 Les deux suites ne tournent pas sans navigateur — M
+### E.2 Automatiser le `?v=` des balises de module — S · ✅ livré
 
-Tout vit dans la portée globale de la page, donc les tests doivent être `eval()`és
-*dans* la page. Conséquence : aucune exécution en intégration continue, et un correctif
-peut partir en production sans que les 222 assertions aient tourné. Piste réaliste :
-un harnais jsdom qui charge `index.html`, laisse les modules s'enregistrer et exécute
-les deux suites. Les modules étant des scripts classiques à portée partagée, c'est
-faisable sans les réécrire.
+Chaque déploiement exigeait d'incrémenter à la main `CACHE` dans `sw.js` **et** le `?v=`
+de chaque balise `<script>` : la cause la plus fréquente de « le correctif ne prend pas ».
 
-### E.4 Transmission électronique des RL-31 — M
+**Livré.** `scripts/version.sh` est le seul outil autorisé à écrire la version, qui vit
+à six endroits (`APP_VERSION`, `APP_BUILD`, les 18 balises `?v=`, `CACHE` dans `sw.js`,
+`version` dans `manifest.json` et `package.json`). Il refuse d'agir si les six ne
+concordent pas déjà, ne code en dur aucun nombre de modules, et accepte `patch` / `minor` / `major` /
+`set X.Y.Z`, avec `--deploy` pour enchaîner sur Firebase. La version s'affiche en bas de
+l'onglet Réglages.
 
-`js/baux.js` produit les feuillets PDF pour les locataires et le sommaire CSV. Il manque
-le **fichier XML de transmission** à Revenu Québec, obligatoire au-delà de 50 relevés et
-de toute façon plus sûr que la saisie en ligne. Le schéma est publié ; le modèle de
-données des baux contient déjà tout ce qu'il demande.
+### E.3 Les deux suites ne tournent pas sans navigateur — M · ✅ livré
 
-### E.5 Rappels datés des acomptes provisionnels — S
+Tout vit dans la portée globale de la page : les suites devaient être `eval()`ées *dans*
+la page, donc aucune exécution en intégration continue.
 
-`js/impot.js` calcule les quatre versements mais ne rappelle pas les échéances
-(15 mars, 15 juin, 15 septembre, 15 décembre). Un intérêt sur acompte insuffisant n'est
-pas déductible. Accroche : le bandeau d'accueil existe déjà
-(`renderBandeauProvision()`) — il suffit d'y comparer la date du jour à l'échéance
-suivante. Côté iOS, une notification locale.
+**Livré.** `tests/run-headless.js` monte `index.html` dans jsdom, retire les balises
+Firebase, pose les prothèses minimales (`matchMedia`, `URL.createObjectURL`,
+`canvas.getContext`, un `firebase` factice), **inline chaque module** en
+`data-module-src` — ce qui préserve l'ordre d'exécution et ne dépend d'aucune API jsdom
+instable — puis évalue chaque suite. Il ajoute trois vérifications de fichiers (V1 le
+cache du *service worker*, V2 le manifeste, V3 les balises `?v=`). `npm test` exécute le
+tout ; le code de sortie vaut 1 à la première assertion rouge. Le stockage local de
+jsdom est en mémoire : aucun risque pour les données réelles.
 
-### E.6 Simulateur de **vente** (récupération de DPA et gain en capital) — M
+### E.4 Transmission électronique des RL-31 — M · ⏸️ écarté le 20 octobre 2026
 
-Le simulateur couvre l'achat. La question symétrique n'est pas outillée : que coûte la
-vente ? Il faut la récupération de l'amortissement réclamé (pleinement imposable, et
-`state.biens` en tient le registre année par année), le gain en capital imposable à
-50 %, et l'arbitrage que la fiche A.2 évoquait sans le chiffrer — réclamer la DPA cette
-année contre l'impôt de récupération à la sortie.
+`js/baux.js` produit les feuillets PDF pour les locataires et le sommaire CSV. Il
+manquerait le **fichier XML de transmission** à Revenu Québec.
 
-### E.7 Import bancaire : OFX/QFX au-delà du CSV — S
+**Écarté, et pourquoi.** Produire ce fichier exige deux choses que le code ne peut pas
+deviner : le **schéma XSD officiel** de l'année visée, et un **numéro d'identification de
+préparateur** délivré par Revenu Québec. Inventer l'un ou l'autre produirait un fichier
+qui *paraît* conforme et serait rejeté — le pire des résultats. Par ailleurs, sous le
+seuil de 51 relevés, la saisie en ligne par Mon dossier reste ouverte et suffit au
+portefeuille actuel.
 
-`parseDateBancaire()` lit déjà le format de date OFX (`AAAAMMJJ`), mais l'import n'avale
-que du CSV. Les institutions québécoises offrent toutes le QFX, qui porte un identifiant
-de transaction — meilleur anti-doublon que l'empreinte calculée actuellement.
+**Pour le reprendre :** fournir le XSD de l'année et le numéro de préparateur, puis
+valider la sortie contre le schéma avant toute transmission. Rien d'autre ne bloque : le
+modèle de données des baux contient déjà tous les champs demandés.
 
-### E.8 Les règles d'import ne sont pas sauvegardées — S
+### E.5 Rappels datés des acomptes provisionnels — S · ✅ livré
 
-`setup.reglesImport` vit dans `depenses_setup`, volontairement hors synchronisation
-(c'est le bon choix pour la configuration). Mais les règles sont du travail accumulé :
-les perdre en changeant d'appareil fait recommencer le classement à la main. Elles
-devraient au moins figurer dans l'export JSON de sauvegarde.
+`js/impot.js` calculait les quatre versements sans rappeler les échéances (15 mars,
+15 juin, 15 septembre, 15 décembre). Un intérêt sur acompte insuffisant n'est pas
+déductible.
 
-### E.9 Parité iOS de la couche fiscale — L
+**Livré.** `calculAcomptes()` rend désormais, en plus des montants : `prochain`,
+`retards`, `manqueTotal`, `joursAvantProchain`, et pour chaque versement `jours`,
+`manqueFed`, `manqueQc`, `enRetard`. Un versement dû *le jour même* n'est pas compté en
+retard. Le bandeau d'accueil passe au rouge avec « N acompte(s) en retard · il manque
+X $ », ou annonce le prochain « dans N jours ». Couvert par M167–M177.
 
-Les 15 modules n'existent que dans la PWA. C'est un choix assumé — la PWA est la
-priorité tant que le compte Apple Developer n'est pas ouvert (voir
-[DEPLOIEMENT_IOS.md](DEPLOIEMENT_IOS.md)) — mais l'écart se creuse à chaque module. Le
-plus rentable à porter d'abord : DPA (report de FNACC) et clôture d'année, parce que ce
-sont les deux seuls dont l'absence corrompt des données plutôt que de manquer un confort.
+### E.6 Simulateur de vente (récupération de DPA et gain en capital) — M · ✅ livré
+
+Le simulateur couvrait l'achat ; la question symétrique — que coûte la vente ? —
+n'était pas outillée.
+
+**Livré.** `js/vente.js` (16ᵉ module) s'affiche sous le simulateur d'achat, dans
+Fiscal › Simulateur. Il chiffre le prix net de commission et de frais, le gain en
+capital imposable à **50 %** (la hausse à 66,7 % ayant été annulée le 21 mars 2025,
+voir `fiscal-data.js`), la **récupération de DPA imposée à 100 %**, la perte finale le
+cas échéant (art. 13(21.1)), et l'impôt combiné qui en découle. Deux règles fiscales y
+sont explicites parce qu'un portage « logique » les casserait : la DPA **ne réduit pas**
+le PBR d'un immeuble, et la catégorie 10.1 est exclue de la récupération. Couvert par
+M178–M190.
+
+### E.7 Import bancaire : OFX/QFX au-delà du CSV — S · ✅ livré, énoncé corrigé
+
+**L'énoncé d'origine était faux**, et il vaut mieux le dire que revendiquer un travail
+qui n'a pas eu lieu : `parseOFX()` existait déjà et l'import acceptait déjà `.ofx` et
+`.qfx`. Ce qui manquait réellement, c'est l'usage du `FITID` — l'identifiant de
+transaction de la banque — comme anti-doublon.
+
+**Livré.** `parseOFX()` conserve le `FITID` de chaque transaction, et l'anti-doublon
+distingue maintenant deux notions qui étaient confondues : `clesTx()` donne les clés sous
+lesquelles on **enregistre** une transaction (le `FITID` *et* l'empreinte heuristique),
+`cleMatch()` la clé unique sous laquelle on **compare**. Sans cette distinction, deux
+transactions jumelles du même jour et du même montant partageaient une empreinte
+identique et la seconde était rejetée à tort, malgré des `FITID` différents. Couvert par
+M191–M197b, dont une protection contre le mélange des formats.
+
+### E.8 Les règles d'import ne sont pas sauvegardées — S · ✅ livré, énoncé corrigé
+
+**Énoncé faux là aussi :** `setup.reglesImport` voyageait déjà dans l'export JSON, qui
+emporte `setup` entier depuis l'enveloppe v3. Le vrai risque n'était pas l'absence de la
+fonction mais l'absence de **test** : rien n'empêchait une refonte de l'export de la
+faire disparaître sans bruit.
+
+**Livré.** Un test d'aller-retour complet (`backupPayload()` → `restoreFromBackup()`)
+vérifie que les règles d'import survivent, avec leur libellé et leur cible. C'est la
+fonction qui compte, pas la ligne de code.
+
+### E.9 Parité iOS de la couche fiscale — L · ✅ livré sous forme de document
+
+Les 16 modules n'existent que dans la PWA. C'est un choix assumé — la PWA est la
+priorité tant que le compte Apple Developer n'est pas ouvert — mais l'écart se creuse à
+chaque module.
+
+**Livré.** [PORTAGE_IOS.md](PORTAGE_IOS.md) fixe le contrat : pour chacun des 16
+modules, sa clé d'état, les fonctions de **calcul pur** à reproduire au cent près, ce
+qui relève du rendu et reste libre, la destination Swift suggérée et la vague de
+portage. Le document rappelle que le pont existe déjà (`BackupService.restorePWA` lit
+l'enveloppe v3), liste les sept pièges de traduction JavaScript → Swift, et explique
+comment rejouer les assertions sous les mêmes identifiants en XCTest. Le code iOS, lui,
+reste à écrire.
 
 ---
 
 ## Si je devais n'en retenir que trois
 
-*Les trois retenues en octobre 2026 — A.1 Baux et RL-31, B.1 Import bancaire, A.2 Report
-de la DPA — sont livrées, avec les onze autres. Les trois suivantes, par rendement :*
+*Les 14 fiches d'octobre 2026 et huit des neuf fiches du § E sont livrées. Par rendement,
+ce qui reste :*
 
-1. **E.1 L'export CSV ignore Uber et les dépenses véhicule** — un défaut de sortie, pas
-   une fonctionnalité manquante : le fichier remis au comptable est faux aujourd'hui.
-   Quelques heures.
-2. **E.2 Automatiser le `?v=` des modules** — supprime la cause la plus fréquente de
-   correctif qui ne prend pas en production. Vingt lignes de script.
-3. **D.4 Synchronisation : avertir au lieu d'écraser** — le seul risque restant de perte
-   de données silencieuse, maintenant que la clôture protège les années déclarées.
+1. **D.4 Synchronisation : avertir au lieu d'écraser** — le seul risque restant de perte
+   de données silencieuse, maintenant que la clôture protège les années déclarées. Deux
+   appareils qui écrivent la même année se recouvrent encore sans un mot.
+2. **La vague 1 du portage iOS** — `fiscal-data`, `impot`, `dpa` et les utilitaires.
+   C'est ce qui rendrait l'application mobile utile pour autre chose que la saisie, et
+   [PORTAGE_IOS.md](PORTAGE_IOS.md) en donne le contrat exact.
+3. **C.3 Historique des modifications** — aujourd'hui, seule la clôture laisse une
+   trace. En cas de vérification, pouvoir dire *quand* un montant a changé vaut cher.

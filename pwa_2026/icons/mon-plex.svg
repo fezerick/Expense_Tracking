@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Mon Plex">
+  <!-- Icône de référence, coins arrondis. Généré depuis A-plex.svg ; ne pas éditer à la main. -->
+  <rect width="512" height="512" rx="112" fill="#1F3864"/>
+  <!-- Toit -->
+  <path d="M256 92 L420 196 H92 Z" fill="#F2F4F8"/>
+  <!-- Corps du bâtiment -->
+  <rect x="118" y="196" width="276" height="224" rx="10" fill="#F2F4F8"/>
+  <!-- Fenêtres : deux étages de deux, puis la porte -->
+  <g fill="#1F3864">
+    <rect x="152" y="228" width="68" height="60" rx="8"/>
+    <rect x="292" y="228" width="68" height="60" rx="8"/>
+    <rect x="152" y="316" width="68" height="60" rx="8"/>
+    <rect x="232" y="336" width="48" height="84" rx="6"/>
+  </g>
+  <!-- La fenêtre du haut à droite : le rendement -->
+  <rect x="292" y="316" width="68" height="60" rx="8" fill="#2E9E5B"/>
+  <text x="326" y="362" font-family="Helvetica,Arial,sans-serif" font-size="46" font-weight="700"
+        fill="#F2F4F8" text-anchor="middle">$</text>
+</svg>

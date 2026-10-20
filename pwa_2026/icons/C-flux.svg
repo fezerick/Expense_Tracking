@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img"
+     aria-label="Deux flèches opposées, l'une montante verte, l'autre descendante rouge, autour d'un symbole de dollar">
+  <!-- Candidat C — « Revenus & dépenses ». Le nom de l'app, dessiné : ce qui
+       entre, ce qui sort. Le plus explicite, le moins immobilier. -->
+  <rect width="512" height="512" rx="112" fill="#1F3864"/>
+  <!-- Flèche montante (revenus) -->
+  <g stroke="#2E9E5B" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M168 364 V174"/>
+    <path d="M112 230 L168 166 L224 230"/>
+  </g>
+  <!-- Flèche descendante (dépenses) -->
+  <g stroke="#D94A3D" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M344 148 V338"/>
+    <path d="M288 282 L344 346 L400 282"/>
+  </g>
+  <!-- Le dollar, entre les deux -->
+  <text x="256" y="300" font-family="Helvetica,Arial,sans-serif" font-size="128" font-weight="700"
+        fill="#F2F4F8" text-anchor="middle">$</text>
+</svg>

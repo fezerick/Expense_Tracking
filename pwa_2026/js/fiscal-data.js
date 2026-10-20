@@ -73,6 +73,15 @@ const FISCAL = {
     acomptes: { seuilFed: 1800, seuilQc: 1800,
                 dates: ['03-15', '06-15', '09-15', '12-15'] },
 
+    // ── Gain en capital ──
+    // Taux d'inclusion de LA MOITIÉ. La hausse aux deux tiers au-delà de
+    // 250 000 $, annoncée au budget fédéral de 2024, a été reportée au
+    // 1er janvier 2026 (Finances Canada, 31 janvier 2025) puis ANNULÉE le
+    // 21 mars 2025 (communiqué du premier ministre). L'ARC applique de nouveau
+    // la moitié. Québec s'est harmonisé.
+    // https://www.pm.gc.ca/fr/nouvelles/communiques/2025/03/21/premier-ministre-mark-carney-annule-la-hausse-proposee-de-impot-gains-capital
+    gainCapital: { tauxInclusion: 0.5 },
+
     // ── Relevé 31 ── Revenu Québec, avis aux propriétaires d'immeubles locatifs.
     rl31: { dateLimite: '02-28', penaliteParJour: 25, penaliteMin: 100, penaliteMax: 2500, dateAdmissibilite: '12-31' },
 
@@ -112,6 +121,7 @@ const FISCAL = {
     taxes: { tps: 0.05, tvq: 0.09975 },
     acomptes: { seuilFed: 1800, seuilQc: 1800,
                 dates: ['03-15', '06-15', '09-15', '12-15'] },
+    gainCapital: { tauxInclusion: 0.5 },
     rl31: { dateLimite: '02-28', penaliteParJour: 25, penaliteMin: 100, penaliteMax: 2500, dateAdmissibilite: '12-31' },
     mutation: {
       paliers: [[61500, 0.005], [307800, 0.01], [Infinity, 0.015]],

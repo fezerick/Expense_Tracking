@@ -677,12 +677,262 @@
           'texte CSV', errCsv || (typeof csvRetourne === 'string' ? 'chaîne de ' + csvRetourne.length : typeof csvRetourne),
           !errCsv && typeof csvRetourne === 'string' && csvRetourne.length > 50)
 
+    // ══ Q1. EXPORT CSV : UBER ET VÉHICULE (§ E.1) ═════════════════════════════
+    // L'export omettait entièrement le revenu Uber et les dépenses du véhicule :
+    // un comptable travaillant sur le CSV seul perdait la totalité du revenu de
+    // transport et la plus grosse déduction du dossier.
+    const csvE1 = exportCSV({ retourner: true })
+    const lignesCSV = csvE1.trim().split('\n')
+
+    // Compte les champs d'une ligne CSV en ignorant les virgules entre guillemets.
+    const champsCSV = (ligne) => {
+      let n = 1, dansGuillemets = false
+      for (const ch of ligne) {
+        if (ch === '"') dansGuillemets = !dansGuillemets
+        else if (ch === ',' && !dansGuillemets) n++
+      }
+      return n
+    }
+    const nbColonnes = champsCSV(lignesCSV[0])
+    const malFormees = lignesCSV.filter(l => champsCSV(l) !== nbColonnes)
+    check('M158', 'Toutes les lignes du CSV ont le même nombre de colonnes que l\'en-tête',
+          nbColonnes + ' colonnes partout',
+          malFormees.length ? malFormees.length + ' ligne(s) décalée(s) : ' + malFormees[0].slice(0, 60)
+                            : nbColonnes + ' colonnes partout',
+          malFormees.length === 0)
+
+    const ligneUber = lignesCSV.filter(l => l.startsWith('"Uber - '))
+    check('M159', 'Le CSV contient une section Uber', 'au moins une ligne',
+          ligneUber.length + ' ligne(s)', ligneUber.length > 0)
+    const ligneNetUber = lignesCSV.find(l => l.startsWith('"Uber - Revenu net'))
+    eq('M160', 'Le revenu net Uber du CSV égale uberNetIncome()',
+       uberNetIncome().toFixed(2), ligneNetUber ? ligneNetUber.split(',').pop() : null)
+
+    const lignesVeh = lignesCSV.filter(l => l.startsWith('"Véhicule - Dépenses'))
+    const totalVehCSV = lignesVeh.find(l => l.includes('TOTAL engagé'))
+    eq('M161', 'Le CSV porte le TOTAL des dépenses du véhicule (10 000 $ de carburant)',
+       '10000.00', totalVehCSV ? totalVehCSV.split(',').pop() : null)
+
+    // Une donnée annuelle ne doit pas atterrir dans la colonne de janvier : la
+    // somme de la colonne serait fausse.
+    const cellulesMois = (ligne) => {
+      const parts = []
+      let courant = '', dansGuillemets = false
+      for (const ch of ligne) {
+        if (ch === '"') { dansGuillemets = !dansGuillemets; continue }
+        if (ch === ',' && !dansGuillemets) { parts.push(courant); courant = '' } else courant += ch
+      }
+      parts.push(courant)
+      return parts.slice(2, 14)   // les 12 mois, après Section et Catégorie
+    }
+    check('M162', 'Les lignes annuelles (Uber, véhicule) laissent les 12 colonnes de mois vides',
+          '12 cellules vides',
+          ligneUber.concat(lignesVeh).every(l => cellulesMois(l).every(c => c === ''))
+            ? '12 cellules vides' : 'un montant est tombé dans un mois',
+          ligneUber.concat(lignesVeh).every(l => cellulesMois(l).every(c => c === '')))
+
+    // Les déplacements : le montant doit tomber dans le mois du trajet. t2 est
+    // daté du 10 mars → 3ᵉ colonne de mois.
+    const ligneT2 = lignesCSV.find(l => l.includes(FIX_YEAR + '-03-10'))
+    const moisT2 = ligneT2 ? cellulesMois(ligneT2) : []
+    eq('M163', 'Un déplacement de mars porte son montant dans la colonne de mars',
+       (50 * RATE).toFixed(2), moisT2[2])
+    check('M164', 'Les autres mois du déplacement restent vides', '11 cellules vides',
+          moisT2.filter((c, i) => i !== 2 && c !== '').length,
+          moisT2.filter((c, i) => i !== 2 && c !== '').length === 0)
+    check('M165', 'La section Déplacements est signalée comme un détail déjà compté',
+          'libellé explicite', ligneT2 ? ligneT2.slice(0, 50) : null,
+          !!ligneT2 && ligneT2.includes('déjà inclus'))
+
+    // ══ Q2. RAPPEL D'ACOMPTES (§ E.5) ═════════════════════════════════════════
+    const acR = calculAcomptes()
+    check('M166', 'Chaque versement porte un nombre de jours fini',
+          'nombres finis', acR.versements.map(v => v.jours).join('/'),
+          acR.versements.every(v => Number.isFinite(v.jours)))
+    check('M167', 'Un versement échu a un nombre de jours négatif ou nul, un futur positif',
+          'cohérent', 'cohérent',
+          acR.versements.every(v => v.echue ? v.jours < 0 : v.jours >= 0))
+    const premierNonEchu = acR.versements.find(v => !v.echue) || null
+    eq('M168', 'prochain = le premier versement non échu',
+       premierNonEchu ? premierNonEchu.date : null, acR.prochain ? acR.prochain.date : null)
+
+    // Un acompte exigé, échu, non versé : il doit être signalé en retard.
+    const dImp = donneesImpot()
+    const acomptesSauves = JSON.parse(JSON.stringify([dImp.acomptesFed, dImp.acomptesQc]))
+    dImp.acomptesFed = ['', '', '', '']
+    dImp.acomptesQc = ['', '', '', '']
+    const acVide = calculAcomptes()
+    const echusExiges = acVide.versements.filter(v => v.echue && (v.fed + v.qc) > 0)
+    check('M169', 'Un acompte exigé, échu et non versé est marqué en retard',
+          echusExiges.length + ' en retard', acVide.retards.length,
+          echusExiges.length === acVide.retards.length && acVide.retards.length > 0)
+    eq('M170', 'manqueTotal = somme des manques fédéral et Québec des versements en retard',
+       acVide.retards.reduce((s, v) => s + v.manqueFed + v.manqueQc, 0), acVide.manqueTotal, 0.01)
+
+    // Versé en entier : plus aucun retard sur ce versement.
+    if (echusExiges.length) {
+      dImp.acomptesFed = acVide.versements.map(v => String(v.fed))
+      dImp.acomptesQc = acVide.versements.map(v => String(v.qc))
+      const acPayes = calculAcomptes()
+      eq('M171', 'Acomptes versés en entier : aucun retard, aucun manque', 0,
+         acPayes.retards.length + acPayes.manqueTotal, 0.01)
+    } else {
+      check('M171', 'Acomptes versés en entier : aucun retard, aucun manque',
+            'sans objet', 'aucun acompte échu exigé sur la fixture', true)
+    }
+    dImp.acomptesFed = acomptesSauves[0]
+    dImp.acomptesQc = acomptesSauves[1]
+
+    // ══ Q3. SIMULATEUR DE VENTE (§ E.6) ═══════════════════════════════════════
+    // b1 : bâtiment de 400 000 $ dont 100 000 $ de terrain, 5 000 $ de DPA
+    // réclamée en FIX_YEAR → FNACC de clôture 295 000 $.
+    invalidateDPA()
+    state.vente = {
+      propId: 'pA', prixVente: '500000', commissionPct: 5,
+      notaire: 1500, certificat: 1200, penaliteHypo: '', autresFrais: '',
+      soldeHypo: '300000', partTerrainPct: '', ameliorations: '', pctPropriete: ''
+    }
+    const vn = calculVente()
+    eq('M172', 'La DPA réclamée ne réduit PAS le prix de base rajusté', 400000, vn.pbr)
+    eq('M173', 'Frais de vente = 5 % du prix + notaire + certificat', 25000 + 1500 + 1200, vn.fraisVente)
+    eq('M174', 'Gain en capital = prix − PBR − frais de vente', 500000 - 400000 - 27700, vn.gainBrut)
+    eq('M175', 'Taux d\'inclusion du gain en capital : la moitié', 0.5, vn.tauxInclusion, 0.0001)
+    eq('M176', 'Gain imposable = la moitié du gain', (500000 - 400000 - 27700) / 2, vn.gainImposable)
+    eq('M177', 'À défaut de saisie, la part du terrain reprend celle de l\'acquisition (25 %)',
+       0.25, vn.partTerrain, 0.0001)
+    eq('M178', 'Récupération de DPA = le moindre du produit et du coût, moins la FNACC (= la DPA réclamée)',
+       5000, vn.recuperation)
+    eq('M179', 'Aucune perte finale quand le produit du bâtiment dépasse la FNACC', 0, vn.perteFinale)
+    eq('M180', 'Revenu ajouté à l\'année de vente = récupération (100 %) + gain imposable (50 %)',
+       5000 + (500000 - 400000 - 27700) / 2, vn.ajout)
+    check('M181', 'L\'impôt de la vente est positif et son taux réel reste plausible',
+          '0 % < taux < 55 %', fmt(vn.tauxReelVente * 100, 1) + ' %',
+          vn.impotVente > 0 && vn.tauxReelVente > 0 && vn.tauxReelVente < 0.55)
+    check('M182', 'L\'impôt de la vente dépasse le taux marginal courant appliqué au revenu ajouté '
+          + '(saut de palier) ou l\'égale', 'impôt ≥ marginal × ajout',
+          money(vn.impotVente) + ' vs ' + money(vn.ajout * vn.marginalCourant),
+          vn.impotVente >= vn.ajout * vn.marginalCourant - 1)
+    eq('M183', 'Produit net = (prix − frais − hypothèque) × ma part − impôt',
+       (500000 - 27700 - 300000) - vn.impotVente, vn.net, 0.5)
+
+    // Vente à perte : perte finale au lieu d'une récupération.
+    state.vente.prixVente = '250000'
+    const vnBas = calculVente()
+    eq('M184', 'Vente sous la FNACC : aucune récupération', 0, vnBas.recuperation)
+    eq('M185', 'Vente sous la FNACC : perte finale = FNACC − produit attribué au bâtiment',
+       295000 - 250000 * 0.75, vnBas.perteFinale)
+    check('M186', 'Vente sous le PBR : une perte en capital, pas un gain',
+          'perte', money(vnBas.perteCapital), vnBas.perteCapital > 0 && vnBas.gain === 0)
+    eq('M187', 'Aucun impôt de vente quand le revenu ajouté est négatif', 0, vnBas.impotVente)
+
+    // Part de propriété : pB est détenu à 50 %.
+    state.vente = { ...state.vente, propId: 'pB', prixVente: '400000' }
+    const vnB = calculVente()
+    eq('M188', 'Un immeuble détenu à 50 % n\'impose que la moitié du gain dans MA déclaration',
+       vnB.gainImposable * 0.5, vnB.monGainImposable)
+    check('M189', 'Sans bien au registre, le simulateur le signale au lieu de calculer un faux gain',
+          true, vnB.sansRegistre, vnB.sansRegistre === true)
+    delete state.vente
+    invalidateDPA()
+
+    // ══ Q4. IMPORT OFX : DÉDOUBLONNAGE PAR FITID (§ E.7) ══════════════════════
+    const OFX_TEST = `OFXHEADER:100
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>${FIX_YEAR}0412120000<TRNAMT>-45.00
+<FITID>TXN-A-001<NAME>QUINCAILLERIE TEST</STMTTRN>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>${FIX_YEAR}0412120000<TRNAMT>-45.00
+<FITID>TXN-A-002<NAME>QUINCAILLERIE TEST</STMTTRN>`
+    const txOFX = parseOFX(OFX_TEST)
+    eq('M190', 'parseOFX() lit les deux transactions du relevé', 2, txOFX.length)
+    eq('M191', 'parseOFX() retient le FITID, identifiant unique de l\'institution',
+       ['TXN-A-001', 'TXN-A-002'], txOFX.map(t => t.fitid))
+    check('M192', 'Deux achats identiques le même jour ont la même empreinte heuristique '
+          + '(d\'où la nécessité du FITID)', 'empreintes identiques',
+          empreinteTx(txOFX[0]) === empreinteTx(txOFX[1]) ? 'identiques' : 'différentes',
+          empreinteTx(txOFX[0]) === empreinteTx(txOFX[1]))
+    check('M193', 'La clé de comparaison, elle, diffère grâce au FITID',
+          'clés distinctes', cleMatch(txOFX[0]) + ' ≠ ' + cleMatch(txOFX[1]),
+          cleMatch(txOFX[0]) !== cleMatch(txOFX[1]))
+    check('M193b', 'Sans FITID (cas du CSV), la clé de comparaison retombe sur l\'empreinte',
+          'empreinte heuristique', cleMatch({ date: '2026-04-12', montant: -45, libelle: 'X' }),
+          cleMatch({ date: '2026-04-12', montant: -45, libelle: 'X' })
+            === empreinteTx({ date: '2026-04-12', montant: -45, libelle: 'X' }))
+
+    state.importQueue = []
+    state.importHashes = []
+    traiterContenuBancaire(OFX_TEST, 'releve-test.ofx')
+    eq('M194', 'Deux transactions du même jour, même montant, même commerçant sont TOUTES importées',
+       2, fileImport().length)
+    traiterContenuBancaire(OFX_TEST, 'releve-test.ofx')
+    eq('M195', 'Réimporter le même relevé n\'ajoute aucun doublon', 2, fileImport().length)
+    check('M196', 'Le FITID voyage avec la transaction dans la file d\'attente',
+          'FITID présent', fileImport().map(t => t.fitid).join('/'),
+          fileImport().every(t => !!t.fitid))
+
+    // Après classement, le même relevé ne doit pas revenir.
+    const idPremier = fileImport()[0].id
+    ignorerTx(idPremier, false)
+    traiterContenuBancaire(OFX_TEST, 'releve-test.ofx')
+    eq('M197', 'Une transaction déjà classée ne réapparaît pas à la réimportation',
+       1, fileImport().length)
+
+    // Protection entre formats : le même relevé retéléchargé en CSV, sans
+    // FITID, ne doit pas revenir. C'est à cela que sert l'enregistrement de
+    // l'empreinte heuristique EN PLUS du FITID.
+    state.importQueue = []
+    state.importHashes = []
+    traiterContenuBancaire(OFX_TEST, 'releve-test.ofx')
+    fileImport().slice().forEach(t => ignorerTx(t.id, false))
+    const CSV_MEME_RELEVE = `Date,Description,Montant
+${FIX_YEAR}-04-12,QUINCAILLERIE TEST,-45.00`
+    traiterContenuBancaire(CSV_MEME_RELEVE, 'releve-test.csv')
+    eq('M197b', 'Le même relevé retéléchargé en CSV (sans FITID) ne réintroduit pas de doublon',
+       0, fileImport().length)
+
+    state.importQueue = []
+    state.importHashes = []
+
+    // ══ Q5. SAUVEGARDE DES RÈGLES D'IMPORT (§ E.8) ════════════════════════════
+    // Les règles vivent dans `setup`, jamais synchronisé vers Firestore : la
+    // sauvegarde JSON est donc le SEUL moyen de ne pas les perdre.
+    setup.reglesImport = [{ motif: 'HYDRO QUEBEC', key: 'pA|deductibles|Électricité', usages: 7 }]
+    const enveloppe = JSON.parse(JSON.stringify(backupPayload()))
+    eq('M198', 'Les règles d\'import figurent dans l\'enveloppe de sauvegarde',
+       'HYDRO QUEBEC', ((enveloppe.setup || {}).reglesImport || [{}])[0].motif)
+    setup.reglesImport = []
+    restoreFromBackup(enveloppe)
+    eq('M199', 'Les règles d\'import survivent à un aller-retour export → restauration',
+       'HYDRO QUEBEC', (setup.reglesImport[0] || {}).motif)
+    eq('M200', 'Le compteur d\'usages de la règle est restauré lui aussi',
+       7, (setup.reglesImport[0] || {}).usages)
+    eq('M201', 'L\'enveloppe de sauvegarde est bien en version 3', 3, enveloppe.version)
+
+    // ══ Q6. VERSION DE L'APPLICATION ══════════════════════════════════════════
+    check('M202', 'APP_VERSION suit le format MAJEUR.MINEUR.CORRECTIF',
+          'X.Y.Z', APP_VERSION, /^\d+\.\d+\.\d+$/.test(APP_VERSION))
+    // `data-module-src` : le lanceur hors navigateur (tests/run-headless.js)
+    // inline le code des modules et reporte le src d'origine dans cet attribut.
+    // Le test vaut donc dans les deux environnements.
+    const balises = Array.from(document.querySelectorAll('script[src^="js/"], script[data-module-src^="js/"]'))
+    const srcDe = b => b.getAttribute('src') || b.getAttribute('data-module-src')
+    const mauvaises = balises.filter(b => !srcDe(b).endsWith('?v=' + APP_VERSION))
+    check('M203', 'Chaque module porte ?v=APP_VERSION (sans quoi le cache sert l\'ancien code)',
+          balises.length + ' balises à jour',
+          mauvaises.length ? mauvaises.map(srcDe).join(', ')
+                           : balises.length + ' balises à jour',
+          balises.length > 0 && mauvaises.length === 0)
+    sansErreur('M204', 'renderVersion() remplit le bloc de version des réglages', () => {
+      renderVersion()
+      const el = document.getElementById('settings-version')
+      if (!el || !el.textContent.includes(APP_VERSION)) throw new Error('version absente du bloc')
+    })
+
     // ══ Q. RENDU DES PANNEAUX FISCAUX ═════════════════════════════════════════
     const panneaux = [
       ['Recommandations', renderRecommandations], ['Impôt', renderImpot],
       ['TPS/TVQ', renderTaxes], ['DPA', renderDPA], ['Baux', renderBaux],
       ['Reçus', renderAuditRecus], ['Import bancaire', renderImportBancaire],
-      ['Simulateur', renderSimulateur], ['Évolution', renderTableauBord],
+      ['Simulateur', renderSimulateur], ['Simulateur de vente', renderVente],
+      ['Évolution', renderTableauBord],
       ['Clôture', renderCloture], ['Dossier ZIP', renderDossier],
       ['Kilométrage', renderKilometrage], ['Ventilations', renderVentilations],
       ['Méthodes véhicule', renderComparaisonMethodes],
@@ -691,19 +941,19 @@
       ['Reco accueil', renderRecoAccueil], ['Rappel km', renderRappelKm]
     ]
     panneaux.forEach(([nom, fn], i) => {
-      sansErreur('M' + (138 + i), `Rendu du panneau « ${nom} » sans exception`, fn)
+      sansErreur('M' + (210 + i), `Rendu du panneau « ${nom} » sans exception`, fn)
     })
 
     // ══ R. ROBUSTESSE : ÉTAT VIERGE ═══════════════════════════════════════════
     const stateSauve = state
     state = defaultState()
     invalidateDPA()
-    sansErreur('M156', 'État vierge : les modules fiscaux calculent sans lever', () => {
+    sansErreur('M250', 'État vierge : les modules fiscaux calculent sans lever', () => {
       assiettes(); calculImpot(); calculAcomptes(); calculTaxes()
       calculDPA(activeYear); coherenceKm(); comparerMethodesVehicule()
-      etatParCoproprietaire(); auditRecus(); recommandations(); simuler()
+      etatParCoproprietaire(); auditRecus(); recommandations(); simuler(); calculVente()
     })
-    sansErreur('M157', 'État vierge : les panneaux se rendent sans lever',
+    sansErreur('M251', 'État vierge : les panneaux se rendent sans lever',
                () => panneaux.forEach(([, fn]) => fn()))
     state = stateSauve
 

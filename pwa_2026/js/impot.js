@@ -173,17 +173,42 @@ function calculAcomptes() {
 
   const dates = f.acomptes.dates.map(md => activeYear + '-' + md)
   const auj = new Date().toISOString().slice(0, 10)
+  // Difference en jours entre deux dates ISO, calculee a midi UTC pour que le
+  // changement d'heure d'ete ne fasse pas basculer le resultat d'un jour.
+  const jours = (iso) => Math.round(
+    (Date.parse(iso + 'T12:00:00Z') - Date.parse(auj + 'T12:00:00Z')) / 86400000)
 
-  const versements = dates.map((date, i) => ({
-    date,
-    echue: date < auj,
-    fed: requisFed ? netFed / 4 : 0,
-    qc: requisQc ? netQc / 4 : 0,
-    verseFed: num(d.acomptesFed[i]),
-    verseQc: num(d.acomptesQc[i])
-  }))
+  const versements = dates.map((date, i) => {
+    const fed = requisFed ? netFed / 4 : 0
+    const qc = requisQc ? netQc / 4 : 0
+    const verseFed = num(d.acomptesFed[i])
+    const verseQc = num(d.acomptesQc[i])
+    // Un versement du jour meme n'est pas en retard : l'echeance court jusqu'au
+    // soir, d'ou le `< auj` et non `<= auj`.
+    const echue = date < auj
+    // Arrondi au cent : un ecart de 0,004 $ du a la division par quatre ne doit
+    // pas declencher une alerte de retard.
+    const manqueFed = Math.max(0, Math.round((fed - verseFed) * 100) / 100)
+    const manqueQc = Math.max(0, Math.round((qc - verseQc) * 100) / 100)
+    return {
+      date, echue, fed, qc, verseFed, verseQc, manqueFed, manqueQc,
+      jours: jours(date),
+      enRetard: echue && (manqueFed + manqueQc) > 0
+    }
+  })
 
-  return { requisFed, requisQc, netFed, netQc, versements, seuil: f.acomptes.seuilFed }
+  // E.5 : de quoi alerter sans que l'utilisateur ait a lire le tableau.
+  const prochain = versements.find(v => !v.echue) || null
+  const retards = versements.filter(v => v.enRetard)
+  const manqueTotal = retards.reduce((s, v) => s + v.manqueFed + v.manqueQc, 0)
+
+  return {
+    requisFed, requisQc, netFed, netQc, versements, seuil: f.acomptes.seuilFed,
+    prochain, retards, manqueTotal,
+    // Urgence du prochain versement, pour colorer un bandeau sans refaire le
+    // calcul : null s'il n'y en a plus (annee passee ou 15 decembre franchi).
+    joursAvantProchain: prochain ? prochain.jours : null
+  }
 }
 
 function majImpot(champ, val) {
@@ -234,7 +259,7 @@ function renderImpot() {
   ].filter(Boolean)
 
   const lignesAcomptes = ac.versements.map((v, i) => tr([
-    fmtDateLongue(v.date) + (v.echue ? ' <span style="font-size:10px;color:#C00000">échu</span>' : ''),
+    fmtDateLongue(v.date) + etatVersement(v),
     [v.fed ? money(v.fed) : '—', 'right'],
     [v.qc ? money(v.qc) : '—', 'right'],
     [`<input type="number" class="inp" style="width:72px;text-align:right;padding:4px;font-size:11px"
@@ -329,7 +354,21 @@ function renderImpot() {
         ? infoBox(`Aucun acompte exigé : l'impôt net estimé reste sous le seuil de
             ${money(ac.seuil)} au fédéral comme au Québec. Le seuil est de ${money(ac.seuil)} —
             et non 3 000 $ — parce que vous résidez au Québec.`)
-        : `${warnBox(`Des acomptes sont exigés : impôt net estimé de ${money(ac.netFed)} au fédéral
+        : `${ac.manqueTotal > 0
+             ? warnBox(`<strong>${ac.retards.length} acompte${ac.retards.length > 1 ? 's' : ''} en
+                 retard — il manque ${money(ac.manqueTotal)}</strong> au total
+                 (${ac.retards.map(v => fmtDateLongue(v.date)).join(', ')}).
+                 Versez le manque sans attendre l'échéance suivante : les intérêts courent par jour
+                 à partir de chaque date, et ils ne sont pas déductibles. Un versement en retard
+                 rattrapé plus tôt coûte moins cher qu'un versement attendu au trimestre suivant.`)
+             : ''}
+           ${ac.prochain && ac.joursAvantProchain <= 14
+             ? warnBox(`<strong>Prochain acompte ${ac.joursAvantProchain === 0 ? "aujourd'hui"
+                 : 'dans ' + ac.joursAvantProchain + ' jour' + (ac.joursAvantProchain > 1 ? 's' : '')}</strong>,
+                 le ${fmtDateLongue(ac.prochain.date)} :
+                 ${money(ac.prochain.fed)} au fédéral et ${money(ac.prochain.qc)} au Québec.`)
+             : ''}
+           ${warnBox(`Des acomptes sont exigés : impôt net estimé de ${money(ac.netFed)} au fédéral
              et ${money(ac.netQc)} au Québec, au-delà du seuil de ${money(ac.seuil)}.
              Les intérêts sur acompte insuffisant ne sont pas déductibles.`)}
            ${table(['Échéance', ['Fédéral', 'right'], ['Québec', 'right'], ['Versé féd.', 'right'], ['Versé Qc', 'right']],
@@ -342,6 +381,24 @@ function renderImpot() {
         L'administration envoie aussi des montants « sans calcul » fondés sur vos deux années
         précédentes — les verser met à l'abri des intérêts même si l'estimation change.`)}
     `, 'brown')}`
+}
+
+// E.5 : etat d'un versement, en toutes lettres a cote de son echeance. Avant,
+// la seule indication etait « echu », qui ne disait pas si le versement avait
+// ete fait. Un acompte oublie coute des interets non deductibles, donc l'ecran
+// doit distinguer « echu et paye » de « echu et impaye ».
+function etatVersement(v) {
+  const p = (couleur, txt) => ` <span style="font-size:10px;color:${couleur}">${txt}</span>`
+  if (v.enRetard) {
+    const manque = v.manqueFed + v.manqueQc
+    return p('#C00000', `⚠️ en retard · il manque ${money(manque)}`)
+  }
+  if (v.echue) return (v.fed + v.qc) > 0 ? p('#0A7A0A', '✔ versé') : p('var(--text2)', 'échu')
+  if (!v.fed && !v.qc) return ''
+  if (v.jours === 0) return p('#C00000', "⏰ à verser aujourd'hui")
+  if (v.jours <= 14) return p('#C00000', `⏰ dans ${v.jours} jour${v.jours > 1 ? 's' : ''}`)
+  if (v.jours <= 45) return p('#B06000', `dans ${v.jours} jours`)
+  return p('var(--text2)', `dans ${v.jours} jours`)
 }
 
 function fmtDateLongue(iso) {
@@ -357,13 +414,28 @@ function renderBandeauProvision() {
   try { c = calculImpot() } catch (e) { el.innerHTML = ''; return }
   if (c.provision <= 0) { el.innerHTML = ''; return }
   const ac = calculAcomptes()
-  const prochain = ac.versements.find(v => !v.echue)
-  el.innerHTML = `<div class="sum-card orange" style="margin-bottom:10px;cursor:pointer" onclick="showTab('fiscal')">
+  // E.5 : un retard passe devant tout le reste, et le prochain acompte est
+  // annonce en jours restants — une date seule ne dit pas qu'elle est demain.
+  // La carte devient rouge quand de l'argent est deja du.
+  const retard = ac.manqueTotal > 0
+  const j = ac.joursAvantProchain
+  let echeance
+  if (retard) {
+    echeance = `⚠️ ${ac.retards.length} acompte${ac.retards.length > 1 ? 's' : ''} en retard ·
+      il manque ${money(ac.manqueTotal)}`
+  } else if (ac.prochain && (ac.prochain.fed || ac.prochain.qc)) {
+    echeance = j === 0 ? "⏰ acompte à verser aujourd'hui"
+      : `prochain acompte ${j <= 14 ? '⏰ ' : ''}dans ${j} jour${j > 1 ? 's' : ''}` +
+        ` (${fmtDateLongue(ac.prochain.date)})`
+  } else {
+    echeance = 'au titre de ' + activeYear
+  }
+  el.innerHTML = `<div class="sum-card ${retard ? 'red' : 'orange'}"
+       style="margin-bottom:10px;cursor:pointer" onclick="showTab('fiscal')">
     <div class="s-lbl">💰 Provision d’impôt à constituer</div>
     <div class="s-val sm">${money(c.provision)}</div>
     <div style="font-size:10px;opacity:.8;margin-top:2px">
-      ${prochain ? 'prochain acompte le ' + fmtDateLongue(prochain.date) : 'au titre de ' + activeYear}
-      · taux marginal ${fmt(c.marginal * 100, 1)} %
+      ${echeance} · taux marginal ${fmt(c.marginal * 100, 1)} %
     </div>
   </div>`
 }

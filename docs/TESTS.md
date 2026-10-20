@@ -1,21 +1,60 @@
-# Tests effectués — Revenus & Dépenses 2026
+# Tests effectués — Mon Plex
 
 Campagne du 18 octobre 2026, sur les deux applications : PWA (`pwa_2026/`) et iOS
 (`ios_2026/`). Trois niveaux : suite d'assertions automatisée, parcours complet de
 l'interface, et vérification à l'exécution des sorties remises au comptable (PDF, CSV,
 sauvegardes).
 
-**État au 20 octobre 2026** — deux suites, **toutes vertes** :
+**État au 20 octobre 2026, version 2.2.0** — deux suites et quatre vérifications de
+fichiers, **toutes vertes**, exécutables **sans navigateur** par `npm test` :
 
 | Suite | Portée | Résultat |
 |---|---|---|
-| `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **63 / 63** |
-| `tests/pwa_modules_suite.js` | les 17 modules de `pwa_2026/js/` (§ 2.8 de l'architecture) | **159 / 159** |
+| `tests/run-headless.js` | concordance de la version aux six emplacements | **V1–V4** |
+| `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **64 / 64** |
+| `tests/pwa_modules_suite.js` | les 18 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **209 / 209** |
 
 Dix défauts ont été corrigés et revérifiés depuis la campagne initiale : BUG-1, BUG-7
 (PWA + iOS), BUG-9, BUG-10, BUG-3, puis BUG-2 et les quatre défauts de la couche
 modulaire décrits au § 2b. Les défauts encore ouverts sont listés dans
 [AMELIORATIONS.md](AMELIORATIONS.md).
+
+---
+
+## 0. Exécution sans navigateur — `npm test`
+
+Depuis la version 2.2.0, les deux suites tournent **hors navigateur**. C'est le mode
+normal ; le mode console des § 2 et § 2b reste utile pour déboguer en regardant l'écran.
+
+```bash
+npm install     # une seule fois : jsdom, la seule dépendance, et seulement pour les tests
+npm test        # les deux suites + les quatre vérifications de version
+npm run test:socle      # une seule suite
+npm run test:modules
+```
+
+`tests/run-headless.js` monte `index.html` dans jsdom, retire les trois balises Firebase,
+pose les prothèses que jsdom n'a pas (`matchMedia`, `URL.createObjectURL`,
+`canvas.getContext`, un `firebase` factice), **inline chaque module** dans la page sous
+`data-module-src` — ce qui préserve l'ordre d'exécution sans dépendre d'une API jsdom
+instable — puis évalue chaque suite dans la page. Le code de sortie vaut 1 dès la
+première assertion rouge, donc le script est utilisable en intégration continue.
+
+Quatre vérifications portent sur les fichiers plutôt que sur le code exécuté :
+
+| | Vérifie |
+|---|---|
+| V1 | `const CACHE` de `sw.js` porte la version courante |
+| V2 | `manifest.json` porte la version courante |
+| V3 | les 18 balises de module portent `?v=<version>` |
+| V4 | `package.json` porte la version courante |
+
+Deux garanties qui méritent d'être dites : le `localStorage` de jsdom est **en mémoire**,
+donc une exécution ne peut pas toucher aux données réelles du navigateur ; et l'absence
+de réseau est volontaire — aucune suite ne doit dépendre d'un CDN.
+
+> L'application elle-même n'a **aucune dépendance** et aucune étape de compilation.
+> `package.json` n'existe que pour les tests, et `node_modules/` est exclu du dépôt.
 
 ---
 
@@ -79,7 +118,7 @@ eval(await (await fetch('/tests/pwa_suite.js?cb=' + Date.now())).text())
 Les 6 échecs étaient des défauts réels de l'application, pas des assertions fautives :
 chacun a été reproduit ensuite dans l'interface réelle (§ 3).
 
-### Après correctifs : 63 réussis / 63
+### Après correctifs : 64 réussis / 64
 
 La suite a été étendue (13 assertions de plus) pour couvrir le comportement corrigé :
 
@@ -98,14 +137,42 @@ colonne du mois concerné, comme toutes les autres sections — une ligne qui ne
 que la colonne Total ne s'additionnait de toute façon pas verticalement dans un tableur.
 
 ```
-{"total":63,"pass":63,"fail":0,"echecs":[]}
+{"total":64,"pass":64,"fail":0,"echecs":[]}
 ```
+
+### Le compteur de colonnes était faux — corrigé le 20 octobre 2026
+
+En complétant l'export CSV (fiche E.1), **T29 est repassé au rouge : 16 colonnes au lieu
+de 15.** Le CSV, lui, était valide. Le compteur du test découpait la ligne sur chaque
+virgule, sans voir les guillemets — or les nouvelles cellules en contiennent :
+`"Véhicule - Part d'affaires (annuel)"` et surtout la **virgule décimale française**
+produite par `fmt()`, comme dans « 25,8 % ».
+
+C'est le test qui avait tort, pas la donnée. T28, T29 et T30 comptent désormais les
+champs en tenant compte des guillemets :
+
+```js
+const nbChamps = (ligne) => {
+  let n = 1, dansGuillemets = false
+  for (const ch of ligne) {
+    if (ch === '"') dansGuillemets = !dansGuillemets
+    else if (ch === ',' && !dansGuillemets) n++
+  }
+  return n
+}
+```
+
+T30b a été ajouté dans la foulée pour vérifier qu'une cellule contenant une virgule
+**reste** entre guillemets, et `exportCSV()` double désormais les guillemets internes.
+Le commentaire au-dessus de T29 rappelle que ce test a attrapé BUG-2 et doit continuer
+à le faire : l'assouplir au point de ne plus compter les colonnes le viderait de son
+sens.
 
 ---
 
 ## 2b. Suite automatisée des modules — `tests/pwa_modules_suite.js`
 
-**159 assertions, 159 réussies.** Elle couvre la couche `pwa_2026/js/` (§ 2.8 de
+**209 assertions, 209 réussies.** Elle couvre la couche `pwa_2026/js/` (§ 2.8 de
 [ARCHITECTURE.md](ARCHITECTURE.md)), que la première suite ignore. Même principe :
 exécution *dans* la page, fixture déterministe, restauration de l'état réel à la fin.
 
@@ -141,6 +208,14 @@ chaque correctif de module**, car les modules sont chargés avec leur propre `?v
 | M122–M124 | `tableau-bord` | lecture d'une autre année, année absente, séries pluriannuelles |
 | M126–M130 | `recommandations` | au moins une piste, structure complète (quoi/pourquoi/action/montant), horizon connu, tri décroissant, aucun montant NaN |
 | M137 | socle | `exportCSV({retourner:true})` rend le CSV sans déclencher de téléchargement |
+| M158–M166 | socle, export CSV | les 15 colonnes sur **chaque** ligne, présence des sections Uber et véhicule, montants annuels sans valeur dans les cellules de mois, trajet tombant dans le mois de sa date |
+| M167–M177 | `impot` | échéances des acomptes, versement dû le jour même **non** en retard, manque à verser fédéral et québécois, total des retards, jours avant le prochain |
+| M178–M190 | `vente` | la DPA ne réduit pas le PBR, inclusion du gain à 50 %, récupération égale à la DPA réclamée, perte finale sur prix bas, détention à 50 %, immeuble absent du registre de biens |
+| M191–M197b | `import-bancaire` | `FITID` conservé, deux transactions jumelles aux `FITID` différents toutes deux importées, doublon de `FITID` rejeté, pas de collision entre une clé `FITID` et une empreinte |
+| M198–M201 | socle, sauvegarde | aller-retour `backupPayload()` → `restoreFromBackup()` : les règles d'import survivent avec leur libellé et leur cible |
+| M202–M204 | version | format *majeur.mineur.correctif*, `?v=` sur **chaque** balise de module, version affichée dans les Réglages |
+| M210+ | tous | un panneau par module : chaque `render()` produit du contenu sans lever |
+| M250–M251 | tous | **état vierge** : tous les calculs des modules tournent sur un `state` où aucune clé de module n'existe |
 
 ### Défauts trouvés par cette suite — tous corrigés
 
@@ -196,7 +271,7 @@ Deux pièges rencontrés :
    et supprimées dans le `finally` même quand la suite s'interrompt.
 
 Vérifié de bout en bout avec un état réel marqué d'une sentinelle : exécution normale
-→ 159/159 et sentinelle intacte ; exécution avec une exception forcée → ligne `FATAL`,
+→ 209/209 et sentinelle intacte ; exécution avec une exception forcée → ligne `FATAL`,
 sentinelle intacte, aucune clé `depenses_2098 / 2099 / 2028` résiduelle.
 
 > **Note sur la synchronisation.** `save()` ne pousse vers Firestore qu'après 5 secondes
@@ -394,8 +469,8 @@ Corrigé le 20 octobre 2026 ([index.html](../pwa_2026/index.html)) : le net mens
 est écrit dans la colonne de son mois (`vals = Array(12).fill(0); vals[mi] = net`) et la
 ligne compte 15 colonnes. Le défaut était double — une colonne de trop *et* un montant
 qui n'apparaissait dans aucun mois, donc invisible à toute somme par colonne dans un
-tableur. T29/T30 verrouillent les deux. Le CSV omet toujours Uber et les dépenses
-véhicule : c'est une limite connue de l'export, pas le défaut corrigé ici.
+tableur. T29/T30 verrouillent les deux. L'omission d'Uber et des dépenses véhicule,
+signalée ici comme une limite connue, a été corrigée depuis (fiche E.1, version 2.2.0).
 
 ### BUG-8 — MOYEN · PWA · deux libellés illisibles dans le PDF
 

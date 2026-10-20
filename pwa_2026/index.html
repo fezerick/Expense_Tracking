@@ -5,10 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Dépenses 2026">
+<meta name="apple-mobile-web-app-title" content="Mon Plex">
 <meta name="theme-color" content="#1F3864">
-<title>Revenus &amp; Dépenses 2026</title>
+<title>Mon Plex</title>
 <link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/mon-plex.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -465,7 +467,7 @@ html.theme-dark .onb-section{background:#1a222d}
 
 <!-- HEADER -->
 <header id="app-header">
-  <h1>📋 Revenus &amp; Dépenses</h1>
+  <h1>Mon Plex</h1>
   <button class="year-badge" onclick="showYearSheet()" style="cursor:pointer;border:none;background:rgba(255,255,255,.18);border-radius:20px;padding:4px 10px;font-size:13px;font-weight:600;color:#fff;" title="Changer d'année">2026 ▾</button>
   <button onclick="showSettingsSheet()" style="background:none;border:none;color:rgba(255,255,255,.85);font-size:22px;cursor:pointer;padding:4px 2px;line-height:1;margin-left:4px" title="Réglages">⚙️</button>
 </header>
@@ -728,7 +730,10 @@ html.theme-dark .onb-section{background:#1a222d}
     <div id="fiscal-baux"   class="fiscal-panel" style="display:none"><div id="baux-body"></div></div>
     <div id="fiscal-recus"  class="fiscal-panel" style="display:none"><div id="recus-body"></div></div>
     <div id="fiscal-import" class="fiscal-panel" style="display:none"><div id="import-body"></div></div>
-    <div id="fiscal-simu"   class="fiscal-panel" style="display:none"><div id="simu-body"></div></div>
+    <div id="fiscal-simu"   class="fiscal-panel" style="display:none">
+      <div id="simu-body"></div>
+      <div id="vente-body"></div>
+    </div>
     <div id="fiscal-bord"   class="fiscal-panel" style="display:none"><div id="bord-body"></div></div>
     <div id="fiscal-cloture" class="fiscal-panel" style="display:none">
       <div id="cloture-body"></div>
@@ -909,6 +914,11 @@ html.theme-dark .onb-section{background:#1a222d}
     </div>
     <hr>
     <button class="btn btn-danger btn-sm btn-full" onclick="clearAllData()">🗑️ Effacer toutes les données</button>
+    <!-- Version : tout en bas des reglages, la ou on la cherche. Le detail
+         (date, cache servi) sert au diagnostic : « est-ce que la version
+         deployee est bien celle que je vois ? » -->
+    <div id="settings-version" style="margin-top:18px;padding-top:12px;border-top:1px solid var(--border);
+         text-align:center;font-size:11px;color:var(--text2);line-height:1.6"></div>
   </div>
 </div>
 
@@ -953,25 +963,46 @@ html.theme-dark .onb-section{background:#1a222d}
      moment du chargement. L'ordre est significatif : données fiscales, socle,
      puis les modules. Le paramètre ?v= force le service worker à reprendre le
      fichier après un déploiement. -->
-<script src="js/fiscal-data.js?v=6"></script>
-<script src="js/app-modules.js?v=6"></script>
-<script src="js/baux.js?v=6"></script>
-<script src="js/dpa.js?v=6"></script>
-<script src="js/impot.js?v=6"></script>
-<script src="js/tps-tvq.js?v=6"></script>
-<script src="js/vehicule-methodes.js?v=6"></script>
-<script src="js/coproprietaires.js?v=6"></script>
-<script src="js/ventilation.js?v=6"></script>
-<script src="js/recus.js?v=6"></script>
-<script src="js/kilometrage.js?v=6"></script>
-<script src="js/import-bancaire.js?v=6"></script>
-<script src="js/cloture.js?v=6"></script>
-<script src="js/dossier.js?v=6"></script>
-<script src="js/tableau-bord.js?v=6"></script>
-<script src="js/simulateur.js?v=6"></script>
-<script src="js/recommandations.js?v=6"></script>
+<script src="js/fiscal-data.js?v=2.2.0"></script>
+<script src="js/app-modules.js?v=2.2.0"></script>
+<script src="js/baux.js?v=2.2.0"></script>
+<script src="js/dpa.js?v=2.2.0"></script>
+<script src="js/impot.js?v=2.2.0"></script>
+<script src="js/tps-tvq.js?v=2.2.0"></script>
+<script src="js/vehicule-methodes.js?v=2.2.0"></script>
+<script src="js/coproprietaires.js?v=2.2.0"></script>
+<script src="js/ventilation.js?v=2.2.0"></script>
+<script src="js/recus.js?v=2.2.0"></script>
+<script src="js/kilometrage.js?v=2.2.0"></script>
+<script src="js/import-bancaire.js?v=2.2.0"></script>
+<script src="js/cloture.js?v=2.2.0"></script>
+<script src="js/dossier.js?v=2.2.0"></script>
+<script src="js/tableau-bord.js?v=2.2.0"></script>
+<script src="js/simulateur.js?v=2.2.0"></script>
+<script src="js/vente.js?v=2.2.0"></script>
+<script src="js/recommandations.js?v=2.2.0"></script>
 
 <script>
+// ════════════════════════════════════════════════════════════
+// VERSION
+// ════════════════════════════════════════════════════════════
+// Source unique de verite. La meme chaine apparait a trois autres endroits, et
+// `scripts/version.sh` est le seul outil qui les ecrit, pour qu'ils ne puissent
+// pas divergent :
+//   1. le ?v= des 18 balises <script src="js/..."> ci-dessus ;
+//   2. le nom du cache du service worker (sw.js) ;
+//   3. la cle `version` du manifeste.
+// Sans cette discipline, un correctif deploye continue d'etre servi depuis le
+// cache du navigateur — la panne la plus frequente du projet.
+//
+// Numerotation : MAJEUR.MINEUR.CORRECTIF.
+//   MAJEUR   — changement du format des donnees qui demande une migration
+//   MINEUR   — nouvelle fonctionnalite
+//   CORRECTIF— correction sans nouvelle fonctionnalite
+const APP_VERSION = '2.2.0'
+const APP_BUILD   = '2026-10-20'
+const APP_NOM     = 'Mon Plex'
+
 // ════════════════════════════════════════════════════════════
 // CONSTANTS
 // ════════════════════════════════════════════════════════════
@@ -1180,7 +1211,7 @@ function reporterElementsAnnee(source, cible) {
 
 function updateYearLabels() {
   document.querySelectorAll('.year-badge').forEach(el => el.textContent = activeYear)
-  document.title = 'Revenus & Dépenses ' + activeYear
+  document.title = APP_NOM + ' ' + activeYear
   const labels = {
     'uber-card-yr':  '🟠 Uber — Revenus annuels ' + activeYear,
     'uber-km-yr':    '📍 Kilométrage Uber ' + activeYear,
@@ -1968,7 +1999,7 @@ const FISCAL_SUBS = [
   { id: 'baux',    label: '📄 Baux',            render: () => renderBaux(),   si: () => setup.modules.props },
   { id: 'recus',   label: '📎 Reçus',           render: () => renderAuditRecus(), si: () => setup.modules.props },
   { id: 'import',  label: '📥 Import',          render: () => renderImportBancaire() },
-  { id: 'simu',    label: '🧮 Simulateur',      render: () => renderSimulateur() },
+  { id: 'simu',    label: '🧮 Simulateur',      render: () => { renderSimulateur(); renderVente() } },
   { id: 'bord',    label: '📈 Évolution',       render: () => renderTableauBord() },
   { id: 'cloture', label: '🔒 Clôture',         render: () => { renderCloture(); renderDossier() } }
 ]
@@ -2928,24 +2959,80 @@ function exportCSV(opts) {
     addSection(base + ' - Dépenses capital', prop.id, 'capital', prop.capital)
   })
 
-  // Trips
+  // Une ligne mensuelle : le montant dans la colonne de SON mois, les autres
+  // vides. Une ligne qui ne remplit que la colonne Total ne s'additionne pas
+  // verticalement dans un tableur — c'etait le defaut de la ligne Lyft.
+  // Un guillemet saisi par l'utilisateur (« Rénovation 2" de laine ») doit être
+  // doublé, sinon il ferme la cellule et décale la ligne entière.
+  const q = v => String(v ?? '').replace(/"/g, '""')
+  const ligneMois = (section, cat, mi, montant) => {
+    const vals = Array(12).fill('')
+    vals[mi] = montant.toFixed(2)
+    csv += `"${q(section)}","${q(cat)}",${vals.join(',')},${montant.toFixed(2)}\n`
+  }
+
+  // Une ligne ANNUELLE : la donnee n'a pas de ventilation mensuelle (les frais
+  // Uber et les depenses du vehicule sont saisis en total annuel). Les douze
+  // colonnes restent vides au lieu de porter le montant en janvier, qui serait
+  // faux. Le total de la colonne « Total Annuel » reste juste.
+  const ligneAnnuelle = (section, cat, montant) => {
+    csv += `"${q(section)}","${q(cat)}",${Array(12).fill('').join(',')},${montant.toFixed(2)}\n`
+  }
+
+  // Deplacements : DETAIL. Ces montants sont deja comptes dans la ligne « Frais
+  // de deplacement » de chaque immeuble (addSection les calcule par
+  // getTripAmount), donc additionner cette section avec les precedentes
+  // compterait deux fois. Le libelle de section le dit, pour qu'un lecteur du
+  // CSV seul ne se trompe pas.
   state.trips.forEach(t => {
-    const money = (parseFloat(t.km)||0) * rate()
-    csv += `"Déplacements","${t.date}|${t.property}|${t.reason}",${t.km},,,,,,,,,,,,${money.toFixed(2)}\n`
+    const montant = (parseFloat(t.km)||0) * rate()
+    const mi = monthOf(t.date)
+    const cat = `${t.date} · ${t.property} · ${t.reason} · ${t.km} km`
+    if (mi >= 0 && mi <= 11) ligneMois('Déplacements (détail, déjà inclus ci-dessus)', cat, mi, montant)
+    else ligneAnnuelle('Déplacements (détail, déjà inclus ci-dessus)', cat, montant)
   })
 
-  // Lyft monthly
+  // Lyft : saisi par mois.
   for (let mi=0; mi<12; mi++) {
     const m = state.lyft[mi] || {}
     const net = (parseFloat(m.taxable)||0)+(parseFloat(m.bonuses)||0)+(parseFloat(m.tips)||0)-(parseFloat(m.fees)||0)
     if (!net) continue
-    // Le montant est porte dans la colonne du mois concerne, comme toutes les
-    // autres sections : une ligne qui ne remplit que le total ne s'additionne pas
-    // verticalement dans un tableur. (Avant ce correctif, la ligne comptait en
-    // plus une colonne de trop et decalait tout le tableau.)
-    const vals = Array(12).fill(0)
-    vals[mi] = net.toFixed(2)
-    csv += `"Lyft - Revenus","${MONTHS_FR[mi]}",${vals.join(',')},${net.toFixed(2)}\n`
+    ligneMois('Lyft - Revenus', MONTHS_FR[mi], mi, net)
+  }
+
+  // Uber : l'export l'omettait entierement, de meme que les depenses du
+  // vehicule. Un comptable qui travaillait a partir du CSV seul passait donc a
+  // cote de la totalite du revenu de transport ET de la deduction la plus
+  // grosse du dossier. Le PDF, lui, les a toujours portes.
+  if (setup.modules.rideshare) {
+    UBER_GROUPS.forEach(([groupe, champs]) => {
+      champs.forEach(([k, label]) => {
+        const v = uberValue(k)
+        if (v) ligneAnnuelle('Uber - ' + groupe + ' (annuel)', label, v)
+      })
+    })
+    const netUber = uberNetIncome()
+    if (netUber) ligneAnnuelle('Uber - Revenu net (annuel)', 'Revenus de courses et autres, moins les frais Uber', netUber)
+
+    // Les depenses du vehicule sont communes aux activites : la part
+    // deductible depend du prorata de kilometrage, que le CSV ne peut pas
+    // trancher. On exporte donc le montant TOTAL engage, et on le dit.
+    let totalVeh = 0
+    VEH_CATS.forEach(cat => {
+      const v = parseFloat(state.vehicule.depenses[cat]) || 0
+      if (v) { ligneAnnuelle('Véhicule - Dépenses engagées (annuel)', cat, v); totalVeh += v }
+    })
+    if (totalVeh) {
+      const kmTotal = parseFloat(state.settings.kmTotalAnnuel) || 0
+      const kmAff = (parseFloat(state.uber.km_online) || 0)
+        + (typeof getLyftKmTotal === 'function' ? getLyftKmTotal() : 0)
+        + (typeof getRentalKmTotal === 'function' ? getRentalKmTotal() : 0)
+      const prorata = kmTotal > 0 ? Math.min(1, kmAff / kmTotal) : 0
+      ligneAnnuelle('Véhicule - Dépenses engagées (annuel)', 'TOTAL engagé', totalVeh)
+      ligneAnnuelle('Véhicule - Part d\'affaires (annuel)',
+        `${fmt(kmAff, 0)} km d'affaires / ${fmt(kmTotal, 0)} km total = ${fmt(prorata * 100, 1)} % du total engagé`,
+        totalVeh * prorata)
+    }
   }
 
   // Le dossier comptable en ZIP réutilise ce même CSV au lieu d'en réécrire un
@@ -3384,8 +3471,39 @@ function showSettingsSheet() {
   document.getElementById('module-rideshare-chk').checked = setup.modules.rideshare
   applyTheme()   // met à jour le sélecteur de thème (bouton actif)
   updateSyncStatus()
+  renderVersion()
   document.getElementById('settings-overlay').classList.add('open')
   document.getElementById('settings-sheet').classList.add('open')
+}
+
+// Pied de page des reglages. Au-dela de l'affichage, elle repond a la question
+// de diagnostic : « la version que je vois est-elle celle qui a ete deployee ? »
+// Le bouton force le service worker a reprendre les fichiers, ce qui evitait
+// jusqu'ici de vider le cache a la main.
+function renderVersion() {
+  const el = document.getElementById('settings-version')
+  if (!el) return
+  const nbModules = (typeof APP_MODULES !== 'undefined') ? APP_MODULES.length : 0
+  const date = new Date(APP_BUILD + 'T12:00:00').toLocaleDateString('fr-CA',
+    { day: 'numeric', month: 'long', year: 'numeric' })
+  const sw = ('serviceWorker' in navigator) && navigator.serviceWorker.controller
+  el.innerHTML = `
+    <div style="font-weight:600;color:var(--text1)">${escH(APP_NOM)} ${escH(activeYear)}</div>
+    <div>version <strong>${escH(APP_VERSION)}</strong> · ${escH(date)}</div>
+    <div>${nbModules} modules fiscaux · ${sw ? 'hors ligne disponible' : 'service worker inactif'}</div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="verifierMaj()">🔄 Vérifier les mises à jour</button>`
+}
+
+async function verifierMaj() {
+  if (!('serviceWorker' in navigator)) { location.reload(); return }
+  toast('⏳ Vérification…')
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations()
+    await Promise.all(regs.map(r => r.update()))
+  } catch (e) { /* une mise a jour impossible ne doit pas empecher le rechargement */ }
+  // Le parametre casse le cache HTTP de la page elle-meme ; le service worker,
+  // lui, a deja ete invite a se mettre a jour juste au-dessus.
+  location.replace(location.pathname + '?maj=' + Date.now())
 }
 
 function closeSettingsSheet() {

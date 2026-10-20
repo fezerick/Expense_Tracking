@@ -188,24 +188,23 @@ premier poste de consommation.
 
 ## Priorité 4 — pérennité
 
-### 4.1 Faire tourner les deux suites à chaque modification
+### 4.1 ~~Faire tourner les deux suites à chaque modification~~ · ✅ fait le 20 octobre 2026
 
-`tests/pwa_suite.js` (63 assertions, socle) et `tests/pwa_modules_suite.js`
-(159 assertions, couche `js/`) ont détecté **10 défauts réels** à ce jour. Elles
-s'exécutent en une ligne dans la console de la page :
+`tests/pwa_suite.js` (64 assertions, socle) et `tests/pwa_modules_suite.js`
+(209 assertions, couche `js/`) ont détecté **10 défauts réels** à ce jour.
 
-```js
-eval(await (await fetch('/tests/pwa_suite.js?cb=' + Date.now())).text())
-eval(await (await fetch('/tests/pwa_modules_suite.js?cb=' + Date.now())).text())
-```
+**Résolu en version 2.2.0 :** `npm test` exécute les deux suites **sans navigateur**
+(`tests/run-headless.js`, jsdom), plus trois vérifications de la concordance de version,
+et sort en code 1 à la première assertion rouge — donc utilisable en intégration
+continue. Le mode console reste disponible pour déboguer en regardant l'écran.
+Procédure au § 0 de [TESTS.md](TESTS.md).
 
-Les deux restaurent l'état réel dans un `finally`, donc une suite interrompue n'écrase
-plus les vraies données (§ 2b de [TESTS.md](TESTS.md)).
+Les deux suites restaurent l'état réel dans un `finally`, donc une suite interrompue
+n'écrase plus les vraies données (§ 2b de [TESTS.md](TESTS.md)) ; sous jsdom, le
+stockage local est de toute façon en mémoire.
 
-Prochains ajouts utiles : une assertion de cohérence « ligne 9200 du PDF == total de
-l'annexe A », qui aurait attrapé BUG-1 seule ; et surtout une exécution **sans
-navigateur** (harnais jsdom), seule façon d'empêcher un correctif de partir en production
-sans que les 222 assertions aient tourné — repris en E.3 de [FEATURES.md](FEATURES.md).
+Reste utile : une assertion de cohérence « ligne 9200 du PDF == total de l'annexe A »,
+qui aurait attrapé BUG-1 à elle seule.
 
 ### 4.2 Étendre le harnais iOS
 
@@ -214,16 +213,18 @@ le plus efficace de tester iOS sans interface. L'étendre à l'export Snapshot v
 calcul des totaux donnerait une couverture comparable à celle de la PWA, à coût très
 faible.
 
-### 4.3 Automatiser le bump du cache du service worker — devenu plus urgent
+### 4.3 ~~Automatiser le bump du cache du service worker~~ · ✅ fait le 20 octobre 2026
 
-Le nom `depenses-2026-v6` est incrémenté à la main : un oubli laisse les anciens caches
-en place. Un script de déploiement qui incrémente `CACHE` puis lance
-`firebase deploy --only hosting` supprime la classe entière d'incidents.
+Le nom du cache était incrémenté à la main, de même que le `?v=` de chaque balise de
+module : **six emplacements** à tenir concordants, et la cause la plus fréquente de
+« le correctif ne prend pas ».
 
-Depuis l'ajout de la couche modulaire, il y a **18 endroits** à incrémenter et non un :
-`CACHE` dans `sw.js`, plus le `?v=` des 17 balises `<script src="js/…">`. C'est devenu la
-cause la plus fréquente de « le correctif ne prend pas », constatée plusieurs fois
-pendant l'implémentation du 20 octobre. Voir E.2 de [FEATURES.md](FEATURES.md).
+**Résolu en version 2.1.0 :** `scripts/version.sh` les écrit tous d'un coup
+(`patch` / `minor` / `major` / `set X.Y.Z`, et `--deploy` pour enchaîner sur Firebase),
+refuse d'agir si les six ne concordent pas déjà, et ne code en dur aucun nombre de
+modules. Les assertions V1–V4 et M202/M203 vérifient la même concordance à chaque
+`npm test`. La version s'affiche en bas des Réglages. Voir § 2.9 de
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
 Noter aussi que le service worker sert les ressources non-HTML en *cache-first* sans
 révision : pendant cette campagne, une ancienne version du fichier de tests a été servie

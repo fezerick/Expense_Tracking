@@ -204,17 +204,35 @@
     })()
 
     const csvLignes = (csvCapture || '').replace(/^﻿/, '').trim().split('\n')
-    const nbColEntete = csvLignes[0].split(',').length
+
+    // Compte les champs d'une ligne CSV en IGNORANT les virgules entre
+    // guillemets. Un simple split(',') comptait faux dès qu'une cellule
+    // contenait une virgule — et il y en a forcément : les libellés des
+    // sections, les adresses, et surtout la virgule décimale du français
+    // (« 25,8 % »). C'est ce test qui a attrapé le décalage de la ligne Lyft
+    // (BUG-2), il doit continuer à le faire sans crier sur du CSV valide.
+    const nbChamps = (ligne) => {
+      let n = 1, dansGuillemets = false
+      for (const ch of ligne) {
+        if (ch === '"') dansGuillemets = !dansGuillemets
+        else if (ch === ',' && !dansGuillemets) n++
+      }
+      return n
+    }
+    const nbColEntete = nbChamps(csvLignes[0])
     eq('T28', 'CSV : entête = 15 colonnes (Section, Catégorie, 12 mois, Total)', 15, nbColEntete)
 
     const lignesMalFormees = csvLignes.slice(1)
-      .map((l, i) => ({ n: i + 2, cols: l.split(',').length, extrait: l.slice(0, 45) }))
+      .map((l, i) => ({ n: i + 2, cols: nbChamps(l), extrait: l.slice(0, 45) }))
       .filter(x => x.cols !== nbColEntete)
     eq('T29', 'CSV : toutes les lignes ont le même nombre de colonnes que l\'entête',
        [], lignesMalFormees)
 
     const ligneLyft = csvLignes.find(l => l.startsWith('"Lyft'))
-    eq('T30', 'CSV : la ligne Lyft a 15 colonnes', 15, ligneLyft ? ligneLyft.split(',').length : -1)
+    eq('T30', 'CSV : la ligne Lyft a 15 colonnes', 15, ligneLyft ? nbChamps(ligneLyft) : -1)
+    // Un guillemet dans un libellé doit être doublé, pas laissé tel quel.
+    eq('T30b', 'CSV : aucune ligne ne porte un guillemet non échappé en milieu de cellule',
+       [], csvLignes.filter(l => /[^,"]"[^,"]/.test(l)).map(l => l.slice(0, 45)))
 
     // ══ 8. Export / import JSON ═══════════════════════════════════════════════
     // `mergeState()` est la fonction réelle de l'app : elle fusionne `settings` champ par
