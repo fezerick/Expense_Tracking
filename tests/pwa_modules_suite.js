@@ -102,7 +102,12 @@
                      gst_remitted: '1500', qst_remitted: '2992.50',
                      gst_paid_uber: '125', qst_paid_uber: '249.38' }
       state.lyft = {}
-      state.lyft[0] = { km: '1000', taxable: '5000', bonuses: '200', tips: '300', fees: '500' }
+      state.lyft[0] = { km: '1000', taxable: '5000', bonuses: '200', tips: '300', fees: '500',
+                        gst_riders: '250', qst_riders: '498.75', gst_bonuses: '10', qst_bonuses: '19.95',
+                        gst_fees: '25', qst_fees: '49.88',
+                        gst_remitted: '260', qst_remitted: '518.70' }
+      state.lyft[1] = { gst_riders: '100', qst_riders: '199.50', gst_fees: '5', qst_fees: '9.98',
+                        gst_remitted: '100', qst_remitted: '199.50' }
 
       state.trips = [
         { id: 't1', date: `${FIX_YEAR}-01-15`, property: 'pA', km: '100.0', reason: 'Visite', roundTrip: true },
@@ -344,10 +349,30 @@
     eq('M49', 'CTI véhicule = TPS contenue dans les dépenses × prorata commercial',
        contenuTaxes(10000, FIX_YEAR).tps * (5000 / 20000), tx.ctiVeh, 0.05)
     eq('M50', 'TPS nette = TPS perçue − CTI', tx.tpsPercue - tx.cti, tx.tpsNette)
-    eq('M51', 'Solde de TPS = TPS nette − TPS déjà versée par Uber',
-       tx.tpsNette - tx.tpsVerseeUber, tx.tpsSolde)
+    eq('M51', 'Solde de TPS = TPS nette − TPS déjà versée par les plateformes',
+       tx.tpsNette - tx.tpsVerseePlateforme, tx.tpsSolde)
     eq('M52', 'La TPS payée sur les frais de service d\'Uber est un CTI du chauffeur',
        125, tx.tpsFraisUber)
+
+    // ── Les lignes de taxes de Lyft entrent dans la déclaration ──────────────
+    // Elles sont saisies MOIS PAR MOIS, la déclaration est annuelle : tant
+    // qu'elles étaient ignorées, la ligne 101 comptait les fournitures taxables
+    // de Lyft sans la taxe perçue dessus, et le chauffeur ne réclamait jamais
+    // ses CTI/RTI sur les frais Lyft.
+    eq('M52a', 'lyftTaxTotals() cumule les douze mois',
+       '350|698.25|30|59.86|360|718.2',
+       ['gst_riders','qst_riders','gst_fees','qst_fees','gst_remitted','qst_remitted']
+         .map(k => Math.round(lyftTaxTotals()[k] * 100) / 100).join('|'))
+    eq('M52b', 'TPS perçue = part Uber + Lyft (passagers et primes)',
+       1500 + 350 + 10, tx.tpsPercue, 0.005)
+    eq('M52c', 'TVQ perçue = part Uber + Lyft (passagers et primes)',
+       2992.50 + 698.25 + 19.95, tx.tvqPercue, 0.005)
+    eq('M52d', 'Le CTI comprend la TPS payée sur les frais Lyft',
+       30, tx.tpsFraisLyft, 0.005)
+    eq('M52e', 'Le déjà-versé comprend la part de Lyft',
+       1500 + 360, tx.tpsVerseePlateforme, 0.005)
+    eq('M52f', 'Le détail par plateforme liste Uber et Lyft',
+       'Uber|Lyft', tx.parPlateforme.map(p => p.nom).join('|'))
 
     // ══ F. IMPÔT ET ACOMPTES (impot.js) ═══════════════════════════════════════
     const a = assiettes()

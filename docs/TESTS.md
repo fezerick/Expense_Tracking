@@ -5,14 +5,14 @@ Campagne du 18 octobre 2026, sur les deux applications : PWA (`pwa_2026/`) et iO
 l'interface, et vérification à l'exécution des sorties remises au comptable (PDF, CSV,
 sauvegardes).
 
-**État au 20 octobre 2026, version 2.2.2** — deux suites et quatre vérifications de
+**État au 20 octobre 2026, version 2.3.0** — deux suites et quatre vérifications de
 fichiers, **toutes vertes**, exécutables **sans navigateur** par `npm test` :
 
 | Suite | Portée | Résultat |
 |---|---|---|
 | `tests/run-headless.js` | concordance de la version aux six emplacements | **V1–V4** |
-| `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **96 / 96** |
-| `tests/pwa_modules_suite.js` | les 18 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **209 / 209** |
+| `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **106 / 106** |
+| `tests/pwa_modules_suite.js` | les 18 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **215 / 215** |
 
 Dix défauts ont été corrigés et revérifiés depuis la campagne initiale : BUG-1, BUG-7
 (PWA + iOS), BUG-9, BUG-10, BUG-3, puis BUG-2 et les quatre défauts de la couche
@@ -210,8 +210,49 @@ acceptées — l'anglaise avec son esperluette, la française avec son « les »
 Les montants des jeux d'essai sont fictifs : seule la **forme** du relevé est reproduite,
 aucune donnée personnelle n'entre dans le dépôt.
 
+### Les lignes de TPS/TVQ de Lyft — T88 à T97 et M52a à M52f (version 2.3.0)
+
+Le sommaire fiscal de Lyft comporte huit lignes de taxes que l'app ne lisait pas et
+n'avait nulle part où ranger. Conséquence sur la déclaration : la ligne 101 du FPZ-500
+comptait les fournitures taxables de Lyft (`lyftTaxableBase()`) **sans** la taxe perçue
+dessus — taxe nette sous-évaluée — et les CTI/RTI sur les frais Lyft, que personne ne
+réclame à la place du chauffeur, étaient simplement perdus.
+
+| Test | Ce qu'il verrouille |
+|---|---|
+| T88–T89 | TPS et TVQ perçues des passagers, en anglais comme en français |
+| T90–T91 | la taxe perçue **sur les primes**, distincte de celle des passagers |
+| T92–T93 | la taxe payée sur les frais est un CTI/RTI, stocké en positif |
+| T94–T95 | la taxe déjà versée par Lyft au nom du chauffeur |
+| M52a | `lyftTaxTotals()` cumule bien les douze mois |
+| M52b–M52c | taxe perçue = part Uber + part Lyft (passagers **et** primes) |
+| M52d–M52e | le CTI comprend la TPS des frais Lyft ; le déjà-versé comprend la part de Lyft |
+| M52f | le détail par plateforme liste les deux plateformes |
+
+### La convention de signe des champs de coût — T96, T97 (version 2.3.0)
+
+Défaut découvert en implémentant ce qui précède, et **rendu actif par la 2.2.2** : les
+analyseurs de PDF rendaient les frais avec le signe du relevé (négatif), alors que tous
+les totaux de l'app les **retranchent**. Un relevé importé faisait donc *additionner*
+les frais au revenu.
+
+| | Base | Primes | Pourboires | Frais | Net |
+|---|---|---|---|---|---|
+| Saisie manuelle (frais tapés en positif) | 527,60 | 34,48 | 13,40 | 88,42 | **487,06** |
+| Import PDF avant correctif (frais à −88,42) | 527,60 | 34,48 | 13,40 | −88,42 | **663,90** |
+
+L'écart vaut deux fois les frais. Il touchait aussi `service_fee`, `other_fees`,
+`fee_discount`, `gst_paid_uber`, `qst_paid_uber` côté Uber, et le « déjà versé » des
+deux plateformes, dont le solde de taxes doublait. Le correctif isole la règle dans
+`cout()` : le signe du relevé sert à reconnaître la ligne, seule la magnitude est
+stockée. T96 vérifie le net sur des valeurs importées, T97 qu'aucun champ de coût
+n'arrive en négatif.
+
+Trois assertions antérieures — T59, T68 et T86 — **attendaient le signe fautif** : elles
+documentaient le défaut au lieu de le détecter. Elles ont été corrigées en même temps.
+
 ```
-{"total":96,"pass":96,"fail":0,"echecs":[]}
+{"total":106,"pass":106,"fail":0,"echecs":[]}
 ```
 
 ### Le compteur de colonnes était faux — corrigé le 20 octobre 2026
@@ -246,7 +287,7 @@ sens.
 
 ## 2b. Suite automatisée des modules — `tests/pwa_modules_suite.js`
 
-**209 assertions, 209 réussies.** Elle couvre la couche `pwa_2026/js/` (§ 2.8 de
+**215 assertions, 215 réussies.** Elle couvre la couche `pwa_2026/js/` (§ 2.8 de
 [ARCHITECTURE.md](ARCHITECTURE.md)), que la première suite ignore. Même principe :
 exécution *dans* la page, fixture déterministe, restauration de l'état réel à la fin.
 
@@ -345,7 +386,7 @@ Deux pièges rencontrés :
    et supprimées dans le `finally` même quand la suite s'interrompt.
 
 Vérifié de bout en bout avec un état réel marqué d'une sentinelle : exécution normale
-→ 209/209 et sentinelle intacte ; exécution avec une exception forcée → ligne `FATAL`,
+→ 215/215 et sentinelle intacte ; exécution avec une exception forcée → ligne `FATAL`,
 sentinelle intacte, aucune clé `depenses_2098 / 2099 / 2028` résiduelle.
 
 > **Note sur la synchronisation.** `save()` ne pousse vers Firestore qu'après 5 secondes

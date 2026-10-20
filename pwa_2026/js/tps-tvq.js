@@ -53,17 +53,26 @@ function calculTaxes() {
   const f = fiscal()
   const d = donneesTaxes()
   const uv = k => num((state.uber || {})[k])
+  // Les lignes de taxes de Lyft sont mensuelles : `lyftTaxTotals()` les cumule.
+  // Tant qu'elles étaient ignorées, la ligne 101 comptait les fournitures
+  // taxables de Lyft (`lyftTaxableBase()`) sans la taxe perçue dessus : la
+  // taxe nette sortait trop basse, et les CTI/RTI sur les frais Lyft — que
+  // personne ne réclame à la place du chauffeur — étaient perdus.
+  const L = lyftTaxTotals()
 
   // ── Taxes perçues ──
-  const tpsPercue = uv('gst_riders')
-  const tvqPercue = uv('qst_riders')
+  // Lyft détaille sa taxe par assiette : celle des courses et celle des primes
+  // sont toutes deux perçues des passagers pour le compte de Revenu Québec.
+  const tpsPercue = uv('gst_riders') + L.gst_riders + L.gst_bonuses
+  const tvqPercue = uv('qst_riders') + L.qst_riders + L.qst_bonuses
   // Fournitures taxables : le revenu de courses hors taxes.
   const fournituresTaxables = uberRevenueTotal() + lyftTaxableBase()
 
   // ── Taxes déjà versées par la plateforme au nom du chauffeur ──
-  const tpsVerseeUber = uv('gst_remitted')
-  const tvqVerseeUber = uv('qst_remitted')
-  // La TPS/TVQ payée SUR les frais de service d'Uber est un CTI/RTI du chauffeur.
+  const tpsVerseePlateforme = uv('gst_remitted') + L.gst_remitted
+  const tvqVerseePlateforme = uv('qst_remitted') + L.qst_remitted
+  // La TPS/TVQ payée SUR les frais de service de la plateforme est un CTI/RTI
+  // du chauffeur.
   const tpsFraisUber = uv('gst_paid_uber')
   const tvqFraisUber = uv('qst_paid_uber')
 
@@ -81,17 +90,29 @@ function calculTaxes() {
   const ctiVeh = detailVeh.reduce((s, x) => s + x.tps, 0)
   const rtiVeh = detailVeh.reduce((s, x) => s + x.tvq, 0)
 
-  const cti = ctiVeh + tpsFraisUber + num(d.ctiAutres)
-  const rti = rtiVeh + tvqFraisUber + num(d.rtiAutres)
+  const cti = ctiVeh + tpsFraisUber + L.gst_fees + num(d.ctiAutres)
+  const rti = rtiVeh + tvqFraisUber + L.qst_fees + num(d.rtiAutres)
 
   const tpsNette = tpsPercue - cti
   const tvqNette = tvqPercue - rti
-  const tpsSolde = tpsNette - tpsVerseeUber
-  const tvqSolde = tvqNette - tvqVerseeUber
+  const tpsSolde = tpsNette - tpsVerseePlateforme
+  const tvqSolde = tvqNette - tvqVerseePlateforme
+
+  // Le détail par plateforme rend la déclaration vérifiable : sans lui, un
+  // écart avec le relevé papier ne se localise pas.
+  const parPlateforme = [
+    { nom: 'Uber', percueTps: uv('gst_riders'), percueTvq: uv('qst_riders'),
+      creditTps: tpsFraisUber, creditTvq: tvqFraisUber,
+      verseeTps: uv('gst_remitted'), verseeTvq: uv('qst_remitted') },
+    { nom: 'Lyft', percueTps: L.gst_riders + L.gst_bonuses, percueTvq: L.qst_riders + L.qst_bonuses,
+      creditTps: L.gst_fees, creditTvq: L.qst_fees,
+      verseeTps: L.gst_remitted, verseeTvq: L.qst_remitted }
+  ].filter(p => p.percueTps || p.percueTvq || p.creditTps || p.creditTvq || p.verseeTps || p.verseeTvq)
 
   return {
     f, fournituresTaxables, tpsPercue, tvqPercue,
-    tpsVerseeUber, tvqVerseeUber, tpsFraisUber, tvqFraisUber,
+    tpsVerseePlateforme, tvqVerseePlateforme, tpsFraisUber, tvqFraisUber,
+    tpsFraisLyft: L.gst_fees, tvqFraisLyft: L.qst_fees, lyftTaxes: L, parPlateforme,
     prorata, kmComm, kmTotal, detailVeh, ctiVeh, rtiVeh, cti, rti,
     tpsNette, tvqNette, tpsSolde, tvqSolde
   }
@@ -149,7 +170,7 @@ function renderTaxes() {
                   'perçue ' + money(c.tvqPercue) + ' − RTI ' + money(c.rti))}
       </div>
       <div class="summary-row">
-        ${sumCard('Déjà versé par Uber', money(c.tpsVerseeUber + c.tvqVerseeUber), 'blue', 'en votre nom')}
+        ${sumCard('Déjà versé par les plateformes', money(c.tpsVerseePlateforme + c.tvqVerseePlateforme), 'blue', 'en votre nom')}
         ${sumCard(c.tpsSolde + c.tvqSolde >= 0 ? 'Reste à verser' : 'Remboursement attendu',
                   money(Math.abs(c.tpsSolde + c.tvqSolde)),
                   c.tpsSolde + c.tvqSolde > 0 ? 'red' : 'green', 'TPS et TVQ réunies')}
@@ -160,8 +181,9 @@ function renderTaxes() {
         plateforme verse déjà les taxes : ne pas produire la déclaration, c'est y renoncer.`) : ''}
       ${warnBox(`Un chauffeur de transport rémunéré de personnes doit être <strong>inscrit à la TPS
         et à la TVQ dès le premier dollar</strong> : le seuil de 30 000 $ du petit fournisseur ne
-        s'applique pas à cette activité. Au Québec, Uber perçoit et verse les taxes en votre nom,
-        mais <strong>c'est à vous de produire la déclaration</strong> et de réclamer vos crédits.`)}
+        s'applique pas à cette activité. Au Québec, Uber et Lyft perçoivent et versent les taxes
+        en votre nom, mais <strong>c'est à vous de produire la déclaration</strong> et de réclamer
+        vos crédits.`)}
     `, 'brown')}
 
     ${card('📄 Lignes du formulaire FPZ-500', `
@@ -170,9 +192,19 @@ function renderTaxes() {
         tr(['105 / 205', 'Taxe perçue et percevable', [money(c.tpsPercue), 'right'], [money(c.tvqPercue), 'right']]),
         tr(['108 / 208', 'CTI / RTI demandés', [money(c.cti), 'right'], [money(c.rti), 'right']]),
         tr(['109 / 209', '<strong>Taxe nette</strong>', [`<strong>${money(c.tpsNette)}</strong>`, 'right'], [`<strong>${money(c.tvqNette)}</strong>`, 'right']]),
-        tr(['—', 'Déjà versé par la plateforme', [money(c.tpsVerseeUber), 'right'], [money(c.tvqVerseeUber), 'right']]),
+        tr(['—', 'Déjà versé par les plateformes', [money(c.tpsVerseePlateforme), 'right'], [money(c.tvqVerseePlateforme), 'right']]),
         tr(['—', '<strong>Solde</strong>', [`<strong>${money(c.tpsSolde)}</strong>`, 'right'], [`<strong>${money(c.tvqSolde)}</strong>`, 'right']])
       ])}
+      ${c.parPlateforme.length ? `
+        <div class="divider"></div>
+        <div style="font-size:11px;color:var(--text2);padding:2px 0 6px;font-weight:600;text-transform:uppercase">Détail par plateforme</div>
+        ${table(['Plateforme', ['Taxe perçue', 'right'], ['CTI/RTI sur frais', 'right'], ['Déjà versé', 'right']],
+          [c.parPlateforme.map(pl => tr([
+            escH(pl.nom),
+            [money(pl.percueTps + pl.percueTvq), 'right'],
+            [money(pl.creditTps + pl.creditTvq), 'right'],
+            [money(pl.verseeTps + pl.verseeTvq), 'right']
+          ])).join('')])}` : ''}
       <button class="btn btn-ghost btn-sm btn-full" style="margin-top:10px" onclick="exporterFPZ500()">📊 Exporter (CSV)</button>
       ${sourceNote(`Les numéros de ligne correspondent au formulaire combiné <strong>FPZ-500</strong>
         de Revenu Québec, qui administre la TPS au Québec. Reportez-les dans le service en ligne
@@ -232,13 +264,18 @@ function exporterFPZ500() {
     csvLigne(['105/205', 'Taxe percue et percevable', fmt(c.tpsPercue), fmt(c.tvqPercue)]),
     csvLigne(['108/208', 'CTI / RTI demandes', fmt(c.cti), fmt(c.rti)]),
     csvLigne(['109/209', 'Taxe nette', fmt(c.tpsNette), fmt(c.tvqNette)]),
-    csvLigne(['', 'Deja verse par la plateforme', fmt(c.tpsVerseeUber), fmt(c.tvqVerseeUber)]),
+    csvLigne(['', 'Deja verse par les plateformes', fmt(c.tpsVerseePlateforme), fmt(c.tvqVerseePlateforme)]),
     csvLigne(['', 'Solde', fmt(c.tpsSolde), fmt(c.tvqSolde)]),
     '',
     csvLigne(['Detail CTI/RTI vehicule', 'Montant TTC', 'Taxable', 'CTI', 'RTI'])
   ]
   c.detailVeh.filter(x => x.montant > 0).forEach(x =>
     lignes.push(csvLigne([x.cat, fmt(x.montant), x.taxable ? 'oui' : 'non', fmt(x.tps), fmt(x.tvq)])))
+  if (c.parPlateforme.length) {
+    lignes.push('', csvLigne(['Plateforme', 'Taxe percue TPS', 'Taxe percue TVQ', 'CTI frais', 'RTI frais', 'Deja verse TPS', 'Deja verse TVQ']))
+    c.parPlateforme.forEach(pl => lignes.push(csvLigne([pl.nom, fmt(pl.percueTps), fmt(pl.percueTvq),
+      fmt(pl.creditTps), fmt(pl.creditTvq), fmt(pl.verseeTps), fmt(pl.verseeTvq)])))
+  }
   dl(`tps_tvq_${activeYear}.csv`, '﻿' + lignes.join('\n'), 'text/csv;charset=utf-8')
   toast('📊 Déclaration exportée')
 }

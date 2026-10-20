@@ -260,10 +260,18 @@ function taxesCSV() {
   L.push(csvLigne(['109', 'TPS nette', fmt(t.tpsNette)]))
   L.push(csvLigne(['209', 'TVQ nette', fmt(t.tvqNette)]))
   L.push('')
-  L.push(csvLigne(['', 'TPS deja versee par la plateforme', fmt(t.tpsVerseeUber)]))
-  L.push(csvLigne(['', 'TVQ deja versee par la plateforme', fmt(t.tvqVerseeUber)]))
+  L.push(csvLigne(['', 'TPS deja versee par les plateformes', fmt(t.tpsVerseePlateforme)]))
+  L.push(csvLigne(['', 'TVQ deja versee par les plateformes', fmt(t.tvqVerseePlateforme)]))
   L.push(csvLigne(['', 'Solde TPS', fmt(t.tpsSolde)]))
   L.push(csvLigne(['', 'Solde TVQ', fmt(t.tvqSolde)]))
+  // Le detail par plateforme : sans lui, un ecart entre la declaration et le
+  // releve papier ne se localise pas.
+  if (t.parPlateforme.length) {
+    L.push('')
+    L.push(csvLigne(['Plateforme', 'Taxe percue TPS', 'Taxe percue TVQ', 'CTI frais', 'RTI frais', 'Deja verse TPS', 'Deja verse TVQ']))
+    t.parPlateforme.forEach(pl => L.push(csvLigne([pl.nom, fmt(pl.percueTps), fmt(pl.percueTvq),
+      fmt(pl.creditTps), fmt(pl.creditTvq), fmt(pl.verseeTps), fmt(pl.verseeTvq)])))
+  }
   L.push('')
   L.push(csvLigne(['', 'Part commerciale du vehicule (%)', fmt(t.prorata * 100, 2)]))
   L.push(csvLigne(['', 'Km commerciaux', fmt(t.kmComm, 0)]))

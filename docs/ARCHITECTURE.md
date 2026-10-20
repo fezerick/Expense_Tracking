@@ -101,7 +101,9 @@ en balayant `localStorage` à la recherche de `/^depenses_\d{4}$/` (ligne 1016).
   p470:    { … },
   trips:   [{ id, date, property, reason, km, roundTrip, customDest }],
   uber:    { rides_gross, service_fee, km_online, … },
-  lyft:    { "2026-10": { taxable, primes, pourboires, frais, km } },
+  lyft:    { 0..11: { taxable, bonuses, tips, fees, km, courses,
+                     gst_riders, qst_riders, gst_bonuses, qst_bonuses,
+                     gst_fees, qst_fees, gst_remitted, qst_remitted } },
   vehicule:{ depenses: { "Frais de carburant (total annuel)": "4800", … } },
   notes:   { "p1090_ded_Électricité_9": "…" },
   receipts:{ "<même clé>": "data:image/jpeg;base64,…" },
@@ -137,6 +139,21 @@ ligne 3167). La configuration (`depenses_setup`) reste volontairement hors synch
 | 🚗 Trajets | `renderTrips` 2069 | journal de kilométrage complet |
 | 🏘 Logements | `renderProperty` 2146 | sous-onglets par immeuble, grille mensuelle (`renderPropertyMonthly` 2176) et vue annuelle (`renderPropertyAnnual` 2270) |
 | 🚕 Rideshare | `renderRideshare` 2340 | Uber (2347), Lyft (2379), véhicule (`renderVehicle` 2464) |
+
+Les deux plateformes sont décrites par une liste de champs unique — `UBER_FIELDS` et
+`LYFT_FIELDS` — lue par le formulaire, la feuille de révision du PDF importé et
+l'application des valeurs lues. Un champ ajouté à la liste apparaît aux trois endroits
+sans autre modification. Uber est saisi **une fois pour l'année** (son sommaire fiscal
+est annuel), Lyft **mois par mois** (le sien est mensuel) : d'où `lyftTaxTotals()`, qui
+cumule les douze relevés pour la déclaration de TPS/TVQ, annuelle elle aussi.
+
+**Convention de signe.** Les champs de sortie d'argent — frais de plateforme, taxes
+payées à la plateforme, taxes qu'elle a déjà versées au nom du chauffeur — sont stockés
+en **valeur absolue**, parce que tous les totaux les retranchent : `net = base + primes
++ pourboires − frais`, `uberNetIncome() = revenus − uberFeesTotal()`, `solde = taxe
+nette − déjà versée`. Les relevés, eux, les présentent en négatif (`(CA$88.42)`,
+`-$301.05`) puisqu'ils décrivent un décaissement. Le signe du relevé sert uniquement à
+reconnaître la ligne ; `cout()` n'en garde que la magnitude. T96 et T97 le verrouillent.
 | 📊 Sommaire | `renderSummary` 2606 | synthèse + exports + checklist (`renderChecklist` 3430) + état par copropriétaire |
 | 📑 Fiscal | `showFiscalSub` 1979 | 10 sous-onglets, un par module (voir § 2.8) |
 

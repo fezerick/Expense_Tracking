@@ -963,24 +963,24 @@ html.theme-dark .onb-section{background:#1a222d}
      moment du chargement. L'ordre est significatif : données fiscales, socle,
      puis les modules. Le paramètre ?v= force le service worker à reprendre le
      fichier après un déploiement. -->
-<script src="js/fiscal-data.js?v=2.2.2"></script>
-<script src="js/app-modules.js?v=2.2.2"></script>
-<script src="js/baux.js?v=2.2.2"></script>
-<script src="js/dpa.js?v=2.2.2"></script>
-<script src="js/impot.js?v=2.2.2"></script>
-<script src="js/tps-tvq.js?v=2.2.2"></script>
-<script src="js/vehicule-methodes.js?v=2.2.2"></script>
-<script src="js/coproprietaires.js?v=2.2.2"></script>
-<script src="js/ventilation.js?v=2.2.2"></script>
-<script src="js/recus.js?v=2.2.2"></script>
-<script src="js/kilometrage.js?v=2.2.2"></script>
-<script src="js/import-bancaire.js?v=2.2.2"></script>
-<script src="js/cloture.js?v=2.2.2"></script>
-<script src="js/dossier.js?v=2.2.2"></script>
-<script src="js/tableau-bord.js?v=2.2.2"></script>
-<script src="js/simulateur.js?v=2.2.2"></script>
-<script src="js/vente.js?v=2.2.2"></script>
-<script src="js/recommandations.js?v=2.2.2"></script>
+<script src="js/fiscal-data.js?v=2.3.0"></script>
+<script src="js/app-modules.js?v=2.3.0"></script>
+<script src="js/baux.js?v=2.3.0"></script>
+<script src="js/dpa.js?v=2.3.0"></script>
+<script src="js/impot.js?v=2.3.0"></script>
+<script src="js/tps-tvq.js?v=2.3.0"></script>
+<script src="js/vehicule-methodes.js?v=2.3.0"></script>
+<script src="js/coproprietaires.js?v=2.3.0"></script>
+<script src="js/ventilation.js?v=2.3.0"></script>
+<script src="js/recus.js?v=2.3.0"></script>
+<script src="js/kilometrage.js?v=2.3.0"></script>
+<script src="js/import-bancaire.js?v=2.3.0"></script>
+<script src="js/cloture.js?v=2.3.0"></script>
+<script src="js/dossier.js?v=2.3.0"></script>
+<script src="js/tableau-bord.js?v=2.3.0"></script>
+<script src="js/simulateur.js?v=2.3.0"></script>
+<script src="js/vente.js?v=2.3.0"></script>
+<script src="js/recommandations.js?v=2.3.0"></script>
 
 <script>
 // ════════════════════════════════════════════════════════════
@@ -999,7 +999,7 @@ html.theme-dark .onb-section{background:#1a222d}
 //   MAJEUR   — changement du format des donnees qui demande une migration
 //   MINEUR   — nouvelle fonctionnalite
 //   CORRECTIF— correction sans nouvelle fonctionnalite
-const APP_VERSION = '2.2.2'
+const APP_VERSION = '2.3.0'
 const APP_BUILD   = '2026-10-20'
 const APP_NOM     = 'Mon Plex'
 
@@ -1101,6 +1101,51 @@ const UBER_FIELDS = [
   { key:'gst_remitted',    label:'TPS versée par Uber en votre nom' },
   { key:'qst_remitted',    label:'TVQ versée par Uber en votre nom' }
 ]
+
+// Lyft est saisi MOIS PAR MOIS — son sommaire fiscal est mensuel, là où celui
+// d'Uber est annuel. Les six premiers champs étaient déclarés en trois endroits
+// (le formulaire, la feuille de révision du PDF, l'application des valeurs
+// lues) : les huit lignes de taxes en auraient fait un quatrième, d'où cette
+// déclaration unique.
+//
+// Les lignes de TPS/TVQ reprennent mot pour mot celles du « Sommaire fiscal
+// mensuel » de Lyft. Elles ne sont PAS du revenu : la taxe perçue des
+// passagers est encaissée pour le compte de Revenu Québec, et c'est pourquoi
+// aucune n'entre dans le « Net reçu ce mois ».
+const LYFT_FIELDS = [
+  { key:'taxable', label:'Base taxable ($)' },
+  { key:'bonuses', label:'Primes ($)' },
+  { key:'tips',    label:'Pourboires ($)' },
+  { key:'fees',    label:'Frais Lyft ($)' },
+  { key:'km',      label:'Kilomètres parcourus', pas:'0.001' },
+  { key:'courses', label:'Nombre de courses',    pas:'1' },
+  { key:'sep1', label:'Pour la déclaration TPS / TVQ', sep:true },
+  { key:'gst_riders',   label:'TPS perçue des passagers' },
+  { key:'qst_riders',   label:'TVQ perçue des passagers' },
+  { key:'gst_bonuses',  label:'TPS perçue sur les primes' },
+  { key:'qst_bonuses',  label:'TVQ perçue sur les primes' },
+  { key:'gst_fees',     label:'TPS payée sur les frais Lyft (CTI)' },
+  { key:'qst_fees',     label:'TVQ payée sur les frais Lyft (RTI)' },
+  { key:'gst_remitted', label:'TPS versée par Lyft en votre nom' },
+  { key:'qst_remitted', label:'TVQ versée par Lyft en votre nom' }
+]
+
+// Les huit lignes de taxes du relevé Lyft, additionnées sur l'année.
+// Lyft perçoit et verse la TPS/TVQ au nom du chauffeur exactement comme Uber,
+// mais ses montants sont mensuels : sans ce total, la déclaration FPZ-500
+// comptait les fournitures taxables de Lyft à la ligne 101 tout en ignorant la
+// taxe perçue dessus — taxe nette sous-évaluée, et CTI sur les frais Lyft
+// jamais réclamés.
+const LYFT_TAX_KEYS = LYFT_FIELDS.filter(f => /^(gst|qst)_/.test(f.key)).map(f => f.key)
+function lyftTaxTotals() {
+  const t = {}
+  LYFT_TAX_KEYS.forEach(k => t[k] = 0)
+  for (let mi = 0; mi < 12; mi++) {
+    const m = (state.lyft || {})[mi] || {}
+    LYFT_TAX_KEYS.forEach(k => t[k] += parseFloat(m[k]) || 0)
+  }
+  return t
+}
 
 // ════════════════════════════════════════════════════════════
 // GESTION DES ANNÉES
@@ -2599,21 +2644,16 @@ function renderLyft() {
   document.getElementById('lyft-month-label').textContent = MONTHS_FR[mi] + ' ' + activeYear
   const m = state.lyft[mi] || {}
 
-  const fields = [
-    { key:'taxable', label:'Base taxable ($)' },
-    { key:'bonuses', label:'Primes ($)' },
-    { key:'tips',    label:'Pourboires ($)' },
-    { key:'fees',    label:'Frais Lyft ($)' },
-    { key:'km',      label:'Kilomètres parcourus' },
-    { key:'courses', label:'Nombre de courses' }
-  ]
-
   let formHtml = ''
-  fields.forEach(f => {
+  LYFT_FIELDS.forEach(f => {
+    if (f.sep) {
+      formHtml += `<div style="font-size:11px;color:var(--text2);padding:10px 0 4px;font-weight:600;text-transform:uppercase;">${f.label}</div>`
+      return
+    }
     formHtml += `
       <div class="field" style="margin-bottom:8px">
         <label>${f.label}</label>
-        <input type="number" class="inp" step="${f.key==='courses'?'1':'0.01'}"
+        <input type="number" class="inp" step="${f.pas || '0.01'}"
           value="${m[f.key]||''}" placeholder="0,00"
           oninput="saveLyftField(${mi},'${f.key}',this.value)">
       </div>`
@@ -2626,6 +2666,12 @@ function renderLyft() {
       <div class="s-lbl">Net reçu ce mois</div>
       <div class="s-val">${fmt(net)} $</div>
     </div>`
+
+  const tx = (parseFloat(m.gst_riders)||0) + (parseFloat(m.qst_riders)||0) +
+             (parseFloat(m.gst_bonuses)||0) + (parseFloat(m.qst_bonuses)||0)
+  if (tx) formHtml += infoBox(`${fmt(tx)} $ de TPS/TVQ perçue ce mois-ci n'entre pas dans le net :
+    cette somme est encaissée pour le compte de Revenu Québec et se déclare à l'onglet
+    <strong>TPS / TVQ</strong>.`)
 
   document.getElementById('lyft-month-form').innerHTML = formHtml
   document.getElementById('lyft-month-total').textContent = 'Net: ' + fmt(net) + ' $'
@@ -3402,8 +3448,20 @@ function findDistanceKm(text, labels) {
   return enMilles ? Math.round(r.valeur * KM_PAR_MILLE) : r.valeur
 }
 
+// Les champs de SORTIE D'ARGENT — frais de plateforme, taxes payées à la
+// plateforme, taxes qu'elle a déjà versées en votre nom — sont stockés en valeur
+// ABSOLUE, parce que tous les totaux de l'app les RETRANCHENT :
+// `net = base + primes + pourboires − frais` pour Lyft, `uberNetIncome() =
+// revenus − uberFeesTotal()` pour Uber. Les relevés, eux, les présentent en
+// négatif — « (CA$88.42) », « -$301.05 » — puisqu'ils décrivent un décaissement.
+// Reprendre ce signe tel quel faisait ADDITIONNER les frais au revenu : le net
+// importé dépassait le vrai de DEUX FOIS les frais. Le signe du relevé sert
+// uniquement à reconnaître la ligne ; sa valeur absolue est ce qui est stocké.
+const cout = v => (v === null || v === undefined ? v : Math.abs(v))
+
 function parseUberPDF(text) {
   const f = (...lbls) => findAmountNear(text, lbls)
+  const c = (...lbls) => cout(findAmountNear(text, lbls))
   return {
     rides_gross:     f('Gross fares','Tarifs bruts','Total fares','Gross ride fares','Tarif brut'),
     green_surcharge: f('Green transportation levy','Contribution verte','Green surcharge','Contribution au transport vert'),
@@ -3414,16 +3472,16 @@ function parseUberPDF(text) {
     tips_rides:      f('Tips','Pourboires','Driver tips','Tip amount'),
     gst_riders:      f('GST/HST collected from riders','TPS/TVH collectée des passagers','GST collected from riders','TPS collectée des passagers'),
     qst_riders:      f('QST collected from riders','TVQ collectée des passagers','TVQ collectée'),
-    service_fee:     f('Uber service fee','Frais de service Uber','Service fee','Frais de service'),
-    other_fees:      f('Other fees','Autres frais Uber','Autres frais'),
-    fee_discount:    f('Fee discount','Remise sur frais','Discount'),
-    gst_paid_uber:   f('GST/HST paid to Uber','TPS/TVH payée à Uber','GST paid to Uber','TPS payée à Uber'),
-    qst_paid_uber:   f('QST paid to Uber','TVQ payée à Uber','TVQ payée à Uber'),
+    service_fee:     c('Uber service fee','Frais de service Uber','Service fee','Frais de service'),
+    other_fees:      c('Other fees','Autres frais Uber','Autres frais'),
+    fee_discount:    c('Fee discount','Remise sur frais','Discount'),
+    gst_paid_uber:   c('GST/HST paid to Uber','TPS/TVH payée à Uber','GST paid to Uber','TPS payée à Uber'),
+    qst_paid_uber:   c('QST paid to Uber','TVQ payée à Uber','TVQ payée à Uber'),
     eats_gross:      f('Uber Eats gross','Tarif brut Uber Eats','Eats fares','Uber Eats delivery'),
     eats_tips:       f('Eats tips','Pourboires Eats'),
     other_income:    f('Other earnings','Autres revenus','Other income'),
-    gst_remitted:    f('GST/HST remitted by Uber','TPS versée par Uber','GST remitted by Uber'),
-    qst_remitted:    f('QST remitted by Uber','TVQ versée par Uber','TVQ remise par Uber'),
+    gst_remitted:    c('GST/HST remitted by Uber','TPS versée par Uber','GST remitted by Uber'),
+    qst_remitted:    c('QST remitted by Uber','TVQ versée par Uber','TVQ remise par Uber'),
     km_on_trip:      findDistanceKm(text, ['km on trip','On-trip km','Km en course','Miles on trip','On trip','Milles en course']),
     km_online:       findDistanceKm(text, ['km online','Online km','Km en ligne','Total online km','Total km online','Online miles','Milles en ligne'])
   }
@@ -3435,6 +3493,7 @@ function parseUberPDF(text) {
 // un montant gagne.
 function parseLyftPDF(text) {
   const f = (...lbls) => findAmountNear(text, lbls)
+  const c = (...lbls) => cout(findAmountNear(text, lbls))
   return {
     // Les libellés exacts du « Tax Summary » mensuel, bilingue, viennent en
     // premier : c'est le relevé que Lyft remet aux chauffeurs du Québec.
@@ -3451,7 +3510,7 @@ function parseLyftPDF(text) {
     // (−3,79 $) aurait remplacé les frais réels (−69,91 $). Seules les deux
     // formes propres à la ligne de frais sont acceptées : l'anglaise avec son
     // esperluette, la française avec son « les ».
-    fees:    f('Lyft & 3rd Party Fees','Lyft et les frais de tiers',
+    fees:    c('Lyft & 3rd Party Fees','Lyft et les frais de tiers',
                'Frais de la plateforme Lyft','Frais de plateforme','Frais de service Lyft','Frais Lyft',
                'Frais de service','Commission Lyft','Commission',
                'Lyft platform fees','Lyft platform fee','Lyft service fee','Lyft fee','Service fee','Platform fee'),
@@ -3462,7 +3521,30 @@ function parseLyftPDF(text) {
                                    'Milles en ligne','Online miles','Miles driven','Total miles']),
     courses: f('Total Rides','Courses totales','Nombre de courses',
                'Courses complétées','Courses completees','Courses effectuées','Trajets effectués','Courses','Trajets',
-               'Rides completed','Total rides','Trips completed','Number of rides','Rides given','Rides')
+               'Rides completed','Total rides','Trips completed','Number of rides','Rides given','Rides'),
+
+    // Les huit lignes de taxes du sommaire fiscal. Lyft les détaille par
+    // assiette — passagers, primes, frais — là où le relevé d'Uber n'en donne
+    // que deux. Chaque libellé est repris mot pour mot et porte son préfixe
+    // GST/QST ou TPS/TVQ, ce qui le rend déjà non ambigu.
+    gst_riders:   f('GST received from passengers','TPS perçue des passagers','TPS percue des passagers'),
+    qst_riders:   f('QST received from passengers','TVQ perçue des passagers','TVQ percue des passagers'),
+    gst_bonuses:  f('GST received on bonuses','TPS perçue des primes','TPS percue des primes'),
+    qst_bonuses:  f('QST received on bonuses','TVQ perçue des primes','TVQ percue des primes'),
+    // Taxes PAYÉES par le chauffeur : le relevé les note en négatif, l'app les
+    // stocke en positif car elles s'ajoutent aux CTI/RTI réclamés.
+    gst_fees:     c('GST paid on Lyft and 3rd party fees','TPS payée sur Lyft et frais de tiers',
+                    'TPS payee sur Lyft et frais de tiers'),
+    qst_fees:     c('QST paid on Lyft and 3rd party fees','TVQ payée sur Lyft et frais de tiers',
+                    'TVQ payee sur Lyft et frais de tiers'),
+    // Déjà versée au nom du chauffeur : le relevé l'écrit en négatif puisque la
+    // somme sort de ses gains, mais le solde de la déclaration la RETRANCHE
+    // (`solde = taxe nette − déjà versée`). D'où la valeur absolue, sans quoi
+    // le solde à verser doublait.
+    gst_remitted: c('GST remitted by Lyft on your behalf','TPS versée par Lyft en votre nom',
+                    'TPS versee par Lyft en votre nom'),
+    qst_remitted: c('QST remitted by Lyft on your behalf','TVQ versée par Lyft en votre nom',
+                    'TVQ versee par Lyft en votre nom')
   }
 }
 
@@ -3525,17 +3607,13 @@ function showPDFReview() {
     }))
   } else {
     title = `💗 Données Lyft — ${MONTHS_FR[month]}`
-    rows = [
-      { key:'taxable', label:'Base taxable ($)',     value:data.taxable },
-      { key:'bonuses', label:'Primes ($)',            value:data.bonuses },
-      { key:'tips',    label:'Pourboires ($)',        value:data.tips    },
-      { key:'fees',    label:'Frais Lyft ($)',        value:data.fees    },
-      { key:'km',      label:'Kilomètres parcourus', value:data.km,      isUnit:true, pas:'0.001' },
-      { key:'courses', label:'Nombre de courses',    value:data.courses, isUnit:true }
-    ]
+    rows = LYFT_FIELDS.map(f => ({
+      key: f.key, label: f.label, sep: f.sep, value: data[f.key],
+      isUnit: f.key === 'km' || f.key === 'courses', pas: f.pas
+    }))
   }
 
-  const found = rows.filter(r => r.value !== null && r.value !== undefined).length
+  const found = rows.filter(r => !r.sep && r.value !== null && r.value !== undefined).length
   document.getElementById('pdf-sheet-title').textContent = title
 
   const lu = texteUtileLen(dernierTextePDF)
@@ -3545,11 +3623,15 @@ function showPDFReview() {
           ? 'Aucun texte n\'a pu être lu dans ce PDF.'
           : `Le PDF a bien été lu (${lu} caractères, mode ${escH(dernierModePDF)}), mais aucun libellé connu n'y figure.`}
         Saisissez les valeurs ci-dessous, ou ouvrez le texte lu pour voir ce que contient le relevé.</div>`
-    : `<div class="info-box">✅ <strong>${found} / ${rows.length}</strong> valeurs extraites (mode ${escH(dernierModePDF)}).
+    : `<div class="info-box">✅ <strong>${found} / ${rows.filter(r => !r.sep).length}</strong> valeurs extraites (mode ${escH(dernierModePDF)}).
         Les champs en bleu ont été détectés — vérifiez et corrigez si nécessaire avant d'appliquer.</div>`
 
   html += '<div style="margin-bottom:14px">'
   rows.forEach(r => {
+    if (r.sep) {
+      html += `<div style="font-size:11px;color:var(--text2);padding:12px 0 2px;font-weight:600;text-transform:uppercase">${r.label}</div>`
+      return
+    }
     const ok = r.value !== null && r.value !== undefined
     html += `
       <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
@@ -3621,7 +3703,7 @@ function applyPDFExtracted() {
     renderUber()
   } else {
     if (!state.lyft[month]) state.lyft[month] = {}
-    ;['taxable','bonuses','tips','fees','km','courses'].forEach(key => {
+    ;LYFT_FIELDS.filter(f => !f.sep).map(f => f.key).forEach(key => {
       const el = document.getElementById('pdfr-' + key)
       if (el && el.value !== '') state.lyft[month][key] = el.value
     })
@@ -4433,15 +4515,21 @@ async function generatePDF(opts) {
         + 'si la méthode 1 est retenue pour le locatif, remplacer la ligne 9200 par la portion locative ci-dessus.')
 
       sectionTitle('Sommaire TPS / TVQ — activité rideshare', [0,112,192])
-      line('TPS perçue des passagers', uv('gst_riders'))
-      line('TVQ perçue des passagers', uv('qst_riders'))
+      const lt = lyftTaxTotals()
+      line('TPS perçue des passagers — Uber', uv('gst_riders'))
+      line('TVQ perçue des passagers — Uber', uv('qst_riders'))
+      line('TPS perçue des passagers et des primes — Lyft', lt.gst_riders + lt.gst_bonuses)
+      line('TVQ perçue des passagers et des primes — Lyft', lt.qst_riders + lt.qst_bonuses)
       line('TPS payée à Uber (CTI potentiel)', uv('gst_paid_uber'))
       line('TVQ payée à Uber (RTI potentiel)', uv('qst_paid_uber'))
-      line('TPS déjà versée par Uber en votre nom', uv('gst_remitted'))
-      line('TVQ déjà versée par Uber en votre nom', uv('qst_remitted'))
+      line('TPS payée sur les frais Lyft (CTI potentiel)', lt.gst_fees)
+      line('TVQ payée sur les frais Lyft (RTI potentiel)', lt.qst_fees)
+      line('TPS déjà versée en votre nom (Uber + Lyft)', uv('gst_remitted') + lt.gst_remitted)
+      line('TVQ déjà versée en votre nom (Uber + Lyft)', uv('qst_remitted') + lt.qst_remitted)
       note('Les chauffeurs de transport rémunéré doivent être inscrits aux fichiers TPS/TVQ dès le premier dollar. '
-        + 'Uber verse généralement les taxes perçues directement à Revenu Québec — les montants « versés en votre nom » '
-        + 'doivent apparaître dans la déclaration de taxes annuelle.')
+        + 'Uber et Lyft versent généralement les taxes perçues directement à Revenu Québec — les montants « versés '
+        + 'en votre nom » doivent apparaître dans la déclaration de taxes annuelle. Les montants Lyft sont le cumul '
+        + 'des douze relevés mensuels.')
     }
 
     // ════════ ANNEXE A — JOURNAL DE KILOMÉTRAGE ════════

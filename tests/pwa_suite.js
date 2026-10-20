@@ -373,7 +373,7 @@
     eq('T56', 'PDF Lyft FR : les gains de course sont lus', 2480.55, lyftFR.taxable)
     eq('T57', 'PDF Lyft FR : les primes sont lues', 125, lyftFR.bonuses)
     eq('T58', 'PDF Lyft FR : les pourboires sont lus', 318.40, lyftFR.tips)
-    eq('T59', 'PDF Lyft FR : les frais de plateforme sont lus, signe compris', -612.30, lyftFR.fees)
+    eq('T59', 'PDF Lyft FR : les frais de plateforme sont lus en valeur absolue', 612.30, lyftFR.fees)
     eq('T60', 'PDF Lyft FR : les kilomètres sont lus', 1842, lyftFR.km)
     eq('T61', 'PDF Lyft FR : le nombre de courses est lu', 214, lyftFR.courses)
 
@@ -390,15 +390,15 @@
     eq('T65', 'PDF Lyft EN : le nombre de courses est lu', 88, lyftEN.courses)
 
     const vide = parseLyftPDF('Document sans aucun libellé connu ni montant')
-    eq('T66', 'PDF illisible : tous les champs valent null, aucun chiffre inventé',
-       6, Object.values(vide).filter(v => v === null).length)
+    eq('T66', 'PDF illisible : aucun champ ne reçoit de chiffre inventé',
+       0, Object.values(vide).filter(v => v !== null).length)
 
     const UBER = `Uber Relevé fiscal 2026 Tarifs bruts 18 450,22 $
       Frais de service Uber -3 215,66 $ Pourboires 1 402,10 $
       TPS/TVH collectée des passagers 922,51 $ Miles on trip 9 300`
     const uber = parseUberPDF(UBER)
     eq('T67', 'PDF Uber : les tarifs bruts sont lus', 18450.22, uber.rides_gross)
-    eq('T68', 'PDF Uber : les frais de service sont lus, signe compris', -3215.66, uber.service_fee)
+    eq('T68', 'PDF Uber : les frais de service sont lus en valeur absolue', 3215.66, uber.service_fee)
     eq('T69', 'PDF Uber : les milles en course sont convertis en kilomètres',
        Math.round(9300 * 1.609344), uber.km_on_trip)
 
@@ -434,7 +434,8 @@
       Total Rides 31 Total Kilometres 512.473
       GST received from passengers CA$26.38 GST remitted by Lyft on your behalf (CA$26.38)
       GST received on bonuses CA$1.72 GST paid on Lyft and 3rd party fees (CA$4.42)
-      QST received from passengers CA$52.63 QST remitted by Lyft on your behalf (CA$52.63)`
+      QST received from passengers CA$52.63 QST remitted by Lyft on your behalf (CA$52.63)
+      QST received on bonuses CA$3.44 QST paid on Lyft and 3rd party fees (CA$8.82)`
     const tsEN = parseLyftPDF(LYFT_TS_EN)
     eq('T74', 'Sommaire fiscal Lyft EN : « Taxable Base » est lu malgré le préfixe CA$',
        527.60, tsEN.taxable)
@@ -443,8 +444,8 @@
     // Deux pièges en un : le signe est porté par la parenthèse qui englobe
     // « CA$ », et la même suite de mots reparaît dans « GST paid on Lyft and
     // 3rd party fees (CA$4.42) » — c'est bien 88,42 qu'il faut retenir.
-    eq('T77', 'Sommaire fiscal Lyft EN : les frais de tiers sont négatifs, pas la TPS sur ces frais',
-       -88.42, tsEN.fees)
+    eq('T77', 'Sommaire fiscal Lyft EN : les frais retenus sont ceux de la ligne de frais, pas la TPS sur ces frais',
+       88.42, tsEN.fees)
     eq('T78', 'Sommaire fiscal Lyft EN : « Total Kilometres » garde ses trois décimales',
        512.473, tsEN.km)
     eq('T79', 'Sommaire fiscal Lyft EN : « Total Rides » est lu', 31, tsEN.courses)
@@ -456,7 +457,8 @@
       Courses totales 31 Kilométrage total 512.473
       TPS perçue des passagers CA$26.38 TPS versée par Lyft en votre nom (CA$26.38)
       TPS perçue des primes CA$1.72 TPS payée sur Lyft et frais de tiers (CA$4.42)
-      TVQ perçue des passagers CA$52.63 TVQ versée par Lyft en votre nom (CA$52.63)`
+      TVQ perçue des passagers CA$52.63 TVQ versée par Lyft en votre nom (CA$52.63)
+      TVQ perçue des primes CA$3.44 TVQ payée sur Lyft et frais de tiers (CA$8.82)`
     const tsFR = parseLyftPDF(LYFT_TS_FR)
     eq('T80', 'Sommaire fiscal Lyft FR : « Base imposable » est lue', 527.60, tsFR.taxable)
     // « Primes » reparaît dans « TPS perçue des primes CA$1.72 » : à égalité de
@@ -464,8 +466,8 @@
     eq('T81', 'Sommaire fiscal Lyft FR : les primes ne sont pas celles de la ligne de TPS',
        34.48, tsFR.bonuses)
     eq('T82', 'Sommaire fiscal Lyft FR : les pourboires sont lus', 13.40, tsFR.tips)
-    eq('T83', 'Sommaire fiscal Lyft FR : « Lyft et les frais de tiers » est lu, signe compris',
-       -88.42, tsFR.fees)
+    eq('T83', 'Sommaire fiscal Lyft FR : « Lyft et les frais de tiers » est lu',
+       88.42, tsFR.fees)
     eq('T84', 'Sommaire fiscal Lyft FR : « Kilométrage total » est lu', 512.473, tsFR.km)
     eq('T85', 'Sommaire fiscal Lyft FR : « Courses totales » est lu', 31, tsFR.courses)
 
@@ -473,10 +475,47 @@
     // qu'une page seule, sans jamais additionner les deux langues.
     const tsBI = parseLyftPDF(LYFT_TS_EN + '\n' + LYFT_TS_FR)
     eq('T86', 'Sommaire fiscal Lyft bilingue : les six champs valent ceux d\'une seule page',
-       '527.6|34.48|13.4|-88.42|512.473|31',
+       '527.6|34.48|13.4|88.42|512.473|31',
        [tsBI.taxable, tsBI.bonuses, tsBI.tips, tsBI.fees, tsBI.km, tsBI.courses].join('|'))
     eq('T87', 'premierMontant() lit un montant préfixé du code de devise',
        1234.56, premierMontant(' CA$1,234.56 '))
+
+    // ── Les huit lignes de TPS/TVQ du relevé Lyft ────────────────────────────
+    // Elles ne sont pas du revenu : la taxe perçue des passagers est encaissée
+    // pour le compte de Revenu Québec. Tant qu'elles n'étaient pas lues, la
+    // déclaration FPZ-500 comptait les fournitures taxables de Lyft sans la
+    // taxe perçue dessus.
+    eq('T88', 'Relevé Lyft : TPS perçue des passagers (EN et FR)',
+       '26.38|26.38', [tsEN.gst_riders, tsFR.gst_riders].join('|'))
+    eq('T89', 'Relevé Lyft : TVQ perçue des passagers (EN et FR)',
+       '52.63|52.63', [tsEN.qst_riders, tsFR.qst_riders].join('|'))
+    eq('T90', 'Relevé Lyft : TPS perçue sur les primes, distincte de celle des passagers',
+       '1.72|1.72', [tsEN.gst_bonuses, tsFR.gst_bonuses].join('|'))
+    eq('T91', 'Relevé Lyft : TVQ perçue sur les primes',
+       '3.44|3.44', [tsEN.qst_bonuses, tsFR.qst_bonuses].join('|'))
+    // Taxe PAYÉE par le chauffeur : le relevé l'écrit « (CA$4.42) », l'app la
+    // stocke en positif car elle s'ajoute aux CTI/RTI réclamés.
+    eq('T92', 'Relevé Lyft : TPS payée sur les frais est un CTI, stocké en positif',
+       '4.42|4.42', [tsEN.gst_fees, tsFR.gst_fees].join('|'))
+    eq('T93', 'Relevé Lyft : TVQ payée sur les frais est un RTI, stocké en positif',
+       '8.82|8.82', [tsEN.qst_fees, tsFR.qst_fees].join('|'))
+    eq('T94', 'Relevé Lyft : TPS déjà versée par Lyft en votre nom',
+       '26.38|26.38', [tsEN.gst_remitted, tsFR.gst_remitted].join('|'))
+    eq('T95', 'Relevé Lyft : TVQ déjà versée par Lyft en votre nom',
+       '52.63|52.63', [tsEN.qst_remitted, tsFR.qst_remitted].join('|'))
+
+    // ── La convention de signe des champs de coût ────────────────────────────
+    // Tous les totaux de l'app RETRANCHENT les frais. Les relevés les
+    // présentent en négatif. Reprendre ce signe tel quel faisait additionner
+    // les frais au revenu : le net importé dépassait le vrai de deux fois les
+    // frais — ici 487,06 $ annoncé 663,90 $.
+    const netImporte = num(tsEN.taxable) + num(tsEN.bonuses) + num(tsEN.tips) - num(tsEN.fees)
+    eq('T96', 'Le net calculé sur des valeurs importées égale celui d\'une saisie manuelle',
+       487.06, netImporte, 0.005)
+    eq('T97', 'Aucun champ de coût n\'est importé en négatif',
+       0, [tsEN.fees, tsEN.gst_fees, tsEN.qst_fees, tsEN.gst_remitted, tsEN.qst_remitted,
+           uber.service_fee, uber.other_fees, uber.gst_paid_uber, uber.qst_paid_uber]
+            .filter(v => v !== null && v < 0).length)
 
     // ══ 13. Robustesse : état vide ════════════════════════════════════════════
     const stateSauve = state

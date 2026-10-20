@@ -104,7 +104,7 @@ reproduire au cent près ; le reste du fichier est du rendu.
 | `impot` | `impot.js` (447 l.) | `impot` | `assiettes()`, `calculImpot()`, `tauxMarginalEstime()`, `calculAcomptes()`, `dpaReclameeParUsage()`, `vehiculeProrataAffaires()`, `lyftNetIncome()` | `Services/TaxService.swift` + vue Impôt | 1 |
 | `dpa` | `dpa.js` (512 l.) | `biens` | `clePool()`, `calculDPA(year)`, `admissibleAII()`, `fnaccReportee()`, `reclamerMaxDPA()`, `renoncerDPA()` | `Services/CCAService.swift` | 1 |
 | `baux` | `baux.js` (468 l.) | `baux` | `moisCouvertsParBail()`, `totalSaisiUnite()`, `ecartsLoyers()`, `bauxRL31()`, `reporterBaux()`, `decalerAnnee()` | `Models/Lease.swift` + vue Baux | 2 |
-| `taxes` | `tps-tvq.js` (250 l.) | `taxes` | `contenuTaxes()`, `calculTaxes()`, `lyftTaxableBase()` | `Services/SalesTaxService.swift` | 2 |
+| `taxes` | `tps-tvq.js` (276 l.) | `taxes` | `contenuTaxes()`, `calculTaxes()`, `lyftTaxableBase()`, `lyftTaxTotals()` | `Services/SalesTaxService.swift` | 2 |
 | `vehicule-methodes` | `vehicule-methodes.js` (130 l.) | *(lecture seule)* | `vehDepensesTotal()`, `comparerMethodesVehicule()` | vue Véhicule | 2 |
 | `kilometrage` | `kilometrage.js` (265 l.) | `kmJournal` | `coherenceKm()`, `distanceTrace()`, `haversineKm()`, `joursDepuisDernierTrajet()` | `DistanceService` (existe) + CoreLocation | 2 |
 | `ventilation` | `ventilation.js` (287 l.) | `ventilations` | `ciblesVentilation()`, `totalPctVentilation()` | `Services/SplitService.swift` | 2 |
@@ -169,7 +169,13 @@ Chacun a déjà produit un défaut réel dans ce projet ou en produirait un :
 6. **Les pourcentages.** Certains champs sont des pourcentages (`commissionPct`,
    `partTerrainPct`, `pctPropriete`), d'autres des fractions (`tauxInclusion: 0.5`).
    Respectez l'unité de chaque champ du `state` ; ne normalisez pas.
-7. **La DPA ne réduit pas le PBR.** C'est une règle fiscale, pas un détail
+7. **Le signe des champs de coût.** Les frais de plateforme, les taxes payées à la
+   plateforme et celles qu'elle a déjà versées au nom du chauffeur sont stockés en
+   **valeur absolue** : tous les totaux les retranchent. Les relevés les présentent en
+   négatif ; `cout()` n'en garde que la magnitude. Un portage qui lirait le relevé
+   « fidèlement » ferait additionner les frais au revenu — c'est exactement le défaut
+   corrigé en 2.3.0, verrouillé par T96 et T97.
+8. **La DPA ne réduit pas le PBR.** C'est une règle fiscale, pas un détail
    d'implémentation : `calculVente()` en dépend, et un portage « logique » la casserait.
    De même, la récupération de DPA est imposée à **100 %** tandis que le gain en capital
    l'est à **50 %**.

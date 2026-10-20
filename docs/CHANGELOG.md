@@ -18,6 +18,55 @@ La version est écrite aux six endroits par `scripts/version.sh`, seul outil aut
 
 ---
 
+## 2.3.0 — 20 octobre 2026
+
+### Ajouté
+- **Les huit lignes de TPS/TVQ du relevé Lyft.** La fiche mensuelle Lyft n'avait que six
+  champs ; son sommaire fiscal en détaille huit de plus, que l'app n'avait nulle part où
+  ranger : TPS et TVQ perçues des passagers, TPS et TVQ perçues **sur les primes**, TPS
+  et TVQ payées sur les frais Lyft, TPS et TVQ déjà versées par Lyft en votre nom. Elles
+  sont lues automatiquement à l'import du PDF et saisissables à la main.
+- **La déclaration FPZ-500 compte enfin la part de Lyft.** Elle ne voyait que celle
+  d'Uber, alors que la ligne 101 comptait déjà les fournitures taxables de Lyft : la taxe
+  nette sortait **trop basse**, et les CTI/RTI sur les frais Lyft — que personne ne
+  réclame à la place du chauffeur — étaient perdus. L'onglet TPS/TVQ, le CSV du FPZ-500,
+  le dossier comptable et le rapport PDF portent maintenant un **détail par plateforme**,
+  pour qu'un écart avec le relevé papier se localise.
+- La fiche Lyft rappelle, lorsqu'une taxe est saisie, que la taxe perçue **n'entre pas
+  dans le net** : elle est encaissée pour le compte de Revenu Québec.
+
+### Corrigé
+- **Les frais importés d'un relevé PDF étaient ajoutés au revenu au lieu d'en être
+  retranchés.** Défaut découvert en implémentant ce qui précède, et rendu **actif** par
+  la 2.2.2 : tant que les frais Lyft n'étaient pas détectés, il ne se voyait pas. Les
+  analyseurs rendaient le signe du relevé (négatif, parce qu'il décrit un décaissement)
+  alors que tous les totaux de l'app retranchent les frais. Sur un mois à 88,42 $ de
+  frais, le net annoncé était 663,90 $ au lieu de 487,06 $ — l'écart vaut deux fois les
+  frais. Touchait aussi `service_fee`, `other_fees`, `fee_discount`, `gst_paid_uber` et
+  `qst_paid_uber` côté Uber, ainsi que le « déjà versé » des deux plateformes, dont le
+  solde de taxes doublait. La règle est désormais isolée dans `cout()` : le signe du
+  relevé sert à reconnaître la ligne, seule la magnitude est stockée.
+- **Trois assertions attendaient le signe fautif** (T59, T68, T86) : elles documentaient
+  le défaut au lieu de le détecter. Corrigées.
+- Le modèle de données de Lyft était décrit à tort dans ARCHITECTURE.md avec une clé
+  `"2026-10"` et des noms de champs français ; les mois sont indexés de 0 à 11 et les
+  champs portent des noms anglais.
+
+### Interne
+- `LYFT_FIELDS` déclare la fiche Lyft une seule fois, à la façon d'`UBER_FIELDS` : le
+  formulaire mensuel, la feuille de révision du PDF et l'application des valeurs lues en
+  découlent. Les six champs étaient jusqu'ici répétés aux trois endroits ; les huit
+  nouveaux en auraient fait un quatrième.
+- `lyftTaxTotals()` cumule les douze relevés mensuels : le sommaire fiscal de Lyft est
+  mensuel, celui d'Uber annuel, et la déclaration de taxes est annuelle.
+- `tpsVerseeUber` / `tvqVerseeUber` deviennent `tpsVerseePlateforme` /
+  `tvqVerseePlateforme` — le montant n'est plus celui d'une seule plateforme.
+
+### Tests
+- **106/106** pour le socle (T88 à T97) et **215/215** pour les modules (M52a à M52f).
+
+---
+
 ## 2.2.2 — 20 octobre 2026
 
 ### Corrigé
