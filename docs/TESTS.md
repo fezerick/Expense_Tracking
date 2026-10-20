@@ -5,14 +5,14 @@ Campagne du 18 octobre 2026, sur les deux applications : PWA (`pwa_2026/`) et iO
 l'interface, et vérification à l'exécution des sorties remises au comptable (PDF, CSV,
 sauvegardes).
 
-**État au 20 octobre 2026, version 2.3.0** — deux suites et quatre vérifications de
+**État au 20 octobre 2026, version 2.4.0** — deux suites et quatre vérifications de
 fichiers, **toutes vertes**, exécutables **sans navigateur** par `npm test` :
 
 | Suite | Portée | Résultat |
 |---|---|---|
 | `tests/run-headless.js` | concordance de la version aux six emplacements | **V1–V4** |
-| `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **106 / 106** |
-| `tests/pwa_modules_suite.js` | les 18 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **215 / 215** |
+| `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **111 / 111** |
+| `tests/pwa_modules_suite.js` | les 18 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **218 / 218** |
 
 Dix défauts ont été corrigés et revérifiés depuis la campagne initiale : BUG-1, BUG-7
 (PWA + iOS), BUG-9, BUG-10, BUG-3, puis BUG-2 et les quatre défauts de la couche
@@ -251,8 +251,26 @@ n'arrive en négatif.
 Trois assertions antérieures — T59, T68 et T86 — **attendaient le signe fautif** : elles
 documentaient le défaut au lieu de le détecter. Elles ont été corrigées en même temps.
 
+### Les péages encaissés — T98 à T102 et M52g à M52i (version 2.4.0)
+
+Le relevé Lyft porte une ligne « Tolls » / « Péages », le plus souvent à zéro. C'est un
+**encaissement** : Lyft refacture le péage au passager et le reverse au chauffeur. Deux
+pièges, chacun verrouillé :
+
+| Test | Ce qu'il verrouille |
+|---|---|
+| T98–T99 | `Tolls CA$0.00` est lu comme **zéro**, non comme « champ absent » — un zéro lu est une information |
+| T100 | un péage non nul est stocké en positif : contrairement aux frais, il n'est pas un coût, donc il ne passe **pas** par `cout()` |
+| T101–T102 | le péage s'ajoute au net du mois (499,56 au lieu de 487,06), et son absence ne change rien |
+| M52g | `lyftMonthNet()` compte les péages |
+| M52h | un péage n'entre **pas** dans les fournitures taxables du FPZ-500 — sans quoi la même fourniture serait comptée deux fois, Lyft calculant déjà la taxe perçue sur sa ligne « Base taxable » |
+| M52i | il entre **en entier** dans le revenu net Lyft |
+
+M52h et M52i disent ensemble la seule chose subtile du champ : revenu **oui**, fourniture
+taxable **non**.
+
 ```
-{"total":106,"pass":106,"fail":0,"echecs":[]}
+{"total":111,"pass":111,"fail":0,"echecs":[]}
 ```
 
 ### Le compteur de colonnes était faux — corrigé le 20 octobre 2026
@@ -287,7 +305,7 @@ sens.
 
 ## 2b. Suite automatisée des modules — `tests/pwa_modules_suite.js`
 
-**215 assertions, 215 réussies.** Elle couvre la couche `pwa_2026/js/` (§ 2.8 de
+**218 assertions, 218 réussies.** Elle couvre la couche `pwa_2026/js/` (§ 2.8 de
 [ARCHITECTURE.md](ARCHITECTURE.md)), que la première suite ignore. Même principe :
 exécution *dans* la page, fixture déterministe, restauration de l'état réel à la fin.
 
@@ -386,7 +404,7 @@ Deux pièges rencontrés :
    et supprimées dans le `finally` même quand la suite s'interrompt.
 
 Vérifié de bout en bout avec un état réel marqué d'une sentinelle : exécution normale
-→ 215/215 et sentinelle intacte ; exécution avec une exception forcée → ligne `FATAL`,
+→ 218/218 et sentinelle intacte ; exécution avec une exception forcée → ligne `FATAL`,
 sentinelle intacte, aucune clé `depenses_2098 / 2099 / 2028` résiduelle.
 
 > **Note sur la synchronisation.** `save()` ne pousse vers Firestore qu'après 5 secondes

@@ -101,7 +101,7 @@ reproduire au cent près ; le reste du fichier est du rendu.
 
 | Module (`id`) | Fichier | Clé d'état | Calcul à porter | Destination iOS | Vague |
 |---|---|---|---|---|---|
-| `impot` | `impot.js` (447 l.) | `impot` | `assiettes()`, `calculImpot()`, `tauxMarginalEstime()`, `calculAcomptes()`, `dpaReclameeParUsage()`, `vehiculeProrataAffaires()`, `lyftNetIncome()` | `Services/TaxService.swift` + vue Impôt | 1 |
+| `impot` | `impot.js` (447 l.) | `impot` | `assiettes()`, `calculImpot()`, `tauxMarginalEstime()`, `calculAcomptes()`, `dpaReclameeParUsage()`, `vehiculeProrataAffaires()`, `lyftNetIncome()` (délègue à `lyftNetTotal()`) | `Services/TaxService.swift` + vue Impôt | 1 |
 | `dpa` | `dpa.js` (512 l.) | `biens` | `clePool()`, `calculDPA(year)`, `admissibleAII()`, `fnaccReportee()`, `reclamerMaxDPA()`, `renoncerDPA()` | `Services/CCAService.swift` | 1 |
 | `baux` | `baux.js` (468 l.) | `baux` | `moisCouvertsParBail()`, `totalSaisiUnite()`, `ecartsLoyers()`, `bauxRL31()`, `reporterBaux()`, `decalerAnnee()` | `Models/Lease.swift` + vue Baux | 2 |
 | `taxes` | `tps-tvq.js` (276 l.) | `taxes` | `contenuTaxes()`, `calculTaxes()`, `lyftTaxableBase()`, `lyftTaxTotals()` | `Services/SalesTaxService.swift` | 2 |
@@ -174,7 +174,10 @@ Chacun a déjà produit un défaut réel dans ce projet ou en produirait un :
    **valeur absolue** : tous les totaux les retranchent. Les relevés les présentent en
    négatif ; `cout()` n'en garde que la magnitude. Un portage qui lirait le relevé
    « fidèlement » ferait additionner les frais au revenu — c'est exactement le défaut
-   corrigé en 2.3.0, verrouillé par T96 et T97.
+   corrigé en 2.3.0, verrouillé par T96 et T97. La règle ne vaut **que** pour les
+   sorties d'argent : les péages encaissés figurent eux aussi en positif sur le relevé
+   et sont un revenu — ils ne passent pas par `cout()`. Le critère n'est pas le signe
+   imprimé, c'est le sens du flux.
 8. **La DPA ne réduit pas le PBR.** C'est une règle fiscale, pas un détail
    d'implémentation : `calculVente()` en dépend, et un portage « logique » la casserait.
    De même, la récupération de DPA est imposée à **100 %** tandis que le gain en capital

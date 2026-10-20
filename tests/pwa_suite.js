@@ -517,6 +517,23 @@
            uber.service_fee, uber.other_fees, uber.gst_paid_uber, uber.qst_paid_uber]
             .filter(v => v !== null && v < 0).length)
 
+    // ── Les péages encaissés ─────────────────────────────────────────────────
+    // Le relevé porte une ligne « Tolls », presque toujours à zéro : Lyft
+    // refacture le péage au passager puis le reverse au chauffeur. C'est donc
+    // un REVENU, et il doit se distinguer d'un champ absent — zéro lu vaut
+    // zéro, pas « inconnu ».
+    eq('T98', 'Relevé Lyft EN : « Tolls CA$0.00 » est lu comme zéro, non comme absent',
+       0, tsEN.tolls)
+    eq('T99', 'Relevé Lyft FR : « Péages » est lu', 0, tsFR.tolls)
+    const tsPeages = parseLyftPDF(LYFT_TS_EN.replace('Tolls CA$0.00', 'Tolls CA$12.50'))
+    eq('T100', 'Relevé Lyft : un péage non nul est lu en positif — c\'est un encaissement',
+       12.50, tsPeages.tolls)
+    // 527,60 + 34,48 + 13,40 + 12,50 − 88,42
+    eq('T101', 'Le péage encaissé s\'ajoute au net du mois',
+       499.56, lyftMonthNet(tsPeages), 0.005)
+    eq('T102', 'Sans péage lu, le net est inchangé',
+       487.06, lyftMonthNet(tsEN), 0.005)
+
     // ══ 13. Robustesse : état vide ════════════════════════════════════════════
     const stateSauve = state
     state = defaultState()

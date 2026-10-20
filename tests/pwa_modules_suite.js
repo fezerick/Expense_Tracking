@@ -374,6 +374,21 @@
     eq('M52f', 'Le détail par plateforme liste Uber et Lyft',
        'Uber|Lyft', tx.parPlateforme.map(p => p.nom).join('|'))
 
+    // ── Les péages encaissés : revenu, mais pas une fourniture taxable de plus
+    // Lyft calcule lui-même la TPS/TVQ perçue sur sa ligne « Base taxable » ;
+    // ajouter le péage aux fournitures de la ligne 101 compterait la même
+    // fourniture deux fois et gonflerait la taxe nette.
+    eq('M52g', 'Le net d\'un mois Lyft comprend les péages encaissés',
+       95, lyftMonthNet({ taxable:'100', bonuses:'10', tips:'5', tolls:'8', fees:'28' }), 0.005)
+    const baseAvant = lyftTaxableBase(), netAvant = lyftNetIncome()
+    state.lyft[11] = { tolls: '40' }
+    const baseApres = lyftTaxableBase(), netApres = lyftNetIncome()
+    delete state.lyft[11]
+    eq('M52h', 'Un péage encaissé n\'entre pas dans les fournitures taxables du FPZ-500',
+       baseAvant, baseApres, 0.005)
+    eq('M52i', 'Un péage encaissé entre en entier dans le revenu net Lyft',
+       40, netApres - netAvant, 0.005)
+
     // ══ F. IMPÔT ET ACOMPTES (impot.js) ═══════════════════════════════════════
     const a = assiettes()
     eq('M53', 'Net locatif = revenus − dépenses − DPA locative réclamée',

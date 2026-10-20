@@ -1,6 +1,6 @@
 {
   "name": "mon-plex",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "private": true,
   "description": "Mon Plex — suites de tests de la PWA. L'application elle-même n'a AUCUNE dépendance et aucune étape de compilation : jsdom ne sert qu'à exécuter les tests hors navigateur.",
   "scripts": {

@@ -54,8 +54,7 @@ function totauxAnnee(year) {
     + UBER_GROUPS[2][1].reduce((s, [k]) => s + uv(k), 0)
   const uberFrais = uv('service_fee') + uv('other_fees') - uv('fee_discount')
   const uberNet = uberRev - uberFrais
-  const lyftNet = Array.from({ length: 12 }, (_, mi) => (st.lyft || [])[mi] || {})
-    .reduce((s, m) => s + num(m.taxable) + num(m.bonuses) + num(m.tips) - num(m.fees), 0)
+  const lyftNet = lyftNetTotal(st)
   const vehDep = VEH_CATS.reduce((s, c) => s + num((st.vehicule || {}).depenses ? st.vehicule.depenses[c] : 0), 0)
   const kmTotal = num(st.settings && st.settings.kmTotalAnnuel)
   const kmUber = uv('km_online')

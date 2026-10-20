@@ -18,6 +18,43 @@ La version est écrite aux six endroits par `scripts/version.sh`, seul outil aut
 
 ---
 
+## 2.4.0 — 20 octobre 2026
+
+### Ajouté
+- **Les péages du relevé Lyft.** Le sommaire fiscal porte une ligne « Tolls » /
+  « Péages » que l'application n'avait nulle part où ranger : Lyft refacture le péage au
+  passager puis le reverse au chauffeur, qui l'a payé de sa poche. Le montant reçu est
+  un **revenu** — il entre dans le net du mois, dans le rapport PDF, dans le CSV du
+  dossier, dans l'impôt estimé et dans le tableau pluriannuel — tandis que le péage payé
+  se déduit du côté véhicule : les deux s'annulent, mais seulement si le reçu est
+  déclaré. Lu automatiquement à l'import du PDF, dans les deux langues du relevé.
+- Un péage n'entre **pas** dans les fournitures taxables de la ligne 101 du FPZ-500.
+  Lyft calcule lui-même la TPS/TVQ perçue sur sa ligne « Base taxable » ; l'y ajouter
+  compterait la même fourniture deux fois et gonflerait la taxe nette. La fiche le
+  rappelle lorsqu'un péage est saisi.
+- La colonne « Péages » du détail mensuel, dans le rapport PDF, n'apparaît que si un mois
+  en porte : la plupart des relevés affichent « Tolls CA$0.00 », et une colonne de zéros
+  volerait de la largeur aux six autres.
+
+### Interne
+- **Une seule définition du net mensuel de Lyft** : `lyftMonthNet()`, et son cumul
+  annuel `lyftNetTotal(st)`. La formule était recopiée à **sept** endroits — le
+  formulaire, son total de pied, le sommaire général, le CSV du dossier, le rapport PDF,
+  `lyftNetIncome()` de l'impôt estimé et le tableau pluriannuel. Ajouter les péages
+  aurait demandé sept modifications concordantes, et un oubli se serait vu comme un
+  écart entre deux écrans de la même donnée. L'argument `st` sert au tableau
+  pluriannuel, qui calcule sur une année archivée.
+- La convention de signe de la 2.3.0 est précisée : elle ne vaut que pour les sorties
+  d'argent. Le péage est positif sur le relevé **et** dans l'application sans passer par
+  `cout()` — le critère n'est pas le signe imprimé, c'est le sens du flux.
+
+### Tests
+- **111/111** pour le socle (T98 à T102) et **218/218** pour les modules (M52g à M52i).
+  M52h et M52i disent ensemble la seule chose subtile du champ : revenu oui, fourniture
+  taxable non.
+
+---
+
 ## 2.3.0 — 20 octobre 2026
 
 ### Ajouté

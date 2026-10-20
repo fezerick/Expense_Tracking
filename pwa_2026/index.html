@@ -963,24 +963,24 @@ html.theme-dark .onb-section{background:#1a222d}
      moment du chargement. L'ordre est significatif : données fiscales, socle,
      puis les modules. Le paramètre ?v= force le service worker à reprendre le
      fichier après un déploiement. -->
-<script src="js/fiscal-data.js?v=2.3.0"></script>
-<script src="js/app-modules.js?v=2.3.0"></script>
-<script src="js/baux.js?v=2.3.0"></script>
-<script src="js/dpa.js?v=2.3.0"></script>
-<script src="js/impot.js?v=2.3.0"></script>
-<script src="js/tps-tvq.js?v=2.3.0"></script>
-<script src="js/vehicule-methodes.js?v=2.3.0"></script>
-<script src="js/coproprietaires.js?v=2.3.0"></script>
-<script src="js/ventilation.js?v=2.3.0"></script>
-<script src="js/recus.js?v=2.3.0"></script>
-<script src="js/kilometrage.js?v=2.3.0"></script>
-<script src="js/import-bancaire.js?v=2.3.0"></script>
-<script src="js/cloture.js?v=2.3.0"></script>
-<script src="js/dossier.js?v=2.3.0"></script>
-<script src="js/tableau-bord.js?v=2.3.0"></script>
-<script src="js/simulateur.js?v=2.3.0"></script>
-<script src="js/vente.js?v=2.3.0"></script>
-<script src="js/recommandations.js?v=2.3.0"></script>
+<script src="js/fiscal-data.js?v=2.4.0"></script>
+<script src="js/app-modules.js?v=2.4.0"></script>
+<script src="js/baux.js?v=2.4.0"></script>
+<script src="js/dpa.js?v=2.4.0"></script>
+<script src="js/impot.js?v=2.4.0"></script>
+<script src="js/tps-tvq.js?v=2.4.0"></script>
+<script src="js/vehicule-methodes.js?v=2.4.0"></script>
+<script src="js/coproprietaires.js?v=2.4.0"></script>
+<script src="js/ventilation.js?v=2.4.0"></script>
+<script src="js/recus.js?v=2.4.0"></script>
+<script src="js/kilometrage.js?v=2.4.0"></script>
+<script src="js/import-bancaire.js?v=2.4.0"></script>
+<script src="js/cloture.js?v=2.4.0"></script>
+<script src="js/dossier.js?v=2.4.0"></script>
+<script src="js/tableau-bord.js?v=2.4.0"></script>
+<script src="js/simulateur.js?v=2.4.0"></script>
+<script src="js/vente.js?v=2.4.0"></script>
+<script src="js/recommandations.js?v=2.4.0"></script>
 
 <script>
 // ════════════════════════════════════════════════════════════
@@ -999,7 +999,7 @@ html.theme-dark .onb-section{background:#1a222d}
 //   MAJEUR   — changement du format des donnees qui demande une migration
 //   MINEUR   — nouvelle fonctionnalite
 //   CORRECTIF— correction sans nouvelle fonctionnalite
-const APP_VERSION = '2.3.0'
+const APP_VERSION = '2.4.0'
 const APP_BUILD   = '2026-10-20'
 const APP_NOM     = 'Mon Plex'
 
@@ -1116,6 +1116,13 @@ const LYFT_FIELDS = [
   { key:'taxable', label:'Base taxable ($)' },
   { key:'bonuses', label:'Primes ($)' },
   { key:'tips',    label:'Pourboires ($)' },
+  // Les péages encaissés SONT du revenu : Lyft les refacture au passager puis
+  // les reverse au chauffeur, qui a payé le péage de sa poche. Le péage payé se
+  // déduit du côté véhicule, donc les deux s'annulent — mais seulement si le
+  // montant reçu est déclaré. Ils n'entrent PAS dans la base taxable du
+  // FPZ-500 : Lyft calcule lui-même la TPS/TVQ perçue sur sa ligne « Base
+  // taxable », et l'y ajouter compterait la même fourniture deux fois.
+  { key:'tolls',   label:'Péages encaissés ($)' },
   { key:'fees',    label:'Frais Lyft ($)' },
   { key:'km',      label:'Kilomètres parcourus', pas:'0.001' },
   { key:'courses', label:'Nombre de courses',    pas:'1' },
@@ -1144,6 +1151,23 @@ function lyftTaxTotals() {
     const m = (state.lyft || {})[mi] || {}
     LYFT_TAX_KEYS.forEach(k => t[k] += parseFloat(m[k]) || 0)
   }
+  return t
+}
+
+// Le net d'un mois Lyft, défini UNE fois. La formule était recopiée à sept
+// endroits (le formulaire, son total, le sommaire général, le CSV du dossier,
+// le rapport PDF, l'impôt estimé, le tableau pluriannuel) : ajouter les péages
+// aurait demandé sept modifications concordantes, et un oubli se serait vu
+// comme un écart entre deux écrans de la même donnée. `st` permet au tableau
+// pluriannuel de calculer sur une année archivée plutôt que sur l'année active.
+function lyftMonthNet(m) {
+  const n = k => parseFloat((m || {})[k]) || 0
+  return n('taxable') + n('bonuses') + n('tips') + n('tolls') - n('fees')
+}
+function lyftNetTotal(st) {
+  const src = ((st || state) || {}).lyft || {}
+  let t = 0
+  for (let mi = 0; mi < 12; mi++) t += lyftMonthNet(src[mi])
   return t
 }
 
@@ -2659,8 +2683,7 @@ function renderLyft() {
       </div>`
   })
 
-  const net = (parseFloat(m.taxable)||0) + (parseFloat(m.bonuses)||0) +
-              (parseFloat(m.tips)||0) - (parseFloat(m.fees)||0)
+  const net = lyftMonthNet(m)
   formHtml += `
     <div class="sum-card ${net >= 0 ? 'green' : 'red'}" style="margin-top:8px">
       <div class="s-lbl">Net reçu ce mois</div>
@@ -2672,6 +2695,11 @@ function renderLyft() {
   if (tx) formHtml += infoBox(`${fmt(tx)} $ de TPS/TVQ perçue ce mois-ci n'entre pas dans le net :
     cette somme est encaissée pour le compte de Revenu Québec et se déclare à l'onglet
     <strong>TPS / TVQ</strong>.`)
+
+  const pe = parseFloat(m.tolls) || 0
+  if (pe) formHtml += infoBox(`Les ${fmt(pe)} $ de péages encaissés comptent dans le net :
+    c'est un revenu. Le péage que vous avez payé se déduit à l'onglet
+    <strong>Véhicule</strong>, et les deux s'annulent.`)
 
   document.getElementById('lyft-month-form').innerHTML = formHtml
   document.getElementById('lyft-month-total').textContent = 'Net: ' + fmt(net) + ' $'
@@ -2685,24 +2713,23 @@ function saveLyftField(mi, key, val) {
   autoSave()
   renderLyftAnnual()
   const m = state.lyft[mi] || {}
-  const net = (parseFloat(m.taxable)||0)+(parseFloat(m.bonuses)||0)+
-              (parseFloat(m.tips)||0)-(parseFloat(m.fees)||0)
-  document.getElementById('lyft-month-total').textContent = 'Net: ' + fmt(net) + ' $'
+  document.getElementById('lyft-month-total').textContent = 'Net: ' + fmt(lyftMonthNet(m)) + ' $'
   if (activeRideTab === 'veh') renderVehicle()
 }
 
 function renderLyftAnnual() {
-  let totTaxable=0, totBonuses=0, totTips=0, totFees=0, totKm=0, totCourses=0
+  let totTaxable=0, totBonuses=0, totTips=0, totTolls=0, totFees=0, totKm=0, totCourses=0
   for (let mi=0; mi<12; mi++) {
     const m = state.lyft[mi] || {}
     totTaxable += parseFloat(m.taxable)||0
     totBonuses += parseFloat(m.bonuses)||0
     totTips    += parseFloat(m.tips)||0
+    totTolls   += parseFloat(m.tolls)||0
     totFees    += parseFloat(m.fees)||0
     totKm      += parseFloat(m.km)||0
     totCourses += parseFloat(m.courses)||0
   }
-  const totNet = totTaxable + totBonuses + totTips - totFees
+  const totNet = lyftNetTotal()
   document.getElementById('lyft-annual-summary').innerHTML = `
     <div class="summary-row">
       <div class="sum-card green"><div class="s-lbl">Net total annuel</div><div class="s-val sm">${fmt(totNet)} $</div></div>
@@ -2713,6 +2740,7 @@ function renderLyftAnnual() {
     <div class="summary-row">
       <div class="sum-card gray"><div class="s-lbl">Total km Lyft</div><div class="s-val sm">${fmt(totKm, 1)} km</div></div>
       <div class="sum-card gray"><div class="s-lbl">Courses totales</div><div class="s-val sm">${fmt(totCourses, 0)}</div></div>
+      ${totTolls ? `<div class="sum-card gray"><div class="s-lbl">Péages encaissés</div><div class="s-val sm">${fmt(totTolls)} $</div></div>` : ''}
     </div>`
 }
 
@@ -2903,8 +2931,7 @@ function renderSummary() {
   const lyftDed  = totalVehDep * (kmTotal > 0 ? kmLyft/kmTotal : 0)
 
   const uberNet  = uberNetIncome()
-  const lyftNet  = Array.from({length:12},(_,mi)=>state.lyft[mi]||{})
-    .reduce((s,m) => s+(parseFloat(m.taxable)||0)+(parseFloat(m.bonuses)||0)+(parseFloat(m.tips)||0)-(parseFloat(m.fees)||0), 0)
+  const lyftNet  = lyftNetTotal()
 
   // Sections limitées aux modules choisis dans l'assistant.
   const mProps = setup.modules.props
@@ -3041,7 +3068,7 @@ function exportCSV(opts) {
   // Lyft : saisi par mois.
   for (let mi=0; mi<12; mi++) {
     const m = state.lyft[mi] || {}
-    const net = (parseFloat(m.taxable)||0)+(parseFloat(m.bonuses)||0)+(parseFloat(m.tips)||0)-(parseFloat(m.fees)||0)
+    const net = lyftMonthNet(m)
     if (!net) continue
     ligneMois('Lyft - Revenus', MONTHS_FR[mi], mi, net)
   }
@@ -3505,6 +3532,10 @@ function parseLyftPDF(text) {
                'Bonuses','Incentives','Streak bonus','Challenge bonus','Bonus pay','Promotions'),
     tips:    f('Pourboires','Total des pourboires','Pourboire',
                'Tips','Total tips','Passenger tips','Tip amount'),
+    // Les péages refacturés au passager, reversés au chauffeur. Le relevé les
+    // écrit en positif (« Tolls CA$0.00 » le plus souvent) : c'est un
+    // encaissement, pas un coût, donc pas de `cout()` ici.
+    tolls:   f('Tolls','Péages','Peages'),
     // « Lyft and 3rd party fees » est VOLONTAIREMENT absent : la même suite de
     // mots figure dans « GST paid on Lyft and 3rd party fees », dont le montant
     // (−3,79 $) aurait remplacé les frais réels (−69,91 $). Seules les deux
@@ -4343,7 +4374,7 @@ async function generatePDF(opts) {
     const uberFees = uberFeesTotal()
     const uberNet = uberRevenue - uberFees
     const lyftMonths = Object.keys(state.lyft || {}).map(k => ({ mi: parseInt(k), ...state.lyft[k] }))
-      .filter(m => ['taxable','bonuses','tips','fees','km'].some(f => parseFloat(m[f])))
+      .filter(m => ['taxable','bonuses','tips','tolls','fees','km'].some(f => parseFloat(m[f])))
       .sort((a, b) => a.mi - b.mi)
     const lyftTaxable = lyftMonths.reduce((s, m) => s + (parseFloat(m.taxable) || 0), 0)
 
@@ -4471,18 +4502,27 @@ async function generatePDF(opts) {
       if (!lyftMonths.length) {
         text(`Aucune donnée Lyft saisie pour ${activeYear}.`, 9, { color: [120,120,120] })
       } else {
-        const cw = [contentW*0.16, contentW*0.15, contentW*0.13, contentW*0.14, contentW*0.13, contentW*0.15, contentW*0.14]
+        // La colonne des péages n'apparaît que si un mois en porte : la plupart
+        // des relevés affichent « Tolls CA$0.00 », et une colonne de zéros
+        // volerait de la largeur aux six autres.
+        const aPeages = lyftMonths.some(m => parseFloat(m.tolls))
+        const entetes = aPeages ? ['Taxable','Primes','Pourboires','Péages','Frais','Net','Km']
+                                : ['Taxable','Primes','Pourboires','Frais','Net','Km']
+        const cw = [contentW * 0.16, ...Array(entetes.length).fill(contentW * 0.84 / entetes.length)]
         const lyftRow = (label, vals, opts) =>
           tableRow([[label, cw[0], false], ...vals.map((v, i) => [v, cw[i+1], true])], opts)
-        lyftRow('Mois', ['Taxable','Primes','Pourboires','Frais','Net','Km'], { bold: true, fill: [235,235,235] })
-        const tt = { tax:0, bon:0, tip:0, fee:0, net:0, km:0 }
+        lyftRow('Mois', entetes, { bold: true, fill: [235,235,235] })
+        const tt = { tax:0, bon:0, tip:0, tol:0, fee:0, net:0, km:0 }
         lyftMonths.forEach(m => {
           const tax = parseFloat(m.taxable)||0, bon = parseFloat(m.bonuses)||0, tip = parseFloat(m.tips)||0
-          const fee = parseFloat(m.fees)||0, km = parseFloat(m.km)||0, net = tax + bon + tip - fee
-          tt.tax += tax; tt.bon += bon; tt.tip += tip; tt.fee += fee; tt.net += net; tt.km += km
-          lyftRow(MONTHS_FR[m.mi], [fmt(tax), fmt(bon), fmt(tip), fmt(fee), fmt(net), fmt(km, 1)])
+          const tol = parseFloat(m.tolls)||0
+          const fee = parseFloat(m.fees)||0, km = parseFloat(m.km)||0, net = lyftMonthNet(m)
+          tt.tax += tax; tt.bon += bon; tt.tip += tip; tt.tol += tol; tt.fee += fee; tt.net += net; tt.km += km
+          lyftRow(MONTHS_FR[m.mi], [fmt(tax), fmt(bon), fmt(tip), ...(aPeages ? [fmt(tol)] : []),
+                                    fmt(fee), fmt(net), fmt(km, 1)])
         })
-        lyftRow('TOTAL', [fmt(tt.tax), fmt(tt.bon), fmt(tt.tip), fmt(tt.fee), fmt(tt.net), fmt(tt.km, 1)], { bold: true, fill: [235,235,235] })
+        lyftRow('TOTAL', [fmt(tt.tax), fmt(tt.bon), fmt(tt.tip), ...(aPeages ? [fmt(tt.tol)] : []),
+                          fmt(tt.fee), fmt(tt.net), fmt(tt.km, 1)], { bold: true, fill: [235,235,235] })
       }
 
       // Véhicule — deux méthodes

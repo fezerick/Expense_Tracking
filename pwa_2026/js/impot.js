@@ -29,10 +29,9 @@ function donneesImpot() {
   return d
 }
 
-function lyftNetIncome() {
-  return Array.from({ length: 12 }, (_, mi) => state.lyft[mi] || {})
-    .reduce((s, m) => s + num(m.taxable) + num(m.bonuses) + num(m.tips) - num(m.fees), 0)
-}
+// Le net Lyft vient de `lyftMonthNet()` (index.html) : une seule formule pour
+// l'écran, le rapport, le CSV et l'impôt estimé.
+function lyftNetIncome() { return lyftNetTotal() }
 
 // Part des dépenses du véhicule imputable à l'activité commerciale.
 function vehiculeProrataAffaires() {

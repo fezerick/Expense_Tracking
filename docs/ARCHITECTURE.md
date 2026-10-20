@@ -101,7 +101,7 @@ en balayant `localStorage` à la recherche de `/^depenses_\d{4}$/` (ligne 1016).
   p470:    { … },
   trips:   [{ id, date, property, reason, km, roundTrip, customDest }],
   uber:    { rides_gross, service_fee, km_online, … },
-  lyft:    { 0..11: { taxable, bonuses, tips, fees, km, courses,
+  lyft:    { 0..11: { taxable, bonuses, tips, tolls, fees, km, courses,
                      gst_riders, qst_riders, gst_bonuses, qst_bonuses,
                      gst_fees, qst_fees, gst_remitted, qst_remitted } },
   vehicule:{ depenses: { "Frais de carburant (total annuel)": "4800", … } },
@@ -146,6 +146,22 @@ l'application des valeurs lues. Un champ ajouté à la liste apparaît aux trois
 sans autre modification. Uber est saisi **une fois pour l'année** (son sommaire fiscal
 est annuel), Lyft **mois par mois** (le sien est mensuel) : d'où `lyftTaxTotals()`, qui
 cumule les douze relevés pour la déclaration de TPS/TVQ, annuelle elle aussi.
+
+Le net d'un mois Lyft a une seule définition, `lyftMonthNet()`, et son cumul annuel
+`lyftNetTotal(st)`. La formule `base + primes + pourboires + péages − frais` était
+recopiée à **sept** endroits — le formulaire, son total de pied, le sommaire général, le
+CSV du dossier, le rapport PDF, l'impôt estimé (`lyftNetIncome()`) et le tableau
+pluriannuel. L'ajout des péages en 2.4.0 aurait demandé sept modifications
+concordantes ; un oubli se serait vu comme un écart entre deux écrans de la même donnée.
+L'argument `st` sert au tableau pluriannuel, qui calcule sur une année archivée plutôt
+que sur l'année active.
+
+**Les péages encaissés sont un revenu, pas une fourniture taxable de plus.** Lyft
+refacture le péage au passager puis le reverse au chauffeur, qui l'a payé de sa poche :
+le montant reçu entre dans le net, et le péage payé se déduit du côté véhicule — les
+deux s'annulent, mais seulement si le reçu est déclaré. Il n'entre **pas** dans
+`lyftTaxableBase()` : Lyft calcule lui-même la TPS/TVQ perçue sur sa ligne « Base
+taxable », et ajouter le péage à la ligne 101 compterait la même fourniture deux fois.
 
 **Convention de signe.** Les champs de sortie d'argent — frais de plateforme, taxes
 payées à la plateforme, taxes qu'elle a déjà versées au nom du chauffeur — sont stockés
