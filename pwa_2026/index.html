@@ -963,24 +963,25 @@ html.theme-dark .onb-section{background:#1a222d}
      moment du chargement. L'ordre est significatif : données fiscales, socle,
      puis les modules. Le paramètre ?v= force le service worker à reprendre le
      fichier après un déploiement. -->
-<script src="js/fiscal-data.js?v=2.4.0"></script>
-<script src="js/app-modules.js?v=2.4.0"></script>
-<script src="js/baux.js?v=2.4.0"></script>
-<script src="js/dpa.js?v=2.4.0"></script>
-<script src="js/impot.js?v=2.4.0"></script>
-<script src="js/tps-tvq.js?v=2.4.0"></script>
-<script src="js/vehicule-methodes.js?v=2.4.0"></script>
-<script src="js/coproprietaires.js?v=2.4.0"></script>
-<script src="js/ventilation.js?v=2.4.0"></script>
-<script src="js/recus.js?v=2.4.0"></script>
-<script src="js/kilometrage.js?v=2.4.0"></script>
-<script src="js/import-bancaire.js?v=2.4.0"></script>
-<script src="js/cloture.js?v=2.4.0"></script>
-<script src="js/dossier.js?v=2.4.0"></script>
-<script src="js/tableau-bord.js?v=2.4.0"></script>
-<script src="js/simulateur.js?v=2.4.0"></script>
-<script src="js/vente.js?v=2.4.0"></script>
-<script src="js/recommandations.js?v=2.4.0"></script>
+<script src="js/fiscal-data.js?v=2.5.0"></script>
+<script src="js/app-modules.js?v=2.5.0"></script>
+<script src="js/sync.js?v=2.5.0"></script>
+<script src="js/baux.js?v=2.5.0"></script>
+<script src="js/dpa.js?v=2.5.0"></script>
+<script src="js/impot.js?v=2.5.0"></script>
+<script src="js/tps-tvq.js?v=2.5.0"></script>
+<script src="js/vehicule-methodes.js?v=2.5.0"></script>
+<script src="js/coproprietaires.js?v=2.5.0"></script>
+<script src="js/ventilation.js?v=2.5.0"></script>
+<script src="js/recus.js?v=2.5.0"></script>
+<script src="js/kilometrage.js?v=2.5.0"></script>
+<script src="js/import-bancaire.js?v=2.5.0"></script>
+<script src="js/cloture.js?v=2.5.0"></script>
+<script src="js/dossier.js?v=2.5.0"></script>
+<script src="js/tableau-bord.js?v=2.5.0"></script>
+<script src="js/simulateur.js?v=2.5.0"></script>
+<script src="js/vente.js?v=2.5.0"></script>
+<script src="js/recommandations.js?v=2.5.0"></script>
 
 <script>
 // ════════════════════════════════════════════════════════════
@@ -989,7 +990,7 @@ html.theme-dark .onb-section{background:#1a222d}
 // Source unique de verite. La meme chaine apparait a trois autres endroits, et
 // `scripts/version.sh` est le seul outil qui les ecrit, pour qu'ils ne puissent
 // pas divergent :
-//   1. le ?v= des 18 balises <script src="js/..."> ci-dessus ;
+//   1. le ?v= des 19 balises <script src="js/..."> ci-dessus ;
 //   2. le nom du cache du service worker (sw.js) ;
 //   3. la cle `version` du manifeste.
 // Sans cette discipline, un correctif deploye continue d'etre servi depuis le
@@ -999,7 +1000,7 @@ html.theme-dark .onb-section{background:#1a222d}
 //   MAJEUR   — changement du format des donnees qui demande une migration
 //   MINEUR   — nouvelle fonctionnalite
 //   CORRECTIF— correction sans nouvelle fonctionnalite
-const APP_VERSION = '2.4.0'
+const APP_VERSION = '2.5.0'
 const APP_BUILD   = '2026-10-20'
 const APP_NOM     = 'Mon Plex'
 
@@ -1195,6 +1196,8 @@ function switchYear(year) {
     const s = localStorage.getItem(storeKey())
     state = s ? mergeState(JSON.parse(s)) : defaultState()
   } catch(e) { state = defaultState() }
+  rechargerMeta()
+  recusPlanifier()
   updateYearLabels()
   // La DPA memorise ses calculs par annee et les modules gardent des caches :
   // les invalider AVANT refreshAll(), qui va les relire.
@@ -1317,6 +1320,12 @@ function defaultState() {
     recurring: { p1090: {}, p470: {} },
     checklist: null,
     receipts: {},
+    // Les photos elles-mêmes (`receipts`) ne voyagent pas dans le document de
+    // synchronisation : trop lourdes. Ce qui voyage, c'est leur INDEX — une
+    // date par clé de reçu. Il dit à l'autre appareil quelles photos existent,
+    // et sa pierre tombale dit lesquelles ont été supprimées. Les images
+    // suivent, un document Firestore chacune. Voir recusReconcilier().
+    recusIndex: {},
     notes: {}
   }
 }
@@ -1342,8 +1351,52 @@ let state = (() => {
   return defaultState()
 })()
 
+// ── DATES D'ÉCRITURE PAR FEUILLE (voir js/sync.js) ────────────────────────
+// La fusion entre appareils doit savoir QUAND chaque valeur a été écrite.
+// Demander aux ~60 fonctions de saisie de dater leur champ aurait été la
+// garantie d'en oublier : on garde donc une PHOTO de l'état et, à chaque
+// sauvegarde, on date la différence. Une seule fonction à ne pas oublier.
+// La méta vit dans sa propre clé par année — `depenses_meta_2026` — pour ne
+// pas polluer les données elles-mêmes ni les sauvegardes JSON exportées.
+const META_PREFIX = 'depenses_meta_'
+function metaKey(year) { return META_PREFIX + (year || activeYear) }
+
+function chargerMeta(year) {
+  try {
+    const s = localStorage.getItem(metaKey(year))
+    if (s) return syncMetaNormalisee(JSON.parse(s))
+  } catch(e) {}
+  return syncMetaVide()
+}
+
+function sauverMeta(year, meta) {
+  try { localStorage.setItem(metaKey(year), JSON.stringify(meta)) } catch(e) {}
+}
+
+let stateMeta  = chargerMeta(activeYear)
+let _syncPhoto = JSON.stringify(stateForSync(state))
+
+// Après un changement d'année ou une restauration : la méta et la photo doivent
+// décrire l'année désormais active, sinon la sauvegarde suivante daterait la
+// différence entre deux années différentes — tout serait « modifié ».
+function rechargerMeta() {
+  stateMeta  = chargerMeta(activeYear)
+  _syncPhoto = JSON.stringify(stateForSync(state))
+}
+
+// Date une année qui n'est PAS l'année active (restauration iOS, fusion).
+function daterAnnee(year, avant, apres) {
+  const d = syncDater(chargerMeta(year), stateForSync(avant || {}), stateForSync(apres || {}), Date.now())
+  sauverMeta(year, d.meta)
+  return d
+}
+
 function save() {
+  const d = syncDater(stateMeta, JSON.parse(_syncPhoto), stateForSync(state), Date.now())
+  stateMeta  = d.meta
+  _syncPhoto = JSON.stringify(stateForSync(state))
   try { localStorage.setItem(storeKey(), JSON.stringify(state)) } catch(e) {}
+  sauverMeta(activeYear, stateMeta)
   if (state.settings.syncAuto !== false && window._fbAuth?.currentUser) {
     clearTimeout(save._syncT)
     save._syncT = setTimeout(() => syncPush(false), 5000)
@@ -1370,9 +1423,12 @@ function saveMapsKey() {
 
 // ════════════════════════════════════════════════════════════
 // CONFIGURATION — assistant de démarrage, modules, thème
-// Stockée dans une clé localStorage séparée (depenses_setup) :
-// jamais envoyée à Firestore et indépendante des données fiscales,
-// donc sans aucun risque pour les données synchronisées.
+// Stockée dans une clé localStorage séparée (depenses_setup), indépendante des
+// données fiscales. Elle est synchronisée entre appareils depuis la 2.5.0 — un
+// immeuble créé sur le téléphone doit exister sur l'ordinateur, sinon ses
+// revenus arrivent sans savoir à quoi les rattacher — à UNE exception près :
+// le THÈME. Il décrit l'appareil (un téléphone en mode sombre, un portable en
+// clair), pas le dossier fiscal, et reste donc purement local.
 // ════════════════════════════════════════════════════════════
 const SETUP_KEY = 'depenses_setup'
 
@@ -1398,8 +1454,36 @@ let setup = (() => {
   return defaultSetup()
 })()
 
+const SETUP_META_KEY = 'depenses_setup_meta'
+
+// Tout sauf le thème : voir le commentaire de section.
+function setupPourSync(s) {
+  const { theme, ...rest } = (s || setup)
+  return rest
+}
+
+function chargerSetupMeta() {
+  try {
+    const s = localStorage.getItem(SETUP_META_KEY)
+    if (s) return syncMetaNormalisee(JSON.parse(s))
+  } catch(e) {}
+  return syncMetaVide()
+}
+
+let setupMeta   = chargerSetupMeta()
+let _setupPhoto = JSON.stringify(setupPourSync(setup))
+
 function saveSetup() {
+  const d = syncDater(setupMeta, JSON.parse(_setupPhoto), setupPourSync(setup), Date.now())
+  setupMeta   = d.meta
+  _setupPhoto = JSON.stringify(setupPourSync(setup))
   try { localStorage.setItem(SETUP_KEY, JSON.stringify(setup)) } catch(e) {}
+  try { localStorage.setItem(SETUP_META_KEY, JSON.stringify(setupMeta)) } catch(e) {}
+  // Un simple changement de thème ne date rien : inutile d'appeler le cloud.
+  if ((d.modifiees || d.supprimees) && state.settings.syncAuto !== false && window._fbAuth?.currentUser) {
+    clearTimeout(saveSetup._syncT)
+    saveSetup._syncT = setTimeout(() => syncPushSetup().catch(e => console.error('syncPushSetup', e)), 5000)
+  }
 }
 
 // ── Registre des immeubles (dynamique) ──
@@ -1481,7 +1565,7 @@ function ensurePropBucket(id) {
 function reconcilePropsFromState() {
   ensurePropsList()
   const reserved = ['settings', 'vehicule', 'uber', 'lyft', 'trips', 'recurring',
-                    'checklist', 'receipts', 'notes', 'version']
+                    'checklist', 'receipts', 'recusIndex', 'notes', 'version']
   let added = 0
   Object.keys(state).forEach(key => {
     if (reserved.includes(key)) return
@@ -3138,6 +3222,11 @@ function restoreFromBackup(data) {
   if (importedYear && importedYear !== activeYear) {
     activeYear = importedYear
     localStorage.setItem('depenses_active_year', activeYear)
+    // La restauration remplace l'année ciblée. La méta et la photo doivent
+    // décrire CETTE année avant le save() de l'appelant : sinon il daterait la
+    // différence entre deux années distinctes, et tout paraîtrait modifié.
+    state = readYear(activeYear) || defaultState()
+    rechargerMeta()
     updateYearLabels()
   }
   if (env && env.setup) {
@@ -3149,6 +3238,8 @@ function restoreFromBackup(data) {
     renderPropSubtabs()
   }
   state = mergeState(env ? env.state : data)
+  // Les photos du fichier restauré doivent rejoindre le cloud comme les autres.
+  recusPlanifier()
   return { year: importedYear, rebuilt: reconcilePropsFromState() }
 }
 
@@ -3261,7 +3352,12 @@ function importIOSBackup(snap) {
       .map((c, i) => ({ id: 'cl' + (i + 1), label: c.label, checked: !!c.isDone, custom: false }))
   }
 
+  const avantResto = year === activeYear ? state : readYear(year)
   localStorage.setItem(STORE_PREFIX + year, JSON.stringify(st))
+  // Une restauration est une écriture : sans date, la fusion laisserait un
+  // cloud plus vieux écraser ce qu'on vient tout juste de restaurer. Pour
+  // l'année active c'est le save() ci-dessous qui s'en charge.
+  if (year !== activeYear) daterAnnee(year, avantResto, st)
   if (year === activeYear) {
     state = st
     save()
@@ -3275,7 +3371,8 @@ function importIOSBackup(snap) {
 }
 
 function clearAllData() {
-  if (!confirm(`Effacer TOUTES les données ${activeYear} ? Cette action est irréversible.`)) return
+  if (!confirm(`Effacer TOUTES les données ${activeYear} ? Cette action est irréversible`
+    + ` — et si la synchronisation est active, l'effacement sera propagé à vos autres appareils.`)) return
   state = defaultState()
   save()
   refreshAll()
@@ -3830,16 +3927,20 @@ function initFirebase() {
       if (user.photoURL) { photo.src = user.photoURL; photo.style.display = 'block' }
       const autoEl = document.getElementById('setting-sync-auto')
       if (autoEl) autoEl.checked = state.settings.syncAuto !== false
-      syncPull(false)
+      syncDemarrer()
     } else {
+      syncArreter()
       document.getElementById('sync-signed-out').style.display = 'block'
       document.getElementById('sync-signed-in').style.display = 'none'
       setSyncStatus('idle')
     }
   })
 
+  // L'écoute temps réel se reconnecte seule, mais une erreur Firestore la
+  // termine définitivement. Le retour sur l'application est le bon moment pour
+  // la relancer : sans cela, l'appareil resterait muet jusqu'au rechargement.
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && _fbAuth.currentUser) syncPull(false)
+    if (!document.hidden && _fbAuth.currentUser) syncDemarrer()
   })
 }
 
@@ -3856,42 +3957,390 @@ async function signInWithGoogle() {
 
 async function signOutGoogle() {
   if (!confirm('Se déconnecter de la synchronisation ?')) return
+  syncArreter()
   await _fbAuth.signOut()
   toast('👋 Déconnecté')
 }
 
-function syncDocRef() {
+function syncUserRef() {
   if (!_fbDb || !_fbAuth?.currentUser) return null
-  return _fbDb
-    .collection('users')
-    .doc(_fbAuth.currentUser.uid)
-    .collection('years')
-    .doc(String(activeYear))
+  return _fbDb.collection('users').doc(_fbAuth.currentUser.uid)
 }
 
-function stateForSync() {
-  const { receipts, ...rest } = state
+function syncYearsCol() {
+  const u = syncUserRef()
+  return u ? u.collection('years') : null
+}
+
+function syncDocRef(year) {
+  const col = syncYearsCol()
+  return col ? col.doc(String(year || activeYear)) : null
+}
+
+function syncSetupRef() {
+  const u = syncUserRef()
+  return u ? u.collection('config').doc('setup') : null
+}
+
+// Les photos de reçus ne voyagent pas dans le document : ce sont des `data:`
+// de plusieurs centaines de kilo-octets et Firestore plafonne à un mégaoctet
+// par document. Elles ont leur propre chemin (Firebase Storage).
+function stateForSync(st) {
+  const { receipts, ...rest } = (st || state)
   return rest
 }
 
+// ── Conversion document Firestore ↔ { state, meta } ────────────────────────
+function syncDocEnEtat(d) {
+  const lire = (txt, defaut) => {
+    try { return txt ? JSON.parse(txt) : defaut } catch(e) { return defaut }
+  }
+  return { state: lire(d && d.data, {}), meta: lire(d && d.meta, null) }
+}
+
+function syncEnveloppe(st, meta, year) {
+  const env = {
+    data:      JSON.stringify(stateForSync(st)),
+    meta:      JSON.stringify(syncMetaNormalisee(meta)),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    device:    navigator.userAgent.slice(0, 80)
+  }
+  if (year) env.year = year
+  return env
+}
+
+function syncStatsVides() {
+  return { prisDistant: 0, gardesLocal: 0, ajoutesDistant: 0, supprimes: 0, conflits: 0 }
+}
+
+function syncRien() { return { state: {}, meta: syncMetaVide() } }
+
+// ── Côté local d'une année ─────────────────────────────────────────────────
+// L'année active vit en mémoire ; les autres dorment dans localStorage.
+function syncCoteLocal(year) {
+  if (year === activeYear) return { state: stateForSync(state), meta: stateMeta }
+  return { state: readYear(year) || {}, meta: chargerMeta(year) }
+}
+
+// ── Appliquer un résultat de fusion ────────────────────────────────────────
+// Pour l'année active, on ne remplace PAS en aveugle : l'utilisateur a pu
+// saisir quelque chose pendant l'aller-retour réseau. On date d'abord cette
+// saisie, puis on refusionne le résultat par-dessus — ce qui a été tapé à
+// l'instant est le plus récent et gagne donc normalement.
+function syncAppliquerActive(res) {
+  const d = syncDater(stateMeta, JSON.parse(_syncPhoto), stateForSync(state), Date.now())
+  stateMeta = d.meta
+  const f = syncFusionner({ state: stateForSync(state), meta: stateMeta },
+                          { state: res.state, meta: res.meta })
+  const recus = state.receipts || {}
+  state = mergeState(f.state)
+  state.receipts = recus
+  stateMeta = f.meta
+  reconcilePropsFromState()
+  _syncPhoto = JSON.stringify(stateForSync(state))
+  try { localStorage.setItem(storeKey(), JSON.stringify(state)) } catch(e) {}
+  sauverMeta(activeYear, stateMeta)
+  // L'index a peut-être gagné des lignes (photos à télécharger) ou des
+  // tombales (photos à retirer d'ici).
+  recusPlanifier()
+  // Le total des deux fusions, pour le résumé montré à l'utilisateur.
+  const stats = syncStatsVides()
+  Object.keys(stats).forEach(k => { stats[k] = (res.stats ? res.stats[k] : 0) + f.stats[k] })
+  return { state: f.state, meta: f.meta, conflits: (res.conflits || []).concat(f.conflits), stats }
+}
+
+function syncAppliquerAnnee(year, res) {
+  if (year === activeYear) return syncAppliquerActive(res)
+  try { localStorage.setItem(STORE_PREFIX + year, JSON.stringify(res.state)) } catch(e) {}
+  sauverMeta(year, res.meta)
+  return res
+}
+
+// ── Envoi d'une année : lecture, fusion et écriture dans une transaction ───
+// La transaction est ce qui rend l'envoi sûr : entre la lecture et l'écriture,
+// personne ne peut glisser une version qu'on écraserait sans l'avoir fusionnée.
+async function syncPushAnnee(year) {
+  const ref = syncDocRef(year)
+  if (!ref) return null
+  const ecrit = await _fbDb.runTransaction(async tx => {
+    const snap  = await tx.get(ref)
+    const local = syncCoteLocal(year)
+    const res = snap.exists
+      ? syncFusionner(local, syncDocEnEtat(snap.data()))
+      : { state: local.state, meta: syncMetaNormalisee(local.meta), conflits: [], stats: syncStatsVides() }
+    tx.set(ref, syncEnveloppe(res.state, res.meta, year))
+    return res
+  })
+  const applique = syncAppliquerAnnee(year, ecrit)
+  // Une saisie arrivée pendant l'aller-retour n'est pas dans ce qu'on vient
+  // d'écrire : on repasse.
+  if (syncDoitRenvoyer(applique, ecrit)) syncPlanifierPush(year)
+  return applique
+}
+
+// ── Fusion d'un document reçu ──────────────────────────────────────────────
+function syncFusionnerDoc(year, d) {
+  const distant = syncDocEnEtat(d)
+  const res = syncFusionner(syncCoteLocal(year), distant)
+  const applique = syncAppliquerAnnee(year, res)
+  if (syncDoitRenvoyer(applique, distant)) syncPlanifierPush(year)
+  return applique
+}
+
+// ── Envoi différé, par année ───────────────────────────────────────────────
+let _syncPushT = {}
+function syncPlanifierPush(year) {
+  if (!syncDocRef(year)) return
+  clearTimeout(_syncPushT[year])
+  _syncPushT[year] = setTimeout(() => {
+    syncPushAnnee(year).catch(e => { console.error('syncPushAnnee ' + year, e); setSyncStatus('error') })
+  }, 2500)
+}
+
+// ── Conflits ───────────────────────────────────────────────────────────────
+// Un conflit, c'est deux appareils qui ont écrit une valeur différente dans la
+// même seconde, ou deux valeurs sans date. La fusion garde le local — choix
+// stable — mais se taire équivaudrait à perdre une saisie en silence : on le
+// dit, et le détail reste consultable dans la console.
+let syncConflits = []
+function syncSignalerConflits(liste) {
+  if (!liste || !liste.length) return
+  syncConflits = liste.concat(syncConflits).slice(0, 50)
+  console.warn('[sync] conflits', liste)
+  const n = liste.length
+  toast('⚠️ ' + n + ' valeur' + (n > 1 ? 's' : '') + ' en désaccord entre appareils ('
+    + syncPathTexte(liste[0].chemin) + (n > 1 ? ', …' : '') + ') — version de cet appareil gardée')
+}
+
+// ── Écoute temps réel ──────────────────────────────────────────────────────
+// Sur TOUTES les années, pas seulement l'année active : un relevé saisi sur le
+// téléphone pour 2025 doit arriver même si l'ordinateur affiche 2026.
+let _syncUnsub = null, _syncSetupUnsub = null
+
+function syncDemarrer() {
+  const col = syncYearsCol()
+  if (!col) return
+  if (!_syncUnsub) {
+    _syncUnsub = col.onSnapshot(qs => {
+      const cumul = syncStatsVides()
+      let conflits = []
+      qs.docChanges().forEach(ch => {
+        if (ch.type === 'removed') return
+        // Notre propre écriture qui revient : rien à fusionner.
+        if (ch.doc.metadata.hasPendingWrites) return
+        const year = parseInt(ch.doc.id)
+        if (!year) return
+        const res = syncFusionnerDoc(year, ch.doc.data())
+        Object.keys(cumul).forEach(k => { cumul[k] += res.stats[k] })
+        conflits = conflits.concat(res.conflits)
+      })
+      lastSyncedAt = new Date()
+      setSyncStatus('ok')
+      const recu = cumul.ajoutesDistant + cumul.prisDistant + cumul.supprimes
+      if (recu) {
+        updateYearLabels()
+        refreshAll()
+        toast('🔄 Mise à jour depuis un autre appareil — ' + syncResume(cumul))
+      }
+      syncSignalerConflits(conflits)
+    }, err => {
+      console.error('sync onSnapshot years', err)
+      _syncUnsub = null
+      setSyncStatus('error')
+    })
+  }
+  if (!_syncSetupUnsub) {
+    const ref = syncSetupRef()
+    _syncSetupUnsub = ref.onSnapshot(doc => {
+      if (!doc.exists) { syncPushSetup().catch(e => console.error('syncPushSetup', e)); return }
+      if (doc.metadata.hasPendingWrites) return
+      const distant = syncDocEnEtat(doc.data())
+      const res = syncAppliquerSetup(syncFusionner({ state: setupPourSync(setup), meta: setupMeta }, distant))
+      if (syncDoitRenvoyer(res, distant)) {
+        clearTimeout(syncPushSetup._t)
+        syncPushSetup._t = setTimeout(() => syncPushSetup().catch(e => console.error('syncPushSetup', e)), 2500)
+      }
+    }, err => {
+      console.error('sync onSnapshot setup', err)
+      _syncSetupUnsub = null
+    })
+  }
+  // Une année présente ici et absente du cloud ne déclenche aucun événement
+  // d'écoute : il faut la pousser une fois. C'est aussi ce qui fait la toute
+  // première synchronisation d'un appareil qui contient déjà des données.
+  getAvailableYears().forEach(y => syncPlanifierPush(y))
+  recusPlanifier()
+}
+
+function syncArreter() {
+  if (_syncUnsub) { _syncUnsub(); _syncUnsub = null }
+  if (_syncSetupUnsub) { _syncSetupUnsub(); _syncSetupUnsub = null }
+  setSyncStatus('idle')
+}
+
+// ── Configuration (tout sauf le thème) ─────────────────────────────────────
+function syncAppliquerSetup(res) {
+  const theme = setup.theme
+  const d = defaultSetup()
+  const recu = res.state || {}
+  setup = { ...d, ...recu, modules: { ...d.modules, ...(recu.modules || {}) }, theme }
+  setupMeta   = res.meta
+  _setupPhoto = JSON.stringify(setupPourSync(setup))
+  try { localStorage.setItem(SETUP_KEY, JSON.stringify(setup)) } catch(e) {}
+  try { localStorage.setItem(SETUP_META_KEY, JSON.stringify(setupMeta)) } catch(e) {}
+  try { applyModules(); renderPropSubtabs(); refreshAll() } catch(e) { console.error('syncAppliquerSetup', e) }
+  return res
+}
+
+async function syncPushSetup() {
+  const ref = syncSetupRef()
+  if (!ref) return null
+  const ecrit = await _fbDb.runTransaction(async tx => {
+    const snap  = await tx.get(ref)
+    const local = { state: setupPourSync(setup), meta: setupMeta }
+    const res = snap.exists
+      ? syncFusionner(local, syncDocEnEtat(snap.data()))
+      : { state: local.state, meta: syncMetaNormalisee(local.meta), conflits: [], stats: syncStatsVides() }
+    tx.set(ref, syncEnveloppe(res.state, res.meta, 0))
+    return res
+  })
+  return syncAppliquerSetup(ecrit)
+}
+
+// ── Les photos de reçus ────────────────────────────────────────────────────
+// Elles ne tiennent pas dans le document de l'année : une photo compressée
+// pèse ~100 ko et Firestore plafonne un document à un mégaoctet — trente reçus
+// feraient échouer toute la synchronisation de l'année, chiffres compris.
+// Chaque photo a donc SON document, et l'année ne transporte que l'index.
+//
+// Pourquoi Firestore et pas Firebase Storage, qui est fait pour les fichiers :
+// le projet n'a pas de bucket Storage, et en créer un demande aujourd'hui de
+// passer le projet au plan Blaze. Un document par photo reste très en dessous
+// de la limite, n'ajoute ni SDK ni règles à déployer, et profite des mêmes
+// règles d'accès que le reste. Le jour où un bucket existe, seules les trois
+// fonctions ci-dessous changent — l'index, lui, ne bouge pas.
+function recusCol() {
+  const u = syncUserRef()
+  return u ? u.collection('recus') : null
+}
+
+// La clé d'un reçu peut contenir n'importe quoi (« p1090:deductibles:Eau /
+// Égouts:3 »), et un identifiant de document Firestore n'accepte pas de « / ».
+function recusDocId(year, cle) { return year + '_' + encodeURIComponent(cle) }
+
+async function recusEnvoyer(year, cle, dataUrl) {
+  const col = recusCol()
+  if (!col) return false
+  await col.doc(recusDocId(year, cle)).set({
+    year, cle, data: dataUrl,
+    at:     firebase.firestore.FieldValue.serverTimestamp(),
+    device: navigator.userAgent.slice(0, 80)
+  })
+  return true
+}
+
+async function recusLire(year, cle) {
+  const col = recusCol()
+  if (!col) return null
+  const snap = await col.doc(recusDocId(year, cle)).get()
+  return snap.exists ? (snap.data().data || null) : null
+}
+
+async function recusEffacer(year, cle) {
+  const col = recusCol()
+  if (!col) return false
+  await col.doc(recusDocId(year, cle)).delete()
+  return true
+}
+
+// Un seul avertissement par session : si les reçus ne passent pas (règles,
+// quota, hors ligne), les chiffres continuent de se synchroniser et la photo
+// reste sur l'appareil. Répéter le message à chaque tentative n'aiderait pas.
+let _recusAverti = false
+function recusAvertir(e) {
+  console.error('[recus] synchronisation', e)
+  if (_recusAverti) return
+  _recusAverti = true
+  toast('⚠️ Photos de reçus non synchronisées (' + (e && e.message ? e.message : 'erreur') + ') — les chiffres le sont')
+}
+
+// Remet l'index et les photos d'accord, pour l'ANNÉE ACTIVE seulement : les
+// photos d'une année archivée ne servent qu'une fois cette année ouverte, et
+// switchYear() repasse ici. Trois cas, dans cet ordre :
+//   a) une photo locale absente de l'index → à monter (y compris les photos
+//      prises avant la 2.5.0), sauf si une tombale dit qu'elle a été supprimée
+//      ailleurs — alors c'est la copie locale qui s'en va ;
+//   b) une ligne d'index sans photo locale → à télécharger ;
+//   c) le reste est déjà d'accord.
+let _recusEnCours = false
+async function recusReconcilier() {
+  if (_recusEnCours || !recusCol() || state.settings.syncAuto === false) return
+  _recusEnCours = true
+  const year = activeYear
+  try {
+    if (!state.recusIndex) state.recusIndex = {}
+    if (!state.receipts) state.receipts = {}
+    let change = false
+
+    for (const cle of Object.keys(state.receipts)) {
+      if (state.recusIndex[cle]) continue
+      if (syncDateSuppression(stateMeta, syncPath(['recusIndex', cle])) > 0) {
+        delete state.receipts[cle]
+        change = true
+        continue
+      }
+      await recusEnvoyer(year, cle, state.receipts[cle])
+      if (year !== activeYear) return
+      state.recusIndex[cle] = Date.now()
+      change = true
+    }
+
+    for (const cle of Object.keys(state.recusIndex)) {
+      if (state.receipts[cle]) continue
+      const data = await recusLire(year, cle)
+      if (year !== activeYear) return
+      // Pas de photo en face : l'autre appareil n'a peut-être pas fini de la
+      // monter. On garde la ligne d'index et on réessaiera.
+      if (!data) continue
+      state.receipts[cle] = data
+      change = true
+    }
+
+    if (change) {
+      save()
+      refreshAll()
+    }
+  } catch(e) {
+    recusAvertir(e)
+  } finally {
+    _recusEnCours = false
+  }
+}
+
+function recusPlanifier() {
+  clearTimeout(recusPlanifier._t)
+  recusPlanifier._t = setTimeout(() => recusReconcilier(), 1500)
+}
+
+// ── Les deux boutons des Réglages ──────────────────────────────────────────
+// Ils ne « remplacent » plus rien : envoyer et recevoir passent tous deux par
+// la fusion. Ils restent utiles pour forcer un échange immédiat.
 async function syncPush(manual = false) {
   initFirebase()
-  const ref = syncDocRef()
-  if (!ref) {
+  if (!syncDocRef()) {
     if (manual) toast('⚠️ Connectez-vous d\'abord dans les Réglages')
     return
   }
   setSyncStatus('syncing')
   try {
-    await ref.set({
-      data:      JSON.stringify(stateForSync()),
-      year:      activeYear,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      device:    navigator.userAgent.slice(0, 80)
-    })
+    const res = await syncPushAnnee(activeYear)
+    await syncPushSetup()
     lastSyncedAt = new Date()
     setSyncStatus('ok')
-    if (manual) toast('✅ Données envoyées vers le cloud')
+    const recu = res.stats.ajoutesDistant + res.stats.prisDistant + res.stats.supprimes
+    if (recu) refreshAll()
+    syncSignalerConflits(res.conflits)
+    if (manual) toast('✅ Synchronisé — ' + syncResume(res.stats))
   } catch(e) {
     setSyncStatus('error')
     if (manual) toast('❌ Erreur sync : ' + e.message)
@@ -3901,37 +4350,33 @@ async function syncPush(manual = false) {
 
 async function syncPull(manual = false) {
   initFirebase()
-  const ref = syncDocRef()
-  if (!ref) {
+  const col = syncYearsCol()
+  if (!col) {
     if (manual) toast('⚠️ Connectez-vous d\'abord dans les Réglages')
     return
   }
   setSyncStatus('syncing')
   try {
-    const snap = await ref.get()
-    if (!snap.exists) {
-      setSyncStatus('none')
-      if (manual) toast('ℹ️ Aucune donnée cloud pour cette année — envoyez d\'abord depuis un autre appareil')
-      else { lastSyncedAt = new Date(); setSyncStatus('ok') }
+    const qs = await col.get()
+    const cumul = syncStatsVides()
+    let conflits = []
+    qs.forEach(doc => {
+      const year = parseInt(doc.id)
+      if (!year) return
+      const res = syncFusionnerDoc(year, doc.data())
+      Object.keys(cumul).forEach(k => { cumul[k] += res.stats[k] })
+      conflits = conflits.concat(res.conflits)
+    })
+    lastSyncedAt = new Date()
+    setSyncStatus(qs.empty ? 'none' : 'ok')
+    if (qs.empty) {
+      if (manual) toast('ℹ️ Aucune donnée dans le cloud — envoyez d\'abord depuis cet appareil')
       return
     }
-    const d = snap.data()
-    const remote = JSON.parse(d.data)
-    const remoteDate = d.updatedAt?.toDate?.()?.toLocaleString('fr-CA') || '?'
-
-    if (manual && !confirm(`Remplacer les données locales par la version du cloud ?\n\nDernière mise à jour : ${remoteDate}\n\nNote : vos photos de reçus locales seront conservées.`)) {
-      setSyncStatus('ok'); return
-    }
-
-    const localReceipts = state.receipts || {}
-    state = mergeState(remote)
-    state.receipts = localReceipts
-    reconcilePropsFromState()
-    localStorage.setItem(storeKey(), JSON.stringify(state))
-    lastSyncedAt = new Date()
-    setSyncStatus('ok')
+    updateYearLabels()
     refreshAll()
-    if (manual) toast('✅ Données récupérées du cloud')
+    syncSignalerConflits(conflits)
+    if (manual) toast('✅ Fusion terminée — ' + syncResume(cumul))
   } catch(e) {
     setSyncStatus('error')
     if (manual) toast('❌ Erreur sync : ' + e.message)
@@ -3944,7 +4389,8 @@ function setSyncStatus(status) {
   const label = document.getElementById('sync-status-label')
   if (!dot || !label) return
   const map = {
-    ok:      { color:'#4caf50', text: '✅ Synchronisé — ' + (lastSyncedAt ? lastSyncedAt.toLocaleTimeString('fr-CA') : '') },
+    ok:      { color:'#4caf50', text: '✅ Synchronisé — ' + (lastSyncedAt ? lastSyncedAt.toLocaleTimeString('fr-CA') : '')
+                 + (syncConflits.length ? ' · ⚠️ ' + syncConflits.length + ' désaccord(s)' : '') },
     syncing: { color:'#ff9800', text: '🔄 Synchronisation en cours…' },
     error:   { color:'#f44336', text: '❌ Erreur — vérifiez Firestore dans Firebase Console' },
     none:    { color:'#2196f3', text: 'ℹ️ Aucune donnée cloud pour cette année' },
@@ -4738,8 +5184,12 @@ function handleReceiptPhoto(event) {
   reader.onload = e => {
     compressImage(e.target.result, 800, dataUrl => {
       if (!state.receipts) state.receipts = {}
-      state.receipts[activeReceiptKey] = dataUrl
+      if (!state.recusIndex) state.recusIndex = {}
+      const cle = activeReceiptKey
+      state.receipts[cle] = dataUrl
+      state.recusIndex[cle] = Date.now()
       save()
+      recusEnvoyer(activeYear, cle, dataUrl).catch(recusAvertir)
       if (currentTab === 'property') renderProperty()
       toast('✅ Reçu enregistré')
     })
@@ -4827,8 +5277,13 @@ function downloadReceipt() {
 
 function deleteReceipt() {
   if (!activeReceiptKey || !state.receipts) return
-  delete state.receipts[activeReceiptKey]
+  const cle = activeReceiptKey
+  delete state.receipts[cle]
+  // Retirer la ligne d'index pose la pierre tombale : c'est elle qui fait
+  // disparaître la photo des autres appareils. Sans elle, ils la renverraient.
+  if (state.recusIndex) delete state.recusIndex[cle]
   save()
+  recusEffacer(activeYear, cle).catch(recusAvertir)
   closeReceiptModal()
   if (currentTab === 'property') renderProperty()
   toast('🗑️ Reçu supprimé')

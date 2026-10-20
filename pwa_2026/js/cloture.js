@@ -24,7 +24,7 @@
 // confiance dans le verrou. Les positions dans un tableau de 12 mois sont en
 // revanche conservées (un mois vide reste `null` au milieu de l'année).
 function empreinteFiscale(st) {
-  const EXCLUS = ['receipts', 'notes', 'closed', 'closedHistory', 'checklist', 'version']
+  const EXCLUS = ['receipts', 'recusIndex', 'notes', 'closed', 'closedHistory', 'checklist', 'version']
   const canonique = val => {
     if (val === '' || val == null) return null
     if (typeof val === 'number') return val === 0 ? null : val

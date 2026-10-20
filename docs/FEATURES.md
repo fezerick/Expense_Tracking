@@ -12,10 +12,14 @@ estimation d'effort (S = quelques heures, M = 1-3 jours, L = plus).
 
 ## État au 20 octobre 2026
 
-**14 des 22 fiches sont livrées côté PWA**, dans la couche modulaire `pwa_2026/js/`
+**15 des 22 fiches sont livrées côté PWA**, dans la couche modulaire `pwa_2026/js/`
 (§ 2.8 de [ARCHITECTURE.md](ARCHITECTURE.md)) et le 6ᵉ onglet 📑 Fiscal. Une
-quinzième fonctionnalité, non prévue par ce document, s'est ajoutée : la section
+seizième fonctionnalité, non prévue par ce document, s'est ajoutée : la section
 **Recommandations** (pistes de rentabilité classées par gain estimé).
+
+La quinzième est **D.4**, livrée le 20 octobre 2026 dans la version 2.5.0 et livrée
+au-delà de son énoncé : la fiche demandait d'avertir avant d'écraser, l'application
+fusionne désormais champ par champ et n'avertit que des vrais désaccords.
 
 | Fiche | État | Où elle a atterri |
 |---|---|---|
@@ -34,10 +38,10 @@ quinzième fonctionnalité, non prévue par ce document, s'est ajoutée : la sec
 | D.1 Tableau de bord pluriannuel | ✅ livré | `js/tableau-bord.js` — Fiscal › Évolution |
 | D.3 Simulateur d'achat | ✅ livré | `js/simulateur.js` — Fiscal › Simulateur |
 | — Recommandations | ✅ livré (hors liste) | `js/recommandations.js` — Fiscal › Recommandations |
-| C.3 Historique des modifications | ⏳ à faire | partiellement couvert : la clôture conserve `closedHistory` |
+| C.3 Historique des modifications | ⏳ à faire | la moitié du travail est faite : `syncDater()` calcule déjà la différence entre deux états et date chaque cellule (2.5.0) |
 | C.4 Verrou biométrique | ⏳ à faire | |
 | D.2 Widgets et raccourcis iOS | ⏳ à faire | iOS |
-| D.4 Synchronisation : avertir au lieu d'écraser | ⏳ à faire | le risque reste entier |
+| D.4 Synchronisation : avertir au lieu d'écraser | ✅ livré *(dépassé)* | `js/sync.js` — 2.5.0 : au lieu d'avertir, l'app **fusionne champ par champ**, et n'avertit que des vrais désaccords |
 
 Les fiches livrées sont conservées telles quelles ci-dessous : elles documentent
 l'intention et les choix d'accroche. Là où l'implémentation a divergé de la proposition,
@@ -216,9 +220,13 @@ rapport PDF, le CSV, les reçus nommés d'après leur cellule
 ### C.3 Historique des modifications — M
 
 Un journal append-only (`qui, quand, quelle cellule, ancienne → nouvelle valeur`) répond à
-la question « pourquoi le total a-t-il changé depuis la version que j'ai envoyée ? ». Utile
-aussi pour diagnostiquer une synchronisation Firestore qui écrase (le `syncPush` actuel est
-en dernier-écrivain-gagne).
+la question « pourquoi le total a-t-il changé depuis la version que j'ai envoyée ? ».
+
+**Reste à faire, mais à moitié prêt.** Depuis la 2.5.0, `syncDater()` compare l'état avant
+et l'état après chaque `save()` et nomme précisément les cellules touchées — c'est
+exactement la matière du journal. Il manque la conservation de l'ancienne valeur, le nom
+de l'appareil, et un écran de consultation. Le diagnostic d'une synchronisation qui écrase,
+lui, n'est plus un argument : elle ne s'écrase plus.
 
 ### C.4 Verrou biométrique — S
 
@@ -253,6 +261,16 @@ calcul ; il ne manque qu'un jeu d'hypothèses parallèle à l'année réelle.
 `syncPush`/`syncPull` fonctionnent en dernier-écrivain-gagne. Deux appareils modifiant le
 même mois perdent une des deux saisies sans message. Un horodatage par cellule, ou au
 minimum une détection de divergence avec choix explicite, éviterait une perte silencieuse.
+
+**Livré en 2.5.0, et au-delà de l'énoncé.** La fiche proposait d'*avertir* ; l'application
+**fusionne**. L'horodatage par cellule existe (`depenses_meta_<année>`), la fusion garde la
+valeur la plus récente de chaque côté, et une valeur qu'un seul appareil possède est
+conservée. Avertir reste le dernier recours : quand les deux appareils ont écrit la même
+cellule dans la même seconde, la pastille affiche « ⚠️ N désaccord(s) ». Deux appareils
+utilisés le même soir ne se recouvrent plus — ils s'additionnent. Voir § 2.4 de
+[ARCHITECTURE.md](ARCHITECTURE.md) pour le mécanisme, et § 2b de [TESTS.md](TESTS.md) pour
+les trois pertes de données que cette implémentation a elle-même produites avant d'être
+juste.
 
 ---
 
@@ -403,11 +421,13 @@ reste à écrire.
 *Les 14 fiches d'octobre 2026 et huit des neuf fiches du § E sont livrées. Par rendement,
 ce qui reste :*
 
-1. **D.4 Synchronisation : avertir au lieu d'écraser** — le seul risque restant de perte
-   de données silencieuse, maintenant que la clôture protège les années déclarées. Deux
-   appareils qui écrivent la même année se recouvrent encore sans un mot.
-2. **La vague 1 du portage iOS** — `fiscal-data`, `impot`, `dpa` et les utilitaires.
+1. **La vague 1 du portage iOS** — `fiscal-data`, `impot`, `dpa` et les utilitaires.
    C'est ce qui rendrait l'application mobile utile pour autre chose que la saisie, et
-   [PORTAGE_IOS.md](PORTAGE_IOS.md) en donne le contrat exact.
-3. **C.3 Historique des modifications** — aujourd'hui, seule la clôture laisse une
-   trace. En cas de vérification, pouvoir dire *quand* un montant a changé vaut cher.
+   [PORTAGE_IOS.md](PORTAGE_IOS.md) en donne le contrat exact. À porter avec `sync.js`,
+   sans quoi l'iPhone restera le seul appareil qui ne participe pas à la fusion.
+2. **C.3 Historique des modifications** — aujourd'hui, seule la clôture laisse une
+   trace. En cas de vérification, pouvoir dire *quand* un montant a changé vaut cher, et
+   la 2.5.0 en a déjà écrit la moitié.
+3. **C.4 Verrou biométrique** — les deux apps contiennent revenus, adresses et noms de
+   copropriétaires, et depuis la 2.5.0 chaque appareil connecté en porte une copie
+   complète. Le coût est faible, l'exposition ne l'est plus.

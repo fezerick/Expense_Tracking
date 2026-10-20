@@ -18,6 +18,65 @@ La version est écrite aux six endroits par `scripts/version.sh`, seul outil aut
 
 ---
 
+## 2.5.0 — 20 octobre 2026
+
+### Ajouté
+- **La synchronisation automatique entre appareils, champ par champ.** Les données
+  saisies sur le téléphone apparaissent sur l'ordinateur, et l'inverse, sans rien
+  demander : cinq secondes après la dernière frappe l'application envoie, et elle
+  récupère en continu ce que l'autre appareil écrit. Toutes les années sont
+  synchronisées, pas seulement celle qui est ouverte.
+- **Rien ne s'écrase plus.** Jusqu'ici la synchronisation était un *remplacement* :
+  le dernier appareil à écrire gagnait tout, et une soirée de saisie sur le téléphone
+  disparaissait parce que l'ordinateur, resté ouvert sur des données plus vieilles,
+  avait renvoyé sa version. Désormais **chaque valeur** — un montant de mois, un champ
+  de relevé, un réglage — porte sa propre date de dernière écriture, et la fusion garde
+  la plus récente des deux. Deux appareils qui saisissent le même soir, l'un les loyers
+  de janvier et l'autre celui d'avril, retrouvent les deux.
+- **Les désaccords sont dits, pas tranchés en silence.** Quand les deux appareils ont
+  écrit la même case dans la même seconde, la pastille de synchronisation affiche
+  « ⚠️ N désaccord(s) » au lieu de laisser croire que tout allait de soi.
+- **Les réglages suivent aussi** — identité, taux, biens, baux, règles de catégorisation
+  — à l'exception du **thème**, qui reste propre à chaque appareil : le mode sombre du
+  téléphone le soir n'a aucune raison de s'imposer à l'ordinateur.
+- **Les photos de reçus voyagent.** Chaque photo part dans son propre document, et
+  l'appareil qui ne l'a pas encore la télécharge à l'ouverture. Supprimer un reçu le
+  supprime partout.
+
+### Corrigé
+- **Deux pertes de données dans le moteur de fusion**, attrapées en navigateur et non
+  par les tests : une catégorie qui recevait sa première valeur était prise pour une
+  catégorie disparue et posait une pierre tombale qui l'effaçait sur l'autre appareil ;
+  et la coquille vide envoyée par l'appareil qui n'avait jamais touché une catégorie
+  écrasait la catégorie remplie d'en face.
+- **Le piège des douze cases.** Saisir avril dans une nouvelle catégorie crée les onze
+  autres cases vides d'un même geste. Datées, ces cases vides étaient plus récentes que
+  les loyers de janvier à mars déjà saisis ailleurs, et la fusion les effaçait — trois
+  mois de loyers perdus en créant une case. Une case qui **naît** vide ne porte plus de
+  date ; vider une case qui **portait** un montant reste, elle, une écriture qui se
+  défend.
+
+### Interne
+- `pwa_2026/js/sync.js` (19ᵉ module) : le moteur de fusion, sans Firebase et sans état,
+  donc testable seul. Dates par feuille, pierres tombales au plus court préfixe
+  entièrement disparu, tableaux indexés par `id` ou par position selon leur forme,
+  empreinte canonique pour éviter que deux appareils se renvoient indéfiniment le même
+  document.
+- Chaque envoi passe par une **transaction** Firestore (lire, fusionner, écrire) : deux
+  appareils qui envoient en même temps ne peuvent plus se perdre l'un l'autre.
+- `firestore.rules` est maintenant dans le dépôt et se déploie avec l'application : un
+  compte ne lit et n'écrit que ses propres données.
+- Les reçus passent par des **documents** Firestore et non par Firebase Storage : le
+  projet n'a pas de bucket et en créer un exige aujourd'hui le plan Blaze. Seules trois
+  fonctions touchent au stockage, le jour où cela change.
+- Suite modules : 263 assertions, dont la section « S. Fusion entre appareils ».
+- Troisième suite, `tests/pwa_sync_suite.js` (`npm run test:sync`) : le raccordement à
+  Firestore vérifié contre un **Firestore de pacotille** — transactions, écoute temps
+  réel, écho de nos propres écritures, configuration sans le thème, cycle complet d'une
+  photo de reçu. Sans réseau et sans compte.
+
+---
+
 ## 2.4.0 — 20 octobre 2026
 
 ### Ajouté

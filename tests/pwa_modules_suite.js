@@ -35,6 +35,11 @@
   const backup = {
     state: JSON.parse(JSON.stringify(state)),
     setup: JSON.parse(JSON.stringify(setup)),
+    // Les dates d'écriture par feuille (js/sync.js). Sans cette ligne, le
+    // save() du bloc finally daterait le retour aux vraies données comme une
+    // saisie faite à l'instant : cet appareil gagnerait ensuite toutes les
+    // fusions, pour la seule raison qu'on a lancé les tests dessus.
+    meta: JSON.parse(JSON.stringify(stateMeta)),
     activeYear
   }
 
@@ -984,6 +989,212 @@ ${FIX_YEAR}-04-12,QUINCAILLERIE TEST,-45.00`
       sansErreur('M' + (210 + i), `Rendu du panneau « ${nom} » sans exception`, fn)
     })
 
+    // ══ S. FUSION ENTRE APPAREILS (sync.js) ═══════════════════════════════════
+    // Ce que ces tests protègent : une soirée de saisie sur le téléphone ne doit
+    // pas disparaître parce qu'un autre appareil, resté ouvert sur des données
+    // plus vieilles, a renvoyé sa version. Chaque cas ci-dessous correspond à
+    // une façon d'effacer du travail par mégarde.
+    const P = (...s) => s.join('\u001f')
+    const meta0 = (st, ts) => syncDater(null, {}, st, ts).meta
+    const copie = o => JSON.parse(JSON.stringify(o))
+
+    // Aplatissement : la forme des tableaux décide de tout le reste.
+    eq('M260', 'Les 12 mois d\'une catégorie sont indexés par position',
+       { [P('p1090','revenus','Coloc','0')]: '100', [P('p1090','revenus','Coloc','1')]: '' },
+       syncAplatir({ p1090: { revenus: { Coloc: ['100',''] } } }))
+    eq('M261', 'Les trajets sont indexés par id, pas par position',
+       { [P('trips','a1','id')]: 'a1', [P('trips','a1','km')]: 12 },
+       syncAplatir({ trips: [{ id: 'a1', km: 12 }] }))
+    eq('M262', 'Les empreintes d\'import sont un ensemble',
+       { [P('importHashes','h1')]: true, [P('importHashes','h2')]: true },
+       syncAplatir({ importHashes: ['h1','h2'] }))
+    eq('M263', 'Les photos de reçus ne passent pas par la fusion',
+       {}, syncAplatir({ receipts: { r1: 'data:image/jpeg;base64,AAA' } }))
+    eq('M264', 'Un tableau sans clé stable reste une seule feuille',
+       { closedHistory: [{ at: 'x' }] }, syncAplatir({ closedHistory: [{ at: 'x' }] }))
+
+    // Deux appareils, deux champs différents du même mois Lyft.
+    const sBase = { lyft: { 6: { taxable: '500' } } }
+    const sA = copie(sBase); sA.lyft[6].tips = '13'
+    const mA = syncDater(meta0(sBase, 1000), sBase, sA, 2000).meta
+    const sB = copie(sBase); sB.lyft[6].fees = '88'
+    const mB = syncDater(meta0(sBase, 1000), sBase, sB, 2500).meta
+    const fAB = syncFusionner({ state: sA, meta: mA }, { state: sB, meta: mB })
+    eq('M265', 'Deux champs saisis sur deux appareils cohabitent',
+       { taxable: '500', tips: '13', fees: '88' }, fAB.state.lyft[6])
+    eq('M266', 'Champs différents : aucun conflit', 0, fAB.conflits.length)
+    eq('M267', 'Refusionner ne change plus rien (idempotence)', fAB.state,
+       syncFusionner({ state: fAB.state, meta: fAB.meta }, { state: sB, meta: mB }).state)
+
+    // Même champ des deux côtés : la date tranche, dans les deux sens.
+    const sC = { uber: { rides_gross: '100' } }, sD = { uber: { rides_gross: '200' } }
+    const mC = meta0(sC, 1000), mD = meta0(sD, 3000)
+    eq('M268', 'La valeur la plus récente gagne (reçue du distant)',
+       '200', syncFusionner({ state: sC, meta: mC }, { state: sD, meta: mD }).state.uber.rides_gross)
+    eq('M269', 'La valeur la plus récente gagne (gardée en local)',
+       '200', syncFusionner({ state: sD, meta: mD }, { state: sC, meta: mC }).state.uber.rides_gross)
+    eq('M270', 'Une valeur écartée est signalée comme conflit',
+       1, syncFusionner({ state: sC, meta: mC }, { state: sD, meta: mD }).conflits.length)
+
+    // Données écrites avant la 2.5.0 : aucune date, donc union.
+    const sE = { uber: { rides_gross: '100', tolls: '5' } }
+    const sG = { uber: { rides_gross: '200', tips_rides: '9' } }
+    const fUnion = syncFusionner({ state: sE, meta: null }, { state: sG, meta: null })
+    eq('M271', 'Sans dates, la fusion est une union : rien ne disparaît',
+       { rides_gross: '100', tolls: '5', tips_rides: '9' }, fUnion.state.uber)
+    eq('M272', 'Sans dates, le désaccord est signalé', 1, fUnion.conflits.length)
+
+    // Règle d'effacement : une case vide jamais remplie ne vaut pas une valeur.
+    const sVide = { uber: { rides_gross: '' } }, sPlein = { uber: { rides_gross: '450' } }
+    eq('M273', 'Une case vide non datée n\'écrase pas une vraie valeur',
+       '450', syncFusionner({ state: sVide, meta: null }, { state: sPlein, meta: null }).state.uber.rides_gross)
+    const mVide = syncDater(meta0(sPlein, 1000), sPlein, sVide, 5000).meta
+    eq('M274', 'Une case vidée volontairement, elle, se défend',
+       '', syncFusionner({ state: sVide, meta: mVide },
+                         { state: sPlein, meta: meta0(sPlein, 1000) }).state.uber.rides_gross)
+
+    // Suppressions : ni résurrection, ni coquille vide.
+    const sT1 = { trips: [{ id: 't1', km: 10 }, { id: 't2', km: 20 }] }
+    const mT1 = meta0(sT1, 1000)
+    const sT2 = { trips: [{ id: 't1', km: 10 }] }
+    const mT2 = syncDater(copie(mT1), sT1, sT2, 4000).meta
+    eq('M275', 'Un trajet supprimé n\'est pas ressuscité par l\'autre appareil',
+       ['t1'], syncFusionner({ state: sT2, meta: mT2 }, { state: sT1, meta: mT1 }).state.trips.map(t => t.id))
+    eq('M276', 'La suppression se propage à l\'appareil qui l\'ignorait',
+       ['t1'], syncFusionner({ state: sT1, meta: mT1 }, { state: sT2, meta: mT2 }).state.trips.map(t => t.id))
+    const sT3 = copie(sT2); sT3.trips.push({ id: 't9', km: 90 })
+    const mT3 = syncDater(copie(mT2), sT2, sT3, 6000).meta
+    eq('M277', 'Un trajet ajouté ailleurs arrive',
+       ['t1','t9'], syncFusionner({ state: sT2, meta: mT2 }, { state: sT3, meta: mT3 }).state.trips.map(t => t.id))
+
+    // Ensembles, mois, catégorie entière.
+    const sS1 = { importHashes: ['a','b'] }, sS2 = { importHashes: ['b','c'] }
+    eq('M278', 'Deux imports bancaires cumulent leurs empreintes', ['a','b','c'],
+       syncFusionner({ state: sS1, meta: meta0(sS1, 1000) },
+                     { state: sS2, meta: meta0(sS2, 2000) }).state.importHashes.slice().sort())
+    const sM1 = { p1090: { revenus: { Coloc: ['100','','',''] } } }
+    const mM1 = meta0(sM1, 1000)
+    const sM2 = copie(sM1); sM2.p1090.revenus.Coloc[1] = '250'
+    const mM2 = syncDater(copie(mM1), sM1, sM2, 3000).meta
+    const sM3 = copie(sM1); sM3.p1090.revenus.Coloc[3] = '400'
+    const mM3 = syncDater(copie(mM1), sM1, sM3, 3500).meta
+    eq('M279', 'Deux mois saisis sur deux appareils cohabitent', ['100','250','','400'],
+       syncFusionner({ state: sM3, meta: mM3 }, { state: sM2, meta: mM2 }).state.p1090.revenus.Coloc)
+    const sN1 = { p470: { revenus: {} } }
+    const sN2 = { p470: { revenus: { 'Loyer 470': ['900','900'] } } }
+    eq('M280', 'Une catégorie entière créée ailleurs arrive', { 'Loyer 470': ['900','900'] },
+       syncFusionner({ state: sN1, meta: meta0(sN1, 1000) },
+                     { state: sN2, meta: meta0(sN2, 2000) }).state.p470.revenus)
+
+    // L'empreinte : c'est elle qui empêche l'aller-retour sans fin.
+    eq('M281', 'Deux états identiques écrits dans un ordre différent ont la même empreinte',
+       syncEmpreinteEtat({ uber: { a: '1', b: '2' } }), syncEmpreinteEtat({ uber: { b: '2', a: '1' } }))
+    eq('M282', 'Rien à renvoyer quand le cloud porte déjà le résultat', false,
+       syncDoitRenvoyer({ state: { uber: { b: '2', a: '1' } }, meta: meta0({ uber: { a: '1' } }, 10) },
+                        { state: { uber: { a: '1', b: '2' } }, meta: meta0({ uber: { a: '1' } }, 10) }))
+    eq('M283', 'À renvoyer quand on détient une valeur que le cloud ignore', true,
+       syncDoitRenvoyer({ state: { uber: { a: '1', b: '2' } }, meta: null },
+                        { state: { uber: { a: '1' } }, meta: null }))
+
+    // Le branchement dans l'application : save() date, et seulement ce qui change.
+    const cheminTest = P('uber', 'rides_gross')
+    state.uber.rides_gross = '777'
+    save()
+    check('M284', 'save() date la valeur qui vient de changer', '> 0',
+          stateMeta.feuilles[cheminTest] || 0, (stateMeta.feuilles[cheminTest] || 0) > 0)
+    const dateAvant = stateMeta.feuilles[cheminTest]
+    save()
+    eq('M285', 'Une sauvegarde sans changement ne redate rien', dateAvant, stateMeta.feuilles[cheminTest])
+    delete state.uber.rides_gross
+    save()
+    check('M286', 'Une valeur effacée laisse une pierre tombale datée', '> 0',
+          syncDateSuppression(stateMeta, cheminTest), syncDateSuppression(stateMeta, cheminTest) > 0)
+    eq('M287', 'Les reçus sont retirés de ce qui part vers le cloud',
+       undefined, stateForSync(state).receipts)
+    eq('M288', 'Le thème reste local : il ne part pas vers le cloud',
+       undefined, setupPourSync({ theme: 'dark', done: true }).theme)
+    eq('M289', 'Le reste de la configuration, lui, est synchronisé',
+       true, setupPourSync({ theme: 'dark', done: true }).done)
+
+    // Les photos de reçus : l'index voyage, l'image non.
+    eq('M290', 'L\'index des reçus, lui, fait partie de ce qui se synchronise',
+       { [P('recusIndex','p1090:deductibles:Taxes:3')]: 1700000000000 },
+       syncAplatir({ recusIndex: { 'p1090:deductibles:Taxes:3': 1700000000000 } }))
+    const sIdx = { recusIndex: { r1: 111, r2: 222 } }
+    const mIdx = syncDater(null, {}, sIdx, 1000).meta
+    const sIdx2 = { recusIndex: { r1: 111 } }
+    const mIdx2 = syncDater(copie(mIdx), sIdx, sIdx2, 4000).meta
+    check('M291', 'Supprimer un reçu laisse une tombale sur sa ligne d\'index', '> 0',
+          syncDateSuppression(mIdx2, P('recusIndex','r2')),
+          syncDateSuppression(mIdx2, P('recusIndex','r2')) > 0)
+    eq('M292', 'La suppression d\'un reçu se propage sans ressusciter', { r1: 111 },
+       syncFusionner({ state: sIdx2, meta: mIdx2 }, { state: sIdx, meta: mIdx }).state.recusIndex)
+    eq('M293', 'Une clé de reçu avec une barre oblique reste un identifiant valide',
+       -1, recusDocId(2026, 'p1090:deductibles:Eau / Égouts:3').indexOf('/'))
+
+    // Le piège attrapé par l'essai en navigateur : une catégorie vide (`uber:
+    // {}`) est une feuille, et sa première valeur saisie la transforme en
+    // conteneur. Traiter cette transformation comme une suppression posait une
+    // tombale sur « uber » et vidait la catégorie sur l'autre appareil.
+    const sVide0 = { uber: {} }
+    const sPremier = { uber: { rides_gross: '100' } }
+    const sPremier2 = { uber: { rides_gross: '5000' } }
+    const dPremier = syncDater(meta0(sVide0, 1000), sVide0, sPremier, 2000)
+    eq('M294', 'La première valeur d\'une catégorie est datée', 2000,
+       dPremier.meta.feuilles[P('uber','rides_gross')])
+    eq('M295', 'Remplir une catégorie vide ne pose aucune tombale', 0,
+       syncDateSuppression(dPremier.meta, P('uber','rides_gross')))
+    eq('M296', 'Et la valeur arrive bien sur l\'appareil resté sur la catégorie vide',
+       { rides_gross: '100' },
+       syncFusionner({ state: sVide0, meta: meta0(sVide0, 1000) },
+                     { state: sPremier, meta: dPremier.meta }).state.uber)
+    // Le symétrique, attrapé lui aussi en navigateur : l'appareil qui n'a jamais
+    // touché la catégorie envoie `uber: {}`. Cette coquille ne doit pas écraser
+    // la catégorie remplie d'en face — c'était la perte d'une soirée de saisie.
+    eq('M298', 'Une catégorie vide reçue n\'écrase pas la catégorie remplie d\'ici',
+       { rides_gross: '5000' },
+       syncFusionner({ state: sPremier2, meta: meta0(sPremier2, 2000) },
+                     { state: sVide0, meta: null }).state.uber)
+    eq('M299', 'Et après l\'échange, les deux appareils portent la même empreinte',
+       syncEmpreinteEtat(syncFusionner({ state: sPremier2, meta: meta0(sPremier2, 2000) },
+                                       { state: sVide0, meta: null }).state),
+       syncEmpreinteEtat(syncFusionner({ state: sVide0, meta: null },
+                                       { state: sPremier2, meta: meta0(sPremier2, 2000) }).state))
+
+    // Le cas inverse reste une vraie suppression.
+    const dRetire = syncDater(copie(dPremier.meta), sPremier, sVide0, 3000)
+    check('M297', 'Vider une catégorie, en revanche, pose bien une tombale', '> 0',
+          syncDateSuppression(dRetire.meta, P('uber','rides_gross')),
+          syncDateSuppression(dRetire.meta, P('uber','rides_gross')) > 0)
+
+    // Le piège le plus coûteux des douze cases : saisir avril dans une nouvelle
+    // catégorie crée les onze autres cases vides d'un coup. Si ces vides se
+    // datent, ils sont plus récents que les loyers de janvier à mars déjà saisis
+    // sur le téléphone, et la fusion les efface. Ils restent donc sans date.
+    const an = (...v) => { const t = ['','','','','','','','','','','','']; v.forEach(([i, x]) => t[i] = x); return t }
+    const sTel = { p1090: { revenus: { 'Coloc 1': an([0,'700'],[1,'700'],[2,'700']) } } }
+    const sPort = { p1090: { revenus: { 'Coloc 1': an([3,'850']) } } }
+    const dPort = syncDater(syncMetaVide(), {}, sPort, 2000)
+    const cell = i => P('p1090','revenus','Coloc 1', String(i))
+    eq('M300', 'Une case créée vide n\'est pas datée', undefined,
+       dPort.meta.feuilles[cell(0)])
+    eq('M301', 'La case réellement saisie, elle, est datée', 2000,
+       dPort.meta.feuilles[cell(3)])
+    const vuTel = syncFusionner({ state: sTel, meta: meta0(sTel, 1000) },
+                                { state: sPort, meta: dPort.meta })
+    eq('M302', 'Les trois premiers loyers survivent à la saisie faite ailleurs',
+       ['700','700','700','850'], vuTel.state.p1090.revenus['Coloc 1'].slice(0, 4))
+    const vuPort = syncFusionner({ state: sPort, meta: dPort.meta },
+                                 { state: sTel, meta: meta0(sTel, 1000) })
+    eq('M303', 'Et les deux appareils convergent sur les douze mêmes cases',
+       syncEmpreinteEtat(vuTel.state), syncEmpreinteEtat(vuPort.state))
+    // Vider une case qui PORTAIT un montant reste une écriture qui se défend.
+    const dVide = syncDater(copie(meta0(sTel, 1000)), sTel, { p1090: { revenus: { 'Coloc 1': an([1,'700'],[2,'700']) } } }, 4000)
+    eq('M304', 'Effacer un loyer saisi se date, et gagne contre l\'ancienne valeur', '',
+       syncFusionner({ state: sTel, meta: meta0(sTel, 1000) },
+                     { state: { p1090: { revenus: { 'Coloc 1': an([1,'700'],[2,'700']) } } }, meta: dVide.meta })
+         .state.p1090.revenus['Coloc 1'][0])
+
     // ══ R. ROBUSTESSE : ÉTAT VIERGE ═══════════════════════════════════════════
     const stateSauve = state
     state = defaultState()
@@ -1008,8 +1219,11 @@ ${FIX_YEAR}-04-12,QUINCAILLERIE TEST,-45.00`
     // Toutes les années écrites par la suite, y compris quand elle s'interrompt.
     ANNEES_TEST.forEach(an => {
       try { localStorage.removeItem(STORE_PREFIX + an) } catch (e) {}
+      try { localStorage.removeItem(META_PREFIX + an) } catch (e) {}
     })
     save()
+    sauverMeta(activeYear, backup.meta)
+    rechargerMeta()
     saveSetup()
     try { refreshAll() } catch (e) {}
   }

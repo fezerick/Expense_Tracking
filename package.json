@@ -1,12 +1,13 @@
 {
   "name": "mon-plex",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "private": true,
   "description": "Mon Plex — suites de tests de la PWA. L'application elle-même n'a AUCUNE dépendance et aucune étape de compilation : jsdom ne sert qu'à exécuter les tests hors navigateur.",
   "scripts": {
     "test": "node tests/run-headless.js",
     "test:socle": "node tests/run-headless.js socle",
-    "test:modules": "node tests/run-headless.js modules"
+    "test:modules": "node tests/run-headless.js modules",
+    "test:sync": "node tests/run-headless.js sync"
   },
   "devDependencies": {
     "jsdom": "^30.1.3"

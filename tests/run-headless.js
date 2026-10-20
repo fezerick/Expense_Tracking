@@ -82,7 +82,11 @@ function pagePreparee() {
   return { html, modules: n }
 }
 
-function executer(fichierSuite) {
+// Asynchrone pour une seule raison : la suite de synchronisation fait des
+// allers-retours `await` vers son Firestore de pacotille, et la fenêtre jsdom ne
+// doit pas se fermer avant qu'ils soient finis. Une suite synchrone passe par le
+// même chemin sans rien changer — `await` sur une valeur n'attend personne.
+async function executer(fichierSuite) {
   const { html, modules } = pagePreparee()
   const erreurs = []
   const vc = new VirtualConsole()
@@ -99,7 +103,7 @@ function executer(fichierSuite) {
   const w = dom.window
   const suite = fs.readFileSync(path.join(RACINE, 'tests', fichierSuite), 'utf8')
   let res
-  try { res = w.eval(suite) } catch (e) { res = null; erreurs.push('exception: ' + e.message) }
+  try { res = await w.eval(suite) } catch (e) { res = null; erreurs.push('exception: ' + e.message) }
   dom.window.close()
   return { res, erreurs, modules }
 }
@@ -134,7 +138,8 @@ const quoi = (process.argv[2] || '').toLowerCase()
 const suites = []
 if (!quoi || quoi === 'socle') suites.push(['socle (index.html)', 'pwa_suite.js'])
 if (!quoi || quoi === 'modules') suites.push(['modules (pwa_2026/js/)', 'pwa_modules_suite.js'])
-if (!suites.length) { console.error('✖ Usage : node tests/run-headless.js [socle|modules]'); process.exit(2) }
+if (!quoi || quoi === 'sync') suites.push(['synchronisation (Firestore factice)', 'pwa_sync_suite.js'])
+if (!suites.length) { console.error('✖ Usage : node tests/run-headless.js [socle|modules|sync]'); process.exit(2) }
 
 let echecTotal = 0
 console.log('')
@@ -145,15 +150,18 @@ vers.forEach(v => {
   if (!v.ok) echecTotal++
 })
 
-suites.forEach(([nom, fichier]) => {
+// `require` et un `await` de premier niveau ne cohabitent pas dans un fichier
+// que Node doit classer : d'où cette fonction.
+async function principal() {
+for (const [nom, fichier] of suites) {
   console.log('')
   console.log('── Suite ' + nom + ' ' + '─'.repeat(Math.max(2, 60 - nom.length)))
-  const { res, erreurs, modules } = executer(fichier)
+  const { res, erreurs, modules } = await executer(fichier)
   if (!res) {
     console.log('  ✖ la suite n\'a rien retourné')
     erreurs.forEach(e => console.log('    ' + e))
     echecTotal++
-    return
+    continue
   }
   console.log(`  ${modules} modules chargés · ${res.pass}/${res.total} assertions`)
   res.echecs.forEach(e => {
@@ -165,9 +173,12 @@ suites.forEach(([nom, fichier]) => {
   // journalisée : sans cette remontée, un panneau cassé passerait inaperçu.
   erreurs.filter(e => !e.includes('stub')).forEach(e => console.log('  ⚠ ' + e))
   echecTotal += res.fail
-})
+}
 
 console.log('')
 if (echecTotal === 0) { console.log('✔ Tout est vert.'); process.exit(0) }
 console.log(`✖ ${echecTotal} échec(s).`)
 process.exit(1)
+}
+
+principal().catch(e => { console.error('✖ ' + (e && e.stack || e)); process.exit(1) })

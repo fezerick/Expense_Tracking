@@ -127,6 +127,14 @@ reproduire au cent près ; le reste du fichier est du rendu.
 les acomptes, le tout alimente les recommandations. Fin de vague : l'app iOS affiche le
 même impôt estimé que la PWA sur le même jeu de données.
 
+**Vague 1 bis — la fusion, dès que la saisie iOS compte.** `sync.js` est du calcul pur
+sur un arbre (`[String: Any]` en Swift, ou le `JSONValue` que vous préférez) : aucune
+dépendance à Firebase, aucune à `state`. Tant qu'il n'est pas porté, l'iPhone reste le
+seul appareil qui ne participe pas à la fusion — et un `syncPush` iOS écrit en
+remplacement **ré-introduirait** la perte de données que la 2.5.0 a éliminée côté PWA.
+Si le portage tarde, l'app iOS doit s'en tenir à l'import/export d'enveloppe (§ 2) et ne
+jamais écrire dans `users/<uid>/years/<année>`.
+
 **Vague 2 — la saisie courante.** `baux`, `taxes`, `vehicule-methodes`, `kilometrage`,
 `ventilation`, `import-bancaire`. C'est ce qu'on utilise plusieurs fois par mois, donc
 ce qui justifie l'app mobile. Fin de vague : une année entière peut être saisie sur iOS
@@ -178,7 +186,21 @@ Chacun a déjà produit un défaut réel dans ce projet ou en produirait un :
    sorties d'argent : les péages encaissés figurent eux aussi en positif sur le relevé
    et sont un revenu — ils ne passent pas par `cout()`. Le critère n'est pas le signe
    imprimé, c'est le sens du flux.
-8. **La DPA ne réduit pas le PBR.** C'est une règle fiscale, pas un détail
+8. **Une feuille qui devient un conteneur n'est pas une feuille disparue.** Dans
+   `sync.js`, l'arbre est aplati en chemins ; saisir la première valeur d'une catégorie
+   fait passer `uber` de feuille (`{}`) à conteneur (`uber.rides_gross`). Traité comme une
+   disparition, ce changement pose une pierre tombale qui efface la catégorie entière sur
+   l'autre appareil. Le symétrique compte autant : la coquille vide `uber: {}` reçue d'un
+   appareil qui n'a jamais touché la catégorie ne doit pas écraser la catégorie remplie
+   d'ici. Les deux ont été de vraies pertes de données, et aucune des deux n'a été vue par
+   les tests — seulement en navigateur, deux appareils côte à côte. M294–M299.
+9. **Une case qui naît vide ne se date pas.** Saisir avril dans une nouvelle catégorie
+   crée les onze autres cases d'un même geste. Datées, ces cases vides sont plus récentes
+   que les loyers déjà saisis ailleurs, et la fusion les efface. Vider une case qui
+   **portait** un montant est, à l'inverse, une écriture : elle se date et elle gagne. La
+   distinction est locale et ne tient qu'à une chose — la valeur existait-elle avant ?
+   M300–M304.
+10. **La DPA ne réduit pas le PBR.** C'est une règle fiscale, pas un détail
    d'implémentation : `calculVente()` en dépend, et un portage « logique » la casserait.
    De même, la récupération de DPA est imposée à **100 %** tandis que le gain en capital
    l'est à **50 %**.
@@ -187,8 +209,9 @@ Chacun a déjà produit un défaut réel dans ce projet ou en produirait un :
 
 ## 7. La parité des tests
 
-`tests/pwa_modules_suite.js` contient 209 assertions, dont la moitié porte sur du calcul
-pur — donc portable. Le chemin le plus court :
+`tests/pwa_modules_suite.js` contient 263 assertions, dont la moitié porte sur du calcul
+pur — donc portable. Les 45 assertions de fusion (M260–M304) sont intégralement portables :
+`sync.js` ne touche à rien d'autre qu'un arbre et des dates. Le chemin le plus court :
 
 1. Côté PWA, `npm test` exécute tout sans navigateur (`tests/run-headless.js`, jsdom).
 2. Pour chaque module porté, reprenez **les mêmes jeux d'entrée et les mêmes attendus**
@@ -207,7 +230,7 @@ pur — donc portable. Le chemin le plus court :
 | Tesseract.js (OCR des reçus) | **Vision** (`VNRecognizeTextRequest`) — plus précis, hors ligne, gratuit |
 | JSZip (dossier comptable) | `Archive` / `NSFileCoordinator`, ou le partage d'un dossier |
 | `jsPDF` (rapport comptable) | `PDFReportGenerator.swift` — **existe déjà, à parité** |
-| Firebase compat par CDN | SDK Firebase natif, ou iCloud/CloudKit |
+| Firebase compat par CDN | SDK Firebase natif, ou iCloud/CloudKit — mais le **moteur de fusion** (`sync.js`) se porte tel quel, et doit l'être avant toute écriture dans Firestore |
 | `navigator.geolocation` | CoreLocation — `DistanceService.swift` existe déjà |
 | `localStorage` par année | SwiftData, déjà en place (`DataService`) |
 | Service worker / cache busting | sans objet : l'App Store versionne le bundle |

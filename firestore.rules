@@ -1,0 +1,23 @@
+rules_version = '2';
+
+// Règles d'accès aux données synchronisées (projet suivi-depenses-7dc02).
+//
+// Elles vivent ici, dans le dépôt, et non plus seulement dans la console
+// Firebase : une règle qu'on ne peut pas relire à côté du code qui l'utilise
+// est une règle qu'on finit par croire plus permissive — ou plus stricte —
+// qu'elle ne l'est.
+//
+// Le modèle est simple : tout ce qui est synchronisé vit sous
+// users/<uid>, et <uid> est l'identifiant Google de celui qui écrit.
+//   • users/<uid>/years/<année>      les chiffres d'une année (+ leurs dates)
+//   • users/<uid>/config/setup       la configuration (sauf le thème)
+//   • users/<uid>/recus/<année_clé>  une photo de reçu par document
+// Il n'y a aucune donnée partagée dans ce projet : personne ne lit le dossier
+// d'un autre, et un visiteur non connecté ne lit rien du tout.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

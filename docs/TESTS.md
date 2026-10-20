@@ -12,7 +12,8 @@ fichiers, **toutes vertes**, exécutables **sans navigateur** par `npm test` :
 |---|---|---|
 | `tests/run-headless.js` | concordance de la version aux six emplacements | **V1–V4** |
 | `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **111 / 111** |
-| `tests/pwa_modules_suite.js` | les 18 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **218 / 218** |
+| `tests/pwa_modules_suite.js` | les 19 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **263 / 263** |
+| `tests/pwa_sync_suite.js` | le raccordement à Firestore, contre un Firestore de pacotille (§ 2c) | **15 / 15** |
 
 Dix défauts ont été corrigés et revérifiés depuis la campagne initiale : BUG-1, BUG-7
 (PWA + iOS), BUG-9, BUG-10, BUG-3, puis BUG-2 et les quatre défauts de la couche
@@ -23,14 +24,15 @@ modulaire décrits au § 2b. Les défauts encore ouverts sont listés dans
 
 ## 0. Exécution sans navigateur — `npm test`
 
-Depuis la version 2.2.0, les deux suites tournent **hors navigateur**. C'est le mode
+Depuis la version 2.2.0, les suites tournent **hors navigateur**. C'est le mode
 normal ; le mode console des § 2 et § 2b reste utile pour déboguer en regardant l'écran.
 
 ```bash
 npm install     # une seule fois : jsdom, la seule dépendance, et seulement pour les tests
-npm test        # les deux suites + les quatre vérifications de version
+npm test        # les trois suites + les quatre vérifications de version
 npm run test:socle      # une seule suite
 npm run test:modules
+npm run test:sync
 ```
 
 `tests/run-headless.js` monte `index.html` dans jsdom, retire les trois balises Firebase,
@@ -305,7 +307,7 @@ sens.
 
 ## 2b. Suite automatisée des modules — `tests/pwa_modules_suite.js`
 
-**218 assertions, 218 réussies.** Elle couvre la couche `pwa_2026/js/` (§ 2.8 de
+**263 assertions, 263 réussies.** Elle couvre la couche `pwa_2026/js/` (§ 2.8 de
 [ARCHITECTURE.md](ARCHITECTURE.md)), que la première suite ignore. Même principe :
 exécution *dans* la page, fixture déterministe, restauration de l'état réel à la fin.
 
@@ -349,6 +351,7 @@ chaque correctif de module**, car les modules sont chargés avec leur propre `?v
 | M202–M204 | version | format *majeur.mineur.correctif*, `?v=` sur **chaque** balise de module, version affichée dans les Réglages |
 | M210+ | tous | un panneau par module : chaque `render()` produit du contenu sans lever |
 | M250–M251 | tous | **état vierge** : tous les calculs des modules tournent sur un `state` où aucune clé de module n'existe |
+| M260–M304 | `sync` | **fusion entre appareils** : aplatissement de l'arbre, les trois formes de tableau (par `id`, par position, en ensemble), la valeur la plus récente gagne, une valeur qu'un seul côté possède est conservée, pierre tombale au plus court préfixe, règle d'effacement, idempotence, convergence des deux sens de fusion, désaccord signalé à dates égales, une case qui naît vide n'est pas datée (M300–M304) |
 
 ### Défauts trouvés par cette suite — tous corrigés
 
@@ -358,6 +361,24 @@ chaque correctif de module**, car les modules sont chargés avec leur propre `?v
 | BUG-12 | MOYEN | `empreinteFiscale()` changeait sans qu'aucun chiffre change : ouvrir un écran crée des structures vides (`ensurePropBucket()` ajoute `state.recurring[id] = {}`), ce qui allongeait la chaîne canonique. Annuler une modification ne restituait donc pas l'empreinte, et l'app annonçait « les chiffres ne correspondent plus à la clôture » à tort. | [cloture.js](../pwa_2026/js/cloture.js) : la sérialisation **élague** récursivement `''`, `null`, `0` et les objets devenus vides. Les positions dans un tableau de 12 mois sont conservées. M13 le verrouille. Changer le format d'empreinte était sans risque : la clôture n'était pas encore déployée, donc aucune empreinte n'existait en base. |
 | BUG-13 | MOYEN | Les lignes d'**ajout en capital** de la grille mensuelle n'avaient pas de bouton reçu, alors que ce sont précisément les montants qu'un vérificateur demande en premier. | [index.html:2428–2445](../pwa_2026/index.html#L2428) : même bouton 📷/🧾 que les lignes de dépenses. M68 le verrouille. |
 | BUG-2 | MOYEN | Ligne CSV `Lyft - Revenus` à 16 colonnes (voir § 5). | Corrigé ; T29/T30. |
+
+### Deux pertes de données que cette suite n'a PAS trouvées (version 2.5.0)
+
+Les deux défauts les plus graves du moteur de fusion sont passés à travers 258
+assertions vertes et n'ont été vus qu'en **navigateur**, en simulant deux appareils sur
+la même page. Ils sont notés ici pour ce qu'ils disent de la limite de la méthode : la
+fixture testait des arbres que j'avais écrits, pas ceux que l'application fabrique.
+
+| # | Gravité | Défaut | Correctif |
+|---|---|---|---|
+| BUG-14 | **CRITIQUE** | Une feuille qui devient un conteneur était prise pour une feuille *disparue*. Saisir la première valeur d'une catégorie (`uber: {}` → `uber.rides_gross`) posait une pierre tombale sur `uber` et effaçait toute la catégorie sur l'autre appareil. | [sync.js](../pwa_2026/js/sync.js) : la passe des tombales ignore un chemin redevenu préfixe. M294–M297. |
+| BUG-15 | **CRITIQUE** | Le symétrique : la coquille vide `uber: {}` envoyée par l'appareil qui n'avait jamais touché la catégorie n'existait pas dans la carte des feuilles d'en face, donc elle était écrite — et écrasait la catégorie remplie. | `syncFusionner` ignore une feuille distante qui est un préfixe local. M298–M299. |
+| BUG-16 | **ÉLEVÉ** | Saisir avril dans une nouvelle catégorie crée onze cases vides du même geste. Datées, elles battaient les loyers de janvier à mars saisis sur l'autre appareil : trois mois perdus en créant une case. | Une case qui **naît** vide n'est pas datée ; vider une case qui portait un montant reste une écriture datée. M300–M304. |
+
+Vérification finale en navigateur, deux appareils, horloges décalées de 30 s : les trois
+loyers survivent, avril arrive, les deux trajets sont conservés, **zéro désaccord**, les
+deux côtés portent la même empreinte, et la suppression d'un trajet sur l'un le retire
+bien de l'autre.
 
 ### Quatre défauts de la suite elle-même
 
@@ -404,13 +425,44 @@ Deux pièges rencontrés :
    et supprimées dans le `finally` même quand la suite s'interrompt.
 
 Vérifié de bout en bout avec un état réel marqué d'une sentinelle : exécution normale
-→ 218/218 et sentinelle intacte ; exécution avec une exception forcée → ligne `FATAL`,
+→ 263/263 et sentinelle intacte ; exécution avec une exception forcée → ligne `FATAL`,
 sentinelle intacte, aucune clé `depenses_2098 / 2099 / 2028` résiduelle.
 
 > **Note sur la synchronisation.** `save()` ne pousse vers Firestore qu'après 5 secondes
 > et seulement si un utilisateur est connecté. Une suite synchrone ne peut donc
 > programmer qu'un seul envoi : celui qui suit la restauration de l'état réel. Lancer les
 > suites en étant connecté reste néanmoins déconseillé.
+
+---
+
+## 2c. Suite du raccordement Firestore — `tests/pwa_sync_suite.js`
+
+**15 assertions, 15 réussies.** La suite des modules couvre le *moteur* de fusion
+(`js/sync.js`, M260–M304) : du calcul pur. Celle-ci couvre le *raccordement*, où vivent
+les erreurs qui coûtent des données — un envoi qui écrase au lieu de fusionner ne se voit
+nulle part dans les tests du moteur.
+
+Elle remplace Firestore par un **magasin en mémoire** qui respecte ce qui compte du vrai :
+`runTransaction`, `onSnapshot` avec `docChanges()` sur la collection, et surtout
+`metadata.hasPendingWrites` — le drapeau qui distingue notre propre écriture qui revient
+de l'écriture d'un autre appareil. Rien ne part sur le réseau et aucun compte n'est requis.
+C'est la seule suite **asynchrone** : chaque envoi est un aller-retour `await`, et
+`tests/run-headless.js` attend la promesse avant de fermer la fenêtre jsdom.
+
+| Assertions | Ce qui est verrouillé |
+|---|---|
+| F01–F04 | premier envoi d'un appareil qui porte déjà des données : le document de l'année est écrit, la saisie y est, **les dates par feuille voyagent avec**, et les photos de reçus n'y sont **pas** (une photo pèse des centaines de Ko, le document plafonne à 1 Mio) |
+| F05–F06 | un trajet saisi sur l'autre appareil arrive ici, **sans écraser** la saisie locale |
+| F07 | notre propre écriture qui revient ne défait pas la saisie en cours — sans quoi deux appareils se renverraient le même document sans fin |
+| F08–F09 | la configuration part dans son propre document, et le **thème** reste propre à l'appareil |
+| F10–F12 | la clé d'un reçu (`p1090:deductibles:Eau / Égouts:3`) donne un identifiant de document sans « / », la photo monte dans son propre document, et sa ligne entre dans l'index synchronisé |
+| F13 | une photo annoncée par l'index et absente d'ici se télécharge |
+| F14–F15 | retirer un reçu pose une tombale sur sa ligne d'index et retire la copie locale — sinon le reçu supprimé reviendrait au prochain passage |
+
+**Ce qu'elle ne prouve pas.** Un Firestore de pacotille ne reproduit ni les règles de
+sécurité, ni la latence, ni un échec de transaction pour cause de conflit, ni le mode hors
+ligne du vrai SDK. Elle prouve que *notre* code appelle le bon chemin avec le bon contenu
+et réagit correctement aux événements ; le reste se vérifie en production, à deux appareils.
 
 ---
 

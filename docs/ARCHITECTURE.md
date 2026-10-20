@@ -9,7 +9,7 @@ québécois + travail autonome rideshare) et échangent leurs données par fichi
 |---|---|---|
 | Dossier | `pwa_2026/` | `ios_2026/` |
 | Techno | HTML/CSS/JS, aucun build | SwiftUI + SwiftData, iOS 17+ |
-| Taille | 10 287 lignes (`index.html` 4 553 + 18 fichiers `js/` 5 734) | 5 654 lignes Swift, 23 fichiers |
+| Taille | 11 558 lignes (`index.html` 5 325 + 19 fichiers `js/` 6 233) | 5 654 lignes Swift, 23 fichiers |
 | Stockage | `localStorage` + Firestore | SwiftData (CloudKit ou local) |
 | Hébergement | Firebase Hosting `suivi-depenses-7dc02` | Xcode / appareil |
 | Sortie comptable | PDF jsPDF + CSV | PDF UIGraphics + CSV |
@@ -53,11 +53,11 @@ et pour un taux imposé par ailleurs.
 
 ```
 pwa_2026/
-├── index.html      4 553 lignes — HTML + CSS + JS du socle (écrans 1 à 5)
+├── index.html      5 325 lignes — HTML + CSS + JS du socle (écrans 1 à 5)
 ├── manifest.json   nom « Mon Plex », couleurs #1F3864, icônes de icons/
 ├── sw.js           45 lignes — service worker, cache 'depenses-<version>'
 ├── icons/          icône de l'application : source SVG + PNG rendus (voir § 2.9)
-└── js/             18 fichiers, 5 734 lignes — couche fiscale (voir § 2.8)
+└── js/             19 fichiers, 6 233 lignes — couche fiscale (voir § 2.8)
 ```
 
 Aucun bundler, aucun `node_modules`, aucune étape de compilation : le fichier servi est
@@ -119,15 +119,65 @@ base64 restent **locaux** : ils ne partent pas vers Firestore.
 ### 2.4 Persistance et synchronisation
 
 ```
-saisie → autoSave()  ── debounce 600 ms ──→ save()
-                                             ├─ localStorage.setItem(storeKey(), …)
-                                             └─ debounce 5 s ──→ syncPush(false)
+saisie → autoSave() ── debounce 600 ms ──→ save()        (index.html:1394)
+                                            ├─ syncDater(…)  → depenses_meta_<année>
+                                            ├─ localStorage.setItem(storeKey(), …)
+                                            └─ debounce 5 s ──→ syncPush(false)   (index.html:4328)
+
+Firestore  onSnapshot(users/<uid>/years)  ──→ syncFusionnerDoc(année, doc)
+           onSnapshot(users/<uid>/config/setup) ──→ syncAppliquerSetup(…)
 ```
 
-`save()` (ligne 1127) avale silencieusement les exceptions `localStorage`.
-`syncPush` / `syncPull` (lignes 3198 / 3223) écrivent dans
-`users/<uid>/years/<année>` sur Firestore, après connexion Google (`signInWithGoogle`,
-ligne 3167). La configuration (`depenses_setup`) reste volontairement hors synchronisation.
+`save()` avale silencieusement les exceptions `localStorage` — un navigateur en
+navigation privée ne doit pas casser la saisie.
+
+**La fusion est champ par champ, et c'est tout le sujet.** Avant la 2.5.0, `syncPush`
+remplaçait le document distant et `syncPull` remplaçait l'état local : le dernier
+appareil à écrire gagnait tout. Depuis, `js/sync.js` (§ 2.8) tient un **journal de dates
+par feuille** et la fusion garde, pour chaque valeur terminale, la plus récente des deux.
+
+- **Les dates vivent à côté des données**, dans `localStorage`, sous
+  `depenses_meta_<année>` et `depenses_setup_meta` — jamais dans l'état lui-même, qui
+  reste exactement ce qu'il était (une sauvegarde 2.4 se relit telle quelle, et une
+  sauvegarde 2.5 ne traîne aucune métadonnée dans le JSON exporté).
+- **Un chemin est une liste de segments** jointe par `U+001F`, caractère qu'aucun nom de
+  catégorie ne peut contenir — « Eau / Égouts » compris.
+- **Une valeur disparue laisse une pierre tombale** (`meta.sup`) posée au plus court
+  préfixe entièrement disparu, sinon supprimer une catégorie de douze mois demanderait
+  douze tombales. Sans elle, la suppression serait annulée par l'appareil qui possède
+  encore la valeur : en fusion, le biais est à l'**union**.
+- **Une case qui naît vide n'est pas datée.** Saisir avril dans une nouvelle catégorie
+  crée onze cases vides du même geste ; datées, elles battraient les loyers déjà saisis
+  ailleurs. Vider une case qui portait un montant est au contraire une écriture, qui se
+  date et qui gagne.
+- **Les tableaux ne se fusionnent pas tous pareil** : par `id` s'ils en ont tous un
+  (trajets, baux, biens, règles — deux appareils qui ajoutent chacun un trajet gardent
+  les deux), par **position** pour les douze mois d'une catégorie (janvier reste
+  janvier), en **ensemble** pour les empreintes d'import, et en bloc pour le reste.
+- **Chaque envoi est une transaction** Firestore (lire, fusionner, écrire), puis
+  `syncDoitRenvoyer()` compare une **empreinte canonique** de l'état : sans elle, deux
+  appareils se renverraient le même document sans fin.
+- **Égalité de dates = désaccord signalé.** Le local gagne, mais la pastille affiche
+  « ⚠️ N désaccord(s) » plutôt que de trancher en silence.
+
+**Disposition Firestore** (tout sous `users/<uid>`, après connexion Google —
+`signInWithGoogle`, index.html:3947) :
+
+| Chemin | Contenu |
+|---|---|
+| `years/<année>` | `{ data, meta, year, updatedAt, device }` — une année de saisie |
+| `config/setup` | la configuration, **thème exclu** (il reste propre à l'appareil) |
+| `recus/<année>_<clé encodée>` | une photo de reçu par document |
+
+Les **photos de reçus** passent par des documents et non par Firebase Storage : le
+projet n'a pas de bucket et en créer un exige aujourd'hui le plan Blaze. Une photo
+compressée pèse ~100 Ko pour une limite de 1 Mio par document. L'état porte un
+`recusIndex` synchronisé (quelle photo existe, et sa taille) tandis que les octets
+restent hors de l'état ; seules `recusEnvoyer` / `recusLire` / `recusEffacer` touchent au
+stockage, le jour où un bucket existera.
+
+Les règles d'accès sont dans **`firestore.rules`**, à la racine du dépôt, et se déploient
+avec l'application (§ 6) : un compte ne lit et n'écrit que son propre sous-arbre.
 
 ### 2.5 Écrans
 
@@ -235,7 +285,7 @@ function notifyModulesYearChange()// appelé par switchYear()   — puis m.onYea
 Les erreurs d'un module sont attrapées et journalisées (`console.error('[module <id>] init', e)`) :
 un module cassé ne doit pas empêcher l'application de démarrer.
 
-**Chargement.** 18 balises `<script src="js/<module>.js?v=<version>">` en fin de `<body>`,
+**Chargement.** 19 balises `<script src="js/<module>.js?v=<version>">` en fin de `<body>`,
 donc des **scripts classiques** et non des modules ES. Conséquence structurante :
 tout ce qui est déclaré au niveau supérieur d'un fichier (`function`, `const`, `let`)
 vit dans la portée lexicale globale partagée. Un module appelle donc `state`, `setup`,
@@ -247,6 +297,7 @@ débogage doit les évaluer par leur nom nu.
 | Fichier | Lignes | `id` du module | Rôle |
 |---|---|---|---|
 | `app-modules.js` | 228 | — (socle) | registre, feuille modale, utilitaires (`num`, `money`, `escH`, `dl`, `csvCell`, `loadScript`, `readYear`/`writeYear`), verrou `guardClosed()` |
+| `sync.js` | 456 | — (moteur) | fusion champ par champ entre appareils : dates par feuille, pierres tombales, formes de tableaux (§ 2.4). Aucune dépendance — ni Firebase, ni `state` |
 | `fiscal-data.js` | 269 | — (données) | paramètres fiscaux par année (`fiscal(year)`), paliers d'impôt, RRQ / FSS / RQAP, taux de DPA |
 | `recommandations.js` | 337 | `recommandations` | pistes de rentabilité classées par gain estimé + bandeau d'accueil |
 | `impot.js` | 447 | `impot` | impôt estimé, acomptes provisionnels avec retards et manque à verser, provision à mettre de côté |
@@ -474,10 +525,15 @@ explicite.
 1. `npm test` — les suites doivent être vertes, V1–V4 comprises
 2. `scripts/version.sh minor` (ou `patch`) — écrit la version aux six emplacements
 3. `firebase deploy --only hosting`
+4. `firebase deploy --only firestore:rules` — **uniquement si `firestore.rules` a changé**
 
 Les étapes 2 et 3 s'enchaînent avec `scripts/version.sh minor --deploy`. La connexion
 Firebase exige un terminal interactif ; sans TTY, `firebase login` échoue
 (contournement : `script -q /dev/null firebase login`).
+
+`firestore.rules` (racine, déclaré dans `firebase.json`) n'est **pas** servi avec le
+site : il se déploie à part, vers la base de données. L'oublier laisse en place les
+règles de la console Firebase, qui ne correspondent plus au code.
 
 Tout fichier ajouté sous `pwa_2026/` est publié : les fichiers internes doivent rester
 hors de ce dossier (c'est pourquoi `tests/` et `docs/` sont à la racine) ou être ajoutés
