@@ -18,6 +18,39 @@ La version est écrite aux six endroits par `scripts/version.sh`, seul outil aut
 
 ---
 
+## 2.6.0 — 20 octobre 2026
+
+### Ajouté
+- **Historique des modifications** (fiche C.3), dans l'onglet *Fiscal › Clôture*. Chaque
+  montant modifié s'inscrit avec sa date, son heure, l'appareil, l'emplacement en clair
+  (« 1090 › Dépenses › Électricité › mars »), l'ancienne valeur et la nouvelle. Répond à
+  la question qui n'avait pas de réponse : *pourquoi le total n'est-il plus celui que j'ai
+  envoyé au comptable ?*
+- **Ce qui arrive d'un autre appareil est inscrit à l'arrivée**, marqué 📥 et nommé
+  (« reçu de iPhone »). Le journal local explique donc la totalité des changements de
+  l'état local, sans que le journal lui-même ait à se synchroniser.
+- **Depuis la clôture.** Quand l'empreinte d'une année clôturée ne correspond plus, le
+  bandeau d'alerte porte désormais un bouton qui liste les modifications inscrites
+  *depuis la clôture* — au montant près, avant de dire quoi que ce soit au comptable.
+- Filtres (tout / saisi ici / reçu), recherche sur le libellé lisible, regroupement par
+  jour, **export CSV** de l'historique, et effacement manuel.
+- Une suppression garde la trace de ce qu'elle a emporté
+  (« Trajet › tB — retiré (6 cases : 2026-03-02, Rona, 18) ») : six mois plus tard, un
+  identifiant interne ne dit rien.
+
+### Interne
+- `syncDater()` et `syncFusionner()` rendent désormais la liste `changements` — chemin,
+  ancienne valeur, nouvelle valeur. Le calcul était déjà fait pour dater les feuilles ;
+  seul le résultat était jeté. **Aucune des ~60 fonctions de saisie n'a été modifiée**, et
+  aucune ne peut donc oublier de journaliser.
+- `js/journal.js` (20ᵉ module) : repli des écritures rapprochées (trois hésitations sur
+  un montant = une ligne ; une correction annulée = aucune ligne), plafond de 800 lignes
+  par année, ligne de synthèse unique au-delà de 40 valeurs reçues d'un coup, et écriture
+  qui ne peut jamais faire échouer une sauvegarde.
+- 30 assertions ajoutées (J01–J30). Suites : 111 + 297 + 18.
+
+---
+
 ## 2.5.1 — 20 octobre 2026
 
 ### Corrigé

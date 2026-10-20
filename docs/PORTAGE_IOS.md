@@ -116,7 +116,8 @@ reproduire au cent près ; le reste du fichier est du rendu.
 | `recommandations` | `recommandations.js` (337 l.) | *(lecture seule)* | `recommandations()` — un seul générateur de règles | `Services/AdviceEngine.swift` | 3 |
 | `recus` | `recus.js` (273 l.) | `receipts` | `cleRecu()`, `parseCleRecu()`, `auditRecus()`, `extraireMontants()`, `extraireDate()` | **Vision** à la place de Tesseract | 4 |
 | `dossier` | `dossier.js` (307 l.) | `receipts`, `notes` | les six générateurs CSV (`registreKmCSV`, `rl31CSV`, `dpaCSV`, `coproCSV`, `impotCSV`, `taxesCSV`) | `CSVExportService` + `Archive` | 4 |
-| `cloture` | `cloture.js` (216 l.) | `closed`, `closedHistory` | `empreinteFiscale()`, `totauxCloture()`, `auditAvantCloture()` | `Services/YearLockService.swift` | 4 |
+| `cloture` | `cloture.js` (221 l.) | `closed`, `closedHistory` | `empreinteFiscale()`, `totauxCloture()`, `auditAvantCloture()` | `Services/YearLockService.swift` | 4 |
+| `journal` | `journal.js` (532 l.) | *(clé propre `depenses_journal_<année>`, hors `state`)* | `journalAppareil()`, `journalValeur()`, `journalLabel()`, `journalEntrees()`, `journalEntreeLot()`, `journalAjouter()` (regroupement), `journalFiltrer()`, `journalGrouper()`, `journalPhrase()` | `Services/ChangeLogService.swift` + vue Historique | 1 bis |
 
 ---
 
@@ -127,13 +128,21 @@ reproduire au cent près ; le reste du fichier est du rendu.
 les acomptes, le tout alimente les recommandations. Fin de vague : l'app iOS affiche le
 même impôt estimé que la PWA sur le même jeu de données.
 
-**Vague 1 bis — la fusion, dès que la saisie iOS compte.** `sync.js` est du calcul pur
-sur un arbre (`[String: Any]` en Swift, ou le `JSONValue` que vous préférez) : aucune
-dépendance à Firebase, aucune à `state`. Tant qu'il n'est pas porté, l'iPhone reste le
-seul appareil qui ne participe pas à la fusion — et un `syncPush` iOS écrit en
+**Vague 1 bis — la fusion et sa trace, dès que la saisie iOS compte.** `sync.js` est du
+calcul pur sur un arbre (`[String: Any]` en Swift, ou le `JSONValue` que vous préférez) :
+aucune dépendance à Firebase, aucune à `state`. Tant qu'il n'est pas porté, l'iPhone reste
+le seul appareil qui ne participe pas à la fusion — et un `syncPush` iOS écrit en
 remplacement **ré-introduirait** la perte de données que la 2.5.0 a éliminée côté PWA.
 Si le portage tarde, l'app iOS doit s'en tenir à l'import/export d'enveloppe (§ 2) et ne
 jamais écrire dans `users/<uid>/years/<année>`.
+
+`journal.js` se porte dans la même vague, et pour la même raison : c'est `syncDater()` et
+`syncFusionner()` qui produisent la matière du journal (`{chemin, avant, après, genre}`),
+alors un iPhone qui fusionne sans journaliser serait le seul appareil incapable de dire
+*pourquoi* un total a changé. Le fichier est volontairement autonome — il porte ses propres
+noms de mois et ne lit `state` que pour reconstituer le lexique à l'affichage — et son
+journal n'est **pas** synchronisé : chaque appareil garde le sien (§ 2.10 de
+[ARCHITECTURE.md](ARCHITECTURE.md)), donc rien à négocier côté Firestore.
 
 **Vague 2 — la saisie courante.** `baux`, `taxes`, `vehicule-methodes`, `kilometrage`,
 `ventilation`, `import-bancaire`. C'est ce qu'on utilise plusieurs fois par mois, donc
@@ -209,9 +218,12 @@ Chacun a déjà produit un défaut réel dans ce projet ou en produirait un :
 
 ## 7. La parité des tests
 
-`tests/pwa_modules_suite.js` contient 263 assertions, dont la moitié porte sur du calcul
+`tests/pwa_modules_suite.js` contient 297 assertions, dont la moitié porte sur du calcul
 pur — donc portable. Les 45 assertions de fusion (M260–M304) sont intégralement portables :
-`sync.js` ne touche à rien d'autre qu'un arbre et des dates. Le chemin le plus court :
+`sync.js` ne touche à rien d'autre qu'un arbre et des dates. Les 30 assertions du journal
+(J01–J30) le sont presque toutes : seules celles qui nomment l'appareil (J06) et celles qui
+rendent l'écran (J30) demandent un attendu propre à la plateforme — un iPhone doit s'y
+nommer « iPhone », pas se faire reconnaître à son `User-Agent`. Le chemin le plus court :
 
 1. Côté PWA, `npm test` exécute tout sans navigateur (`tests/run-headless.js`, jsdom).
 2. Pour chaque module porté, reprenez **les mêmes jeux d'entrée et les mêmes attendus**

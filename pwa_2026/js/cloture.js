@@ -193,7 +193,12 @@ function renderCloture() {
       : warnBox(`⚠️ Les chiffres <strong>ne correspondent plus</strong> à l'empreinte de la clôture.
           Une modification a eu lieu malgré le verrou (import, synchronisation depuis un autre
           appareil, ou restauration de sauvegarde). Comparez avec les totaux ci-dessous avant de
-          transmettre quoi que ce soit.`)}
+          transmettre quoi que ce soit.
+          ${typeof journalDepuisCloture === 'function' && journalDepuisCloture().length
+            ? `<button class="btn btn-ghost btn-sm btn-full" style="margin-top:8px"
+                 onclick="journalVoirDepuisCloture()">🕘 Voir les ${journalDepuisCloture().length}
+                 modification(s) inscrites depuis la clôture</button>`
+            : ''}`)}
     <div class="summary-row">
       ${sumCard('Revenus à la clôture', money(t.rev), 'blue')}
       ${sumCard('Dépenses à la clôture', money(t.dep), 'brown')}

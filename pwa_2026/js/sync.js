@@ -228,13 +228,25 @@ function syncMetaNormalisee(meta) {
   return { v: 1, feuilles, sup }
 }
 
+// Aperçu de ce qu'une suppression emporte, pour l'historique des
+// modifications : les trois premières valeurs, sans le champ `id` — il répète
+// le chemin et ne dit rien à qui relit le journal six mois plus tard.
+function syncApercu(chemins, feuilles) {
+  return chemins.filter(ch => syncSegments(ch).pop() !== 'id').slice(0, 3).map(ch => feuilles[ch])
+}
+
 // Compare deux états et date ce qui a changé. Appelé à chaque sauvegarde avec
 // l'état d'avant : c'est ce qui donne à chaque feuille sa date, sans demander
 // aux ~60 fonctions de saisie de l'application de s'en occuper.
+//
+// Rend aussi `changements` — chemin, ancienne valeur, nouvelle valeur — qui est
+// la matière de l'historique des modifications (js/journal.js). Le calcul était
+// déjà fait ici ; seul le résultat était jeté.
 function syncDater(meta, avant, apres, ts) {
   const m = syncMetaNormalisee(meta)
   const fa = syncAplatir(avant)
   const fb = syncAplatir(apres)
+  const changements = []
   let modifiees = 0
 
   Object.keys(fb).forEach(ch => {
@@ -251,6 +263,7 @@ function syncDater(meta, avant, apres, ts) {
     if (nouvelle || JSON.stringify(fa[ch]) !== JSON.stringify(fb[ch])) {
       m.feuilles[ch] = ts
       syncOublierTombale(m, ch)   // ressuscité volontairement
+      changements.push({ chemin: ch, avant: fa[ch], apres: fb[ch], genre: nouvelle ? 'ajout' : 'maj' })
       modifiees++
     }
   })
@@ -283,9 +296,18 @@ function syncDater(meta, avant, apres, ts) {
     Object.keys(m.feuilles).forEach(ch => {
       if (ch === r || ch.indexOf(prefixe) === 0) delete m.feuilles[ch]
     })
+    // Pour le journal : ce qui disparaît est la valeur de la racine si elle
+    // était elle-même une feuille (une case), sinon un aperçu de ce qu'elle
+    // contenait. Un trajet supprimé n'a plus de libellé à retrouver — son `id`
+    // ne dit rien six mois plus tard, sa date et sa destination si.
+    const sous = Object.keys(fa).filter(ch => ch === r || ch.indexOf(prefixe) === 0)
+    changements.push({ chemin: r, genre: 'suppression',
+                       avant: sous.length === 1 ? fa[sous[0]] : undefined,
+                       apercu: sous.length > 1 ? syncApercu(sous, fa) : undefined,
+                       feuilles: sous.length })
   })
 
-  return { meta: m, modifiees, supprimees: racines.length }
+  return { meta: m, modifiees, supprimees: racines.length, changements }
 }
 
 // Tous les chemins et sous-chemins présents dans un ensemble de feuilles.
@@ -347,6 +369,10 @@ function syncFusionner(local, distant) {
   const resultat = JSON.parse(JSON.stringify(stLocal))
   const meta = { v: 1, feuilles: Object.assign({}, mLocal.feuilles), sup: Object.assign({}, mLocal.sup) }
   const conflits = []
+  // Ce que la fusion a VRAIMENT changé dans l'état local, pour l'historique des
+  // modifications. Une valeur écartée par un arbitrage n'y figure pas : elle
+  // n'a rien changé ici, et la pastille de synchronisation la signale déjà.
+  const changements = []
   const stats = { prisDistant: 0, gardesLocal: 0, ajoutesDistant: 0, supprimes: 0, conflits: 0 }
 
   const fLocal = syncAplatir(stLocal)
@@ -374,6 +400,7 @@ function syncFusionner(local, distant) {
       if (supLocale > 0 && supLocale >= tsD) { stats.supprimes++; return }
       syncEcrireA(resultat, ch, fDist[ch], stDist)
       meta.feuilles[ch] = tsD
+      changements.push({ chemin: ch, avant: undefined, apres: fDist[ch], genre: 'ajout' })
       stats.ajoutesDistant++
       return
     }
@@ -387,6 +414,7 @@ function syncFusionner(local, distant) {
     if (tsD > tsL) {
       syncEcrireA(resultat, ch, fDist[ch], stDist)
       meta.feuilles[ch] = tsD
+      changements.push({ chemin: ch, avant: fLocal[ch], apres: fDist[ch], genre: 'maj' })
       stats.prisDistant++
       if (tsL > 0) { conflits.push({ chemin: ch, garde: fDist[ch], ecarte: fLocal[ch], origine: 'distant' }); stats.conflits++ }
     } else if (tsL === 0 && syncEstVide(fLocal[ch]) && !syncEstVide(fDist[ch])) {
@@ -399,6 +427,7 @@ function syncFusionner(local, distant) {
       // est une écriture) et se défend donc normalement.
       syncEcrireA(resultat, ch, fDist[ch], stDist)
       meta.feuilles[ch] = tsD
+      changements.push({ chemin: ch, avant: fLocal[ch], apres: fDist[ch], genre: 'maj' })
       stats.prisDistant++
     } else if (tsD === tsL) {
       // Égalité de dates et valeurs différentes : les deux côtés ont écrit dans
@@ -416,8 +445,11 @@ function syncFusionner(local, distant) {
       // écritures canoniques. Arbitraire, mais identique sur les deux appareils
       // — donc les deux convergent, et le désaccord est dit.
       const gagneDistant = syncTrancherEgalite(fLocal[ch], fDist[ch])
-      if (gagneDistant) { syncEcrireA(resultat, ch, fDist[ch], stDist); stats.prisDistant++ }
-      else stats.gardesLocal++
+      if (gagneDistant) {
+        syncEcrireA(resultat, ch, fDist[ch], stDist)
+        changements.push({ chemin: ch, avant: fLocal[ch], apres: fDist[ch], genre: 'maj' })
+        stats.prisDistant++
+      } else stats.gardesLocal++
       conflits.push({
         chemin: ch,
         garde:   gagneDistant ? fDist[ch]  : fLocal[ch],
@@ -450,6 +482,11 @@ function syncFusionner(local, distant) {
       if (l === ch || l.indexOf(prefixe) === 0) delete meta.feuilles[l]
     })
     meta.sup[ch] = tsSup
+    const emportees = Object.keys(fLocal).filter(l => l === ch || l.indexOf(prefixe) === 0)
+    changements.push({ chemin: ch, genre: 'suppression',
+                       avant: emportees.length === 1 ? fLocal[emportees[0]] : undefined,
+                       apercu: emportees.length > 1 ? syncApercu(emportees, fLocal) : undefined,
+                       feuilles: emportees.length })
     stats.supprimes++
   })
 
@@ -459,7 +496,7 @@ function syncFusionner(local, distant) {
     if (!(meta.sup[ch] > mDist.sup[ch])) meta.sup[ch] = mDist.sup[ch]
   })
 
-  return { state: resultat, meta, conflits, stats }
+  return { state: resultat, meta, conflits, stats, changements }
 }
 
 // Résumé en une phrase, pour le bandeau de synchronisation.

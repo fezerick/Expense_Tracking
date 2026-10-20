@@ -5,14 +5,14 @@ Campagne du 18 octobre 2026, sur les deux applications : PWA (`pwa_2026/`) et iO
 l'interface, et vérification à l'exécution des sorties remises au comptable (PDF, CSV,
 sauvegardes).
 
-**État au 20 octobre 2026, version 2.4.0** — deux suites et quatre vérifications de
+**État au 20 octobre 2026, version 2.6.0** — trois suites et quatre vérifications de
 fichiers, **toutes vertes**, exécutables **sans navigateur** par `npm test` :
 
 | Suite | Portée | Résultat |
 |---|---|---|
 | `tests/run-headless.js` | concordance de la version aux six emplacements | **V1–V4** |
 | `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **111 / 111** |
-| `tests/pwa_modules_suite.js` | les 19 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **267 / 267** |
+| `tests/pwa_modules_suite.js` | les 20 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **297 / 297** |
 | `tests/pwa_sync_suite.js` | le raccordement à Firestore, contre un Firestore de pacotille (§ 2c) | **18 / 18** |
 
 Dix défauts ont été corrigés et revérifiés depuis la campagne initiale : BUG-1, BUG-7
@@ -307,7 +307,7 @@ sens.
 
 ## 2b. Suite automatisée des modules — `tests/pwa_modules_suite.js`
 
-**267 assertions, 267 réussies.** Elle couvre la couche `pwa_2026/js/` (§ 2.8 de
+**297 assertions, 297 réussies.** Elle couvre la couche `pwa_2026/js/` (§ 2.8 de
 [ARCHITECTURE.md](ARCHITECTURE.md)), que la première suite ignore. Même principe :
 exécution *dans* la page, fixture déterministe, restauration de l'état réel à la fin.
 
@@ -323,6 +323,12 @@ Le serveur doit être lancé à la racine : la page vit sous `/pwa_2026/` mais l
 sous `/tests/`. Et l'URL de la page doit porter un paramètre anti-cache **différent à
 chaque correctif de module**, car les modules sont chargés avec leur propre `?v=N`
 (voir § 2.7 de l'architecture) — un `?v=` non incrémenté fait tester l'ancien code.
+
+La suite rend l'état réel **et ses à-côtés** : les données, la configuration, les dates
+d'écriture par feuille (sans quoi l'appareil sur lequel on lance les tests gagnerait
+ensuite toutes les fusions) et, depuis la 2.6.0, l'historique des modifications — que les
+`save()` de la fixture remplissent de « Duplex A (test) », et que le `save()` final y
+inscrirait une dernière fois en remettant les vraies données.
 
 ### Couverture
 
@@ -351,6 +357,7 @@ chaque correctif de module**, car les modules sont chargés avec leur propre `?v
 | M202–M204 | version | format *majeur.mineur.correctif*, `?v=` sur **chaque** balise de module, version affichée dans les Réglages |
 | M210+ | tous | un panneau par module : chaque `render()` produit du contenu sans lever |
 | M250–M251 | tous | **état vierge** : tous les calculs des modules tournent sur un `state` où aucune clé de module n'existe |
+| J01–J30 | `journal` | **historique des modifications** (§ 2.10 de l'architecture) : la matière vient de `syncDater()` et `syncFusionner()` avec l'ancienne valeur, une case vide → vide ne laisse rien, repli des écritures rapprochées et effacement d'une correction annulée, plafond du journal, libellés lisibles (immeuble › section › catégorie › mois, Lyft par mois, configuration), filtres et regroupement par jour, **une valeur reçue mais écartée ne laisse aucune ligne**, ligne de synthèse au-delà de 40 valeurs, suppression décrite deux fois repliée, trace de ce qu'une suppression emporte, aller-retour de stockage, et « depuis la clôture » |
 | M260–M304 | `sync` | **fusion entre appareils** : aplatissement de l'arbre, les trois formes de tableau (par `id`, par position, en ensemble), la valeur la plus récente gagne, une valeur qu'un seul côté possède est conservée, pierre tombale au plus court préfixe, règle d'effacement, idempotence, convergence des deux sens de fusion, départage d'égalité symétrique et point fixe de la fusion (M272a–M272d), une case qui naît vide n'est pas datée (M300–M304) |
 
 ### Défauts trouvés par cette suite — tous corrigés

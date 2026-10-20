@@ -40,6 +40,11 @@
     // saisie faite à l'instant : cet appareil gagnerait ensuite toutes les
     // fusions, pour la seule raison qu'on a lancé les tests dessus.
     meta: JSON.parse(JSON.stringify(stateMeta)),
+    // Même raison pour l'historique des modifications (js/journal.js) : les
+    // save() de la fixture y inscrivent « Duplex A (test) », et le save() du
+    // bloc finally y inscrirait le retour aux vraies données. L'historique de
+    // l'utilisateur est donc remis tel quel à la fin.
+    journal: typeof journalLire === 'function' ? journalLire(activeYear) : [],
     activeYear
   }
 
@@ -1222,6 +1227,154 @@ ${FIX_YEAR}-04-12,QUINCAILLERIE TEST,-45.00`
                      { state: { p1090: { revenus: { 'Coloc 1': an([1,'700'],[2,'700']) } } }, meta: dVide.meta })
          .state.p1090.revenus['Coloc 1'][0])
 
+    // ══ J. HISTORIQUE DES MODIFICATIONS (js/journal.js) ══════════════════════
+    // Le journal ne recalcule rien : il habille ce que syncDater() et
+    // syncFusionner() savaient déjà. Ce qui se vérifie ici, c'est donc la
+    // fidélité (ce qui est inscrit a vraiment eu lieu) et la lisibilité (une
+    // hésitation sur un montant ne laisse pas trois lignes).
+    const AN_J = ANNEE_TEST_VOISINE
+    const chemElec = P('pA','deductibles','Électricité','2')
+
+    // 1. La matière vient de la synchronisation, avec l'ANCIENNE valeur.
+    const sAvant = { pA: { deductibles: { 'Électricité': an([2,'142.30']) } } }
+    const sApres = { pA: { deductibles: { 'Électricité': an([2,'150.00']) } } }
+    const dJ = syncDater(meta0(sAvant, 1000), sAvant, sApres, 5000)
+    eq('J01', 'Une modification est rendue avec son chemin, son avant et son après',
+       { chemin: chemElec, avant: '142.30', apres: '150.00', genre: 'maj' },
+       dJ.changements.find(c => c.chemin === chemElec))
+    const dJ2 = syncDater(syncMetaVide(), {}, sApres, 5000)
+    eq('J02', 'Une case remplie pour la première fois est un ajout, pas une correction',
+       'ajout', dJ2.changements.find(c => c.chemin === chemElec).genre)
+    const dJ3 = syncDater(copie(meta0(sAvant, 1000)), sAvant, { pA: { deductibles: {} } }, 6000)
+    eq('J03', 'Retirer une catégorie est une suppression, et dit combien de cases elle emporte',
+       { genre: 'suppression', feuilles: 12 },
+       (c => ({ genre: c.genre, feuilles: c.feuilles }))(dJ3.changements.find(c => c.genre === 'suppression')))
+
+    // 2. Ce qui n'a rien à raconter n'est pas inscrit.
+    eq('J04', 'Une case qui passe de vide à vide ne laisse aucune ligne', 0,
+       journalEntrees([{ chemin: 'x', avant: '', apres: null, genre: 'maj' }], 1, 'saisie', 'Mac').length)
+    eq('J05', 'Une valeur très longue est coupée, pas recopiée au journal', JOURNAL_VAL_MAX + 1,
+       journalEntrees([{ chemin: 'x', avant: '', apres: 'z'.repeat(400), genre: 'ajout' }], 1, 'saisie', 'Mac')[0].apres.length)
+    eq('J06', 'L\'appareil est nommé à partir de son agent utilisateur', ['iPhone', 'Mac'],
+       [journalAppareil('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)'),
+        journalAppareil('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)')])
+
+    // 3. Repli des écritures rapprochées : hésiter sur un montant est UNE
+    //    décision, pas trois.
+    const e1 = journalEntrees([{ chemin: chemElec, avant: '', apres: '142', genre: 'maj' }], 1000, 'saisie', 'Mac')
+    const e2 = journalEntrees([{ chemin: chemElec, avant: '142', apres: '1420', genre: 'maj' }], 2000, 'saisie', 'Mac')
+    const e3 = journalEntrees([{ chemin: chemElec, avant: '1420', apres: '142.30', genre: 'maj' }], 3000, 'saisie', 'Mac')
+    const jReplie = journalAjouter(journalAjouter(journalAjouter([], e1), e2), e3)
+    eq('J07', 'Trois corrections rapprochées tiennent sur une seule ligne', 1, jReplie.length)
+    eq('J08', 'Et cette ligne porte la valeur de départ et la valeur finale',
+       { avant: '', apres: '142.30' }, { avant: jReplie[0].avant, apres: jReplie[0].apres })
+    const retour = journalEntrees([{ chemin: chemElec, avant: '142.30', apres: '', genre: 'maj' }], 4000, 'saisie', 'Mac')
+    eq('J09', 'Une correction annulée ne laisse rien du tout', 0,
+       journalAjouter(jReplie, retour).length)
+    eq('J10', 'Au-delà de la fenêtre de repli, la deuxième écriture est une ligne à part', 2,
+       journalAjouter(journalAjouter([], e1), journalEntrees(
+         [{ chemin: chemElec, avant: '142', apres: '900', genre: 'maj' }],
+         1000 + JOURNAL_FUSION_MS + 1, 'saisie', 'Mac')).length)
+    eq('J11', 'Le journal est plafonné : les plus vieilles lignes tombent',
+       ['c8', 'c9'],
+       journalAjouter([], Array.from({ length: 10 }, (_, i) =>
+         ({ ts: 1000 + i, chemin: 'c' + i, genre: 'ajout', origine: 'saisie', appareil: 'Mac', avant: '', apres: 'v' })), 2)
+         .map(e => e.chemin))
+
+    // 4. Un chemin de fusion devient une phrase lisible.
+    eq('J12', 'Une case de mois se lit « immeuble › section › catégorie › mois »',
+       'Duplex A › Dépenses › Électricité › mars',
+       journalLabel(chemElec, journalLexique()))
+    eq('J13', 'Un champ Lyft dit son mois et son libellé de formulaire',
+       'Lyft › mars › ' + LYFT_FIELDS.find(f => f.key === 'taxable').label,
+       journalLabel(P('lyft','2','taxable'), journalLexique()))
+    eq('J14', 'Un réglage de configuration se lit comme tel',
+       'Configuration › Modules › trips', journalLabel(P('config','modules','trips'), journalLexique()))
+    eq('J15', 'Une ligne de modification se lit d\'une phrase',
+       'Duplex A › Dépenses › Électricité › mars : 142.30 → 150.00',
+       journalPhrase(journalEntrees(dJ.changements, 5000, 'saisie', 'Mac')
+         .find(e => e.chemin === chemElec), journalLexique()))
+
+    // 5. Consultation : le plus récent d'abord, filtré, groupé par jour.
+    const jConsult = [
+      { ts: Date.parse('2026-03-01T10:00:00'), chemin: chemElec, genre: 'maj', origine: 'saisie',  appareil: 'Mac',    avant: '1', apres: '2' },
+      { ts: Date.parse('2026-03-01T15:00:00'), chemin: P('uber','tolls'), genre: 'ajout', origine: 'distant', appareil: 'iPhone', avant: '', apres: '9' },
+      { ts: Date.parse('2026-03-02T09:00:00'), chemin: chemElec, genre: 'maj', origine: 'saisie',  appareil: 'Mac',    avant: '2', apres: '3' }
+    ]
+    eq('J16', 'La consultation montre le plus récent d\'abord',
+       [jConsult[2].ts, jConsult[1].ts, jConsult[0].ts],
+       journalFiltrer(jConsult, {}).map(e => e.ts))
+    eq('J17', 'Le filtre d\'origine isole ce qui vient d\'un autre appareil', 1,
+       journalFiltrer(jConsult, { origine: 'distant' }).length)
+    eq('J18', 'La recherche porte sur le libellé lisible, pas sur le chemin brut', 2,
+       journalFiltrer(jConsult, { texte: 'électricité', lexique: journalLexique() }).length)
+    eq('J19', 'Les lignes sont groupées par jour', [1, 2],
+       journalGrouper(journalFiltrer(jConsult, {})).map(g => g.entrees.length))
+
+    // 6. Ce qui arrive d'un autre appareil est inscrit à l'arrivée — c'est ce
+    //    qui permet au journal local d'expliquer TOUS les changements.
+    const fJ = syncFusionner({ state: sAvant, meta: meta0(sAvant, 1000) },
+                             { state: sApres, meta: dJ.meta })
+    eq('J20', 'La fusion dit quelle valeur elle a prise à l\'autre appareil, et à la place de quoi',
+       { chemin: chemElec, avant: '142.30', apres: '150.00' },
+       (c => ({ chemin: c.chemin, avant: c.avant, apres: c.apres }))(fJ.changements.find(c => c.chemin === chemElec)))
+    // La propriété qui fait la valeur du journal : il ne raconte que ce qui a
+    // vraiment changé ici. Une valeur ÉCARTÉE par un arbitrage n'y figure pas.
+    const fGarde = syncFusionner({ state: sApres, meta: meta0(sApres, 9000) },
+                                 { state: sAvant, meta: meta0(sAvant, 1000) })
+    eq('J21', 'Une valeur reçue mais écartée ne laisse aucune ligne', 0,
+       fGarde.changements.filter(c => c.chemin === chemElec).length)
+    eq('J22', 'Une fusion qui n\'apporte rien n\'invente pas d\'historique', 0,
+       journalEntrees(syncFusionner({ state: sAvant, meta: meta0(sAvant, 1000) },
+                                    { state: sAvant, meta: meta0(sAvant, 1000) }).changements,
+                      1, 'distant', 'iPhone').length)
+    // Le premier raccordement d'un appareil reçoit des centaines de valeurs :
+    // une ligne de synthèse, sinon le bruit chasse l'historique utile.
+    const beaucoup = Array.from({ length: 120 }, (_, i) =>
+      ({ chemin: 'c' + i, avant: undefined, apres: 'v', genre: 'ajout' }))
+    eq('J23', 'Une fusion massive tient en une ligne de synthèse',
+       { genre: 'lot', nb: 120 },
+       (e => ({ genre: e.genre, nb: e.nb }))(journalEntreeLot(beaucoup, 1, 'iPhone')))
+    eq('J24', 'Une fusion ordinaire, elle, reste détaillée', null,
+       journalEntreeLot([{ chemin: 'c', avant: '', apres: 'v', genre: 'ajout' }], 1, 'iPhone'))
+    // Une fusion arrive en deux temps (transaction puis refusion par-dessus la
+    // saisie en cours) : la même suppression ne doit pas s'inscrire deux fois.
+    const supEntree = ts => journalEntrees([{ chemin: P('trips','t9'), genre: 'suppression', feuilles: 3 }], ts, 'distant', 'iPhone')
+    eq('J25', 'La même suppression décrite deux fois ne fait qu\'une ligne', 1,
+       journalAjouter(journalAjouter([], supEntree(1000)), supEntree(1200)).length)
+    // Un trajet supprimé n'a plus de libellé à retrouver : ce qu'il contenait
+    // est donc inscrit au moment de la suppression, pas reconstitué après.
+    const sTraj = { trips: [{ id: 't8', date: '2026-01-04', destination: 'Quincaillerie', km: 5 },
+                            { id: 't9', date: '2026-03-02', destination: 'Rona', km: 18 }] }
+    const dTraj = syncDater(meta0(sTraj, 1000), sTraj, { trips: [sTraj.trips[0]] }, 9000)
+    const eTraj = journalEntrees(dTraj.changements, 9000, 'saisie', 'Mac')[0]
+    eq('J26', 'Un trajet supprimé garde la trace de ce qu\'il contenait',
+       'Trajet › t9 — retiré (4 cases : 2026-03-02, Rona, 18)',
+       journalPhrase(eTraj, journalLexique()))
+
+    // 7. Le stockage : une année, une clé, et un aller-retour fidèle.
+    journalVider(AN_J)
+    const nbJ = journalConsigner(dJ.changements, 'saisie', { year: AN_J, ts: 7000, appareil: 'Mac' })
+    const reluJ = journalLire(AN_J)
+    eq('J27', 'Consigner écrit dans le journal de SON année, et la relecture est fidèle',
+       { nb: 1, lignes: 1, chemin: chemElec, apres: '150.00', appareil: 'Mac' },
+       { nb: nbJ, lignes: reluJ.length, chemin: reluJ[0] && reluJ[0].chemin,
+         apres: reluJ[0] && reluJ[0].apres, appareil: reluJ[0] && reluJ[0].appareil })
+    sansErreur('J28', 'Consigner n\'importe quoi ne lève jamais : une saisie ne doit pas échouer à cause du journal',
+               () => { journalConsigner(null, 'saisie', { year: AN_J }); journalConsigner([{}], 'saisie', { year: AN_J }) })
+    // Le cas qui justifie le fichier : ce qui a bougé depuis la clôture.
+    const closedSauve = state.closed
+    state.closed = { at: new Date(8000).toISOString(), totaux: {}, empreinte: 'x' }
+    journalEcrire(activeYear, [
+      { ts: 5000, chemin: chemElec, genre: 'maj', origine: 'saisie', appareil: 'Mac', avant: '1', apres: '2' },
+      { ts: 9000, chemin: chemElec, genre: 'maj', origine: 'saisie', appareil: 'Mac', avant: '2', apres: '3' }
+    ])
+    eq('J29', 'Seules les modifications POSTÉRIEURES à la clôture sont montrées', [9000],
+       journalDepuisCloture(activeYear).map(e => e.ts))
+    if (closedSauve) state.closed = closedSauve; else delete state.closed
+    journalVider(AN_J)
+    sansErreur('J30', 'L\'écran d\'historique se rend sans lever', () => renderJournal())
+
     // ══ R. ROBUSTESSE : ÉTAT VIERGE ═══════════════════════════════════════════
     const stateSauve = state
     state = defaultState()
@@ -1247,9 +1400,11 @@ ${FIX_YEAR}-04-12,QUINCAILLERIE TEST,-45.00`
     ANNEES_TEST.forEach(an => {
       try { localStorage.removeItem(STORE_PREFIX + an) } catch (e) {}
       try { localStorage.removeItem(META_PREFIX + an) } catch (e) {}
+      try { localStorage.removeItem(JOURNAL_PREFIX + an) } catch (e) {}
     })
     save()
     sauverMeta(activeYear, backup.meta)
+    if (typeof journalEcrire === 'function') journalEcrire(activeYear, backup.journal)
     rechargerMeta()
     saveSetup()
     try { refreshAll() } catch (e) {}

@@ -737,6 +737,7 @@ html.theme-dark .onb-section{background:#1a222d}
     <div id="fiscal-bord"   class="fiscal-panel" style="display:none"><div id="bord-body"></div></div>
     <div id="fiscal-cloture" class="fiscal-panel" style="display:none">
       <div id="cloture-body"></div>
+      <div id="journal-body"></div>
       <div id="dossier-body"></div>
     </div>
   </section>
@@ -963,25 +964,26 @@ html.theme-dark .onb-section{background:#1a222d}
      moment du chargement. L'ordre est significatif : données fiscales, socle,
      puis les modules. Le paramètre ?v= force le service worker à reprendre le
      fichier après un déploiement. -->
-<script src="js/fiscal-data.js?v=2.5.1"></script>
-<script src="js/app-modules.js?v=2.5.1"></script>
-<script src="js/sync.js?v=2.5.1"></script>
-<script src="js/baux.js?v=2.5.1"></script>
-<script src="js/dpa.js?v=2.5.1"></script>
-<script src="js/impot.js?v=2.5.1"></script>
-<script src="js/tps-tvq.js?v=2.5.1"></script>
-<script src="js/vehicule-methodes.js?v=2.5.1"></script>
-<script src="js/coproprietaires.js?v=2.5.1"></script>
-<script src="js/ventilation.js?v=2.5.1"></script>
-<script src="js/recus.js?v=2.5.1"></script>
-<script src="js/kilometrage.js?v=2.5.1"></script>
-<script src="js/import-bancaire.js?v=2.5.1"></script>
-<script src="js/cloture.js?v=2.5.1"></script>
-<script src="js/dossier.js?v=2.5.1"></script>
-<script src="js/tableau-bord.js?v=2.5.1"></script>
-<script src="js/simulateur.js?v=2.5.1"></script>
-<script src="js/vente.js?v=2.5.1"></script>
-<script src="js/recommandations.js?v=2.5.1"></script>
+<script src="js/fiscal-data.js?v=2.6.0"></script>
+<script src="js/app-modules.js?v=2.6.0"></script>
+<script src="js/sync.js?v=2.6.0"></script>
+<script src="js/baux.js?v=2.6.0"></script>
+<script src="js/dpa.js?v=2.6.0"></script>
+<script src="js/impot.js?v=2.6.0"></script>
+<script src="js/tps-tvq.js?v=2.6.0"></script>
+<script src="js/vehicule-methodes.js?v=2.6.0"></script>
+<script src="js/coproprietaires.js?v=2.6.0"></script>
+<script src="js/ventilation.js?v=2.6.0"></script>
+<script src="js/recus.js?v=2.6.0"></script>
+<script src="js/kilometrage.js?v=2.6.0"></script>
+<script src="js/import-bancaire.js?v=2.6.0"></script>
+<script src="js/cloture.js?v=2.6.0"></script>
+<script src="js/journal.js?v=2.6.0"></script>
+<script src="js/dossier.js?v=2.6.0"></script>
+<script src="js/tableau-bord.js?v=2.6.0"></script>
+<script src="js/simulateur.js?v=2.6.0"></script>
+<script src="js/vente.js?v=2.6.0"></script>
+<script src="js/recommandations.js?v=2.6.0"></script>
 
 <script>
 // ════════════════════════════════════════════════════════════
@@ -1000,7 +1002,7 @@ html.theme-dark .onb-section{background:#1a222d}
 //   MAJEUR   — changement du format des donnees qui demande une migration
 //   MINEUR   — nouvelle fonctionnalite
 //   CORRECTIF— correction sans nouvelle fonctionnalite
-const APP_VERSION = '2.5.1'
+const APP_VERSION = '2.6.0'
 const APP_BUILD   = '2026-10-20'
 const APP_NOM     = 'Mon Plex'
 
@@ -1388,6 +1390,7 @@ function rechargerMeta() {
 function daterAnnee(year, avant, apres) {
   const d = syncDater(chargerMeta(year), stateForSync(avant || {}), stateForSync(apres || {}), Date.now())
   sauverMeta(year, d.meta)
+  journalConsigner(d.changements, 'saisie', { year })
   return d
 }
 
@@ -1397,6 +1400,9 @@ function save() {
   _syncPhoto = JSON.stringify(stateForSync(state))
   try { localStorage.setItem(storeKey(), JSON.stringify(state)) } catch(e) {}
   sauverMeta(activeYear, stateMeta)
+  // L'historique des modifications (js/journal.js) : les données sont déjà
+  // écrites à ce stade, le journal ne peut donc pas faire échouer une saisie.
+  journalConsigner(d.changements, 'saisie')
   if (state.settings.syncAuto !== false && window._fbAuth?.currentUser) {
     clearTimeout(save._syncT)
     save._syncT = setTimeout(() => syncPush(false), 5000)
@@ -1479,6 +1485,7 @@ function saveSetup() {
   _setupPhoto = JSON.stringify(setupPourSync(setup))
   try { localStorage.setItem(SETUP_KEY, JSON.stringify(setup)) } catch(e) {}
   try { localStorage.setItem(SETUP_META_KEY, JSON.stringify(setupMeta)) } catch(e) {}
+  journalConsigner(d.changements, 'saisie', { prefixe: 'config' })
   // Un simple changement de thème ne date rien : inutile d'appeler le cloud.
   if ((d.modifiees || d.supprimees) && state.settings.syncAuto !== false && window._fbAuth?.currentUser) {
     clearTimeout(saveSetup._syncT)
@@ -2154,7 +2161,7 @@ const FISCAL_SUBS = [
   { id: 'import',  label: '📥 Import',          render: () => renderImportBancaire() },
   { id: 'simu',    label: '🧮 Simulateur',      render: () => { renderSimulateur(); renderVente() } },
   { id: 'bord',    label: '📈 Évolution',       render: () => renderTableauBord() },
-  { id: 'cloture', label: '🔒 Clôture',         render: () => { renderCloture(); renderDossier() } }
+  { id: 'cloture', label: '🔒 Clôture',         render: () => { renderCloture(); renderJournal(); renderDossier() } }
 ]
 let activeFiscalSub = 'reco'
 
@@ -4030,6 +4037,9 @@ function syncCoteLocal(year) {
 function syncAppliquerActive(res) {
   const d = syncDater(stateMeta, JSON.parse(_syncPhoto), stateForSync(state), Date.now())
   stateMeta = d.meta
+  // Une saisie non encore sauvegardée au moment où la fusion arrive : elle est
+  // datée ici, donc elle s'inscrit ici, sinon personne ne le ferait.
+  journalConsigner(d.changements, 'saisie')
   const f = syncFusionner({ state: stateForSync(state), meta: stateMeta },
                           { state: res.state, meta: res.meta })
   const recus = state.receipts || {}
@@ -4043,6 +4053,10 @@ function syncAppliquerActive(res) {
   // L'index a peut-être gagné des lignes (photos à télécharger) ou des
   // tombales (photos à retirer d'ici).
   recusPlanifier()
+  // L'historique : ce que l'autre appareil vient de changer ICI. Les deux
+  // fusions peuvent décrire la même valeur reçue — journalAjouter() replie les
+  // doublons sur une seule ligne.
+  journalConsigner((res.changements || []).concat(f.changements || []), 'distant')
   // Le total des deux fusions, pour le résumé montré à l'utilisateur.
   const stats = syncStatsVides()
   Object.keys(stats).forEach(k => { stats[k] = (res.stats ? res.stats[k] : 0) + f.stats[k] })
@@ -4053,6 +4067,7 @@ function syncAppliquerAnnee(year, res) {
   if (year === activeYear) return syncAppliquerActive(res)
   try { localStorage.setItem(STORE_PREFIX + year, JSON.stringify(res.state)) } catch(e) {}
   sauverMeta(year, res.meta)
+  journalConsigner(res.changements, 'distant', { year })
   return res
 }
 

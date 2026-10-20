@@ -12,14 +12,16 @@ estimation d'effort (S = quelques heures, M = 1-3 jours, L = plus).
 
 ## État au 20 octobre 2026
 
-**15 des 22 fiches sont livrées côté PWA**, dans la couche modulaire `pwa_2026/js/`
+**16 des 22 fiches sont livrées côté PWA**, dans la couche modulaire `pwa_2026/js/`
 (§ 2.8 de [ARCHITECTURE.md](ARCHITECTURE.md)) et le 6ᵉ onglet 📑 Fiscal. Une
 seizième fonctionnalité, non prévue par ce document, s'est ajoutée : la section
 **Recommandations** (pistes de rentabilité classées par gain estimé).
 
 La quinzième est **D.4**, livrée le 20 octobre 2026 dans la version 2.5.0 et livrée
 au-delà de son énoncé : la fiche demandait d'avertir avant d'écraser, l'application
-fusionne désormais champ par champ et n'avertit que des vrais désaccords.
+fusionne désormais champ par champ et n'avertit que des vrais désaccords. La seizième est
+**C.3**, livrée le même jour dans la version 2.6.0 : la fusion champ par champ savait déjà
+nommer chaque cellule touchée, il restait à en garder la trace lisible.
 
 | Fiche | État | Où elle a atterri |
 |---|---|---|
@@ -38,7 +40,7 @@ fusionne désormais champ par champ et n'avertit que des vrais désaccords.
 | D.1 Tableau de bord pluriannuel | ✅ livré | `js/tableau-bord.js` — Fiscal › Évolution |
 | D.3 Simulateur d'achat | ✅ livré | `js/simulateur.js` — Fiscal › Simulateur |
 | — Recommandations | ✅ livré (hors liste) | `js/recommandations.js` — Fiscal › Recommandations |
-| C.3 Historique des modifications | ⏳ à faire | la moitié du travail est faite : `syncDater()` calcule déjà la différence entre deux états et date chaque cellule (2.5.0) |
+| C.3 Historique des modifications | ✅ livré | `js/journal.js` — Fiscal › Clôture, sous l'état de clôture |
 | C.4 Verrou biométrique | ⏳ à faire | |
 | D.2 Widgets et raccourcis iOS | ⏳ à faire | iOS |
 | D.4 Synchronisation : avertir au lieu d'écraser | ✅ livré *(dépassé)* | `js/sync.js` — 2.5.0 : au lieu d'avertir, l'app **fusionne champ par champ**, et n'avertit que des vrais désaccords |
@@ -217,16 +219,33 @@ rapport PDF, le CSV, les reçus nommés d'après leur cellule
 (`1090_Électricité_09_142.30.jpg`) et un `index.csv` de correspondance. Côté PWA avec
 `JSZip`, côté iOS avec `FileManager` + partage natif.
 
-### C.3 Historique des modifications — M
+### C.3 Historique des modifications — M · ✅ livré
 
 Un journal append-only (`qui, quand, quelle cellule, ancienne → nouvelle valeur`) répond à
 la question « pourquoi le total a-t-il changé depuis la version que j'ai envoyée ? ».
 
-**Reste à faire, mais à moitié prêt.** Depuis la 2.5.0, `syncDater()` compare l'état avant
-et l'état après chaque `save()` et nomme précisément les cellules touchées — c'est
-exactement la matière du journal. Il manque la conservation de l'ancienne valeur, le nom
-de l'appareil, et un écran de consultation. Le diagnostic d'une synchronisation qui écrase,
-lui, n'est plus un argument : elle ne s'écrase plus.
+**Livré en 2.6.0** — `js/journal.js`, sous l'état de clôture dans Fiscal › Clôture.
+`syncDater()` et `syncFusionner()` rendaient déjà la liste des cellules touchées ; ils
+rendent maintenant aussi l'ancienne valeur, et chaque écriture — saisie locale comme
+fusion entrante — y laisse une ligne en français : *« Duplex A › Déductibles ›
+Électricité › mars : 120.00 → 150.00 »*, avec l'heure, l'appareil d'origine et l'icône
+qui distingue une saisie 📝 d'une arrivée 📥. Trois écarts avec l'énoncé, détaillés en
+§ 2.10 de [ARCHITECTURE.md](ARCHITECTURE.md) :
+
+- **le journal n'est pas synchronisé** : un tableau append-only sans identifiants perdrait
+  des lignes à la fusion, et les identifiants qu'il faudrait pour l'éviter gonfleraient le
+  document Firestore d'un mégaoctet. Chaque appareil garde donc son journal — et comme les
+  changements reçus y sont inscrits à l'arrivée, le journal local explique quand même tout
+  ce qui est arrivé aux chiffres locaux ;
+- **les corrections successives d'une même cellule dans la minute sont regroupées** en une
+  ligne, et une valeur revenue à son point de départ n'en laisse aucune : autrement, taper
+  un montant au clavier en écrirait une par frappe ;
+- **une fusion massive** (une première synchronisation, un import) est résumée en une
+  ligne — *« 312 valeurs reçues de iPhone »* — au lieu de noyer le reste.
+
+L'écran se consulte par jour, se filtre par origine et par texte, s'exporte en CSV, et
+l'avertissement de dérive de la clôture y renvoie directement : *« Voir les 7
+modification(s) inscrites depuis la clôture »*.
 
 ### C.4 Verrou biométrique — S
 
@@ -418,16 +437,17 @@ reste à écrire.
 
 ## Si je devais n'en retenir que trois
 
-*Les 14 fiches d'octobre 2026 et huit des neuf fiches du § E sont livrées. Par rendement,
+*Les 15 fiches d'octobre 2026 et huit des neuf fiches du § E sont livrées. Par rendement,
 ce qui reste :*
 
 1. **La vague 1 du portage iOS** — `fiscal-data`, `impot`, `dpa` et les utilitaires.
    C'est ce qui rendrait l'application mobile utile pour autre chose que la saisie, et
-   [PORTAGE_IOS.md](PORTAGE_IOS.md) en donne le contrat exact. À porter avec `sync.js`,
-   sans quoi l'iPhone restera le seul appareil qui ne participe pas à la fusion.
-2. **C.3 Historique des modifications** — aujourd'hui, seule la clôture laisse une
-   trace. En cas de vérification, pouvoir dire *quand* un montant a changé vaut cher, et
-   la 2.5.0 en a déjà écrit la moitié.
-3. **C.4 Verrou biométrique** — les deux apps contiennent revenus, adresses et noms de
+   [PORTAGE_IOS.md](PORTAGE_IOS.md) en donne le contrat exact. À porter avec `sync.js`
+   **et `journal.js`**, sans quoi l'iPhone restera le seul appareil qui ne participe pas à
+   la fusion — et le seul qui écrirait dans le document commun sans en garder la trace.
+2. **C.4 Verrou biométrique** — les deux apps contiennent revenus, adresses et noms de
    copropriétaires, et depuis la 2.5.0 chaque appareil connecté en porte une copie
    complète. Le coût est faible, l'exposition ne l'est plus.
+3. **D.2 Widgets et raccourcis iOS** — peu de code pour un usage quotidien, mais il
+   attend la vague 1 : un widget « bénéfice net à ce jour » suppose le calcul fiscal porté
+   côté Swift.

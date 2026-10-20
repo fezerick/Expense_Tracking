@@ -9,7 +9,7 @@ québécois + travail autonome rideshare) et échangent leurs données par fichi
 |---|---|---|
 | Dossier | `pwa_2026/` | `ios_2026/` |
 | Techno | HTML/CSS/JS, aucun build | SwiftUI + SwiftData, iOS 17+ |
-| Taille | 11 558 lignes (`index.html` 5 325 + 19 fichiers `js/` 6 233) | 5 654 lignes Swift, 23 fichiers |
+| Taille | 12 188 lignes (`index.html` 5 340 + 20 fichiers `js/` 6 848) | 5 654 lignes Swift, 23 fichiers |
 | Stockage | `localStorage` + Firestore | SwiftData (CloudKit ou local) |
 | Hébergement | Firebase Hosting `suivi-depenses-7dc02` | Xcode / appareil |
 | Sortie comptable | PDF jsPDF + CSV | PDF UIGraphics + CSV |
@@ -57,7 +57,7 @@ pwa_2026/
 ├── manifest.json   nom « Mon Plex », couleurs #1F3864, icônes de icons/
 ├── sw.js           45 lignes — service worker, cache 'depenses-<version>'
 ├── icons/          icône de l'application : source SVG + PNG rendus (voir § 2.9)
-└── js/             19 fichiers, 6 233 lignes — couche fiscale (voir § 2.8)
+└── js/             20 fichiers, 6 848 lignes — couche fiscale (voir § 2.8)
 ```
 
 Aucun bundler, aucun `node_modules`, aucune étape de compilation : le fichier servi est
@@ -294,7 +294,7 @@ function notifyModulesYearChange()// appelé par switchYear()   — puis m.onYea
 Les erreurs d'un module sont attrapées et journalisées (`console.error('[module <id>] init', e)`) :
 un module cassé ne doit pas empêcher l'application de démarrer.
 
-**Chargement.** 19 balises `<script src="js/<module>.js?v=<version>">` en fin de `<body>`,
+**Chargement.** 20 balises `<script src="js/<module>.js?v=<version>">` en fin de `<body>`,
 donc des **scripts classiques** et non des modules ES. Conséquence structurante :
 tout ce qui est déclaré au niveau supérieur d'un fichier (`function`, `const`, `let`)
 vit dans la portée lexicale globale partagée. Un module appelle donc `state`, `setup`,
@@ -306,7 +306,7 @@ débogage doit les évaluer par leur nom nu.
 | Fichier | Lignes | `id` du module | Rôle |
 |---|---|---|---|
 | `app-modules.js` | 228 | — (socle) | registre, feuille modale, utilitaires (`num`, `money`, `escH`, `dl`, `csvCell`, `loadScript`, `readYear`/`writeYear`), verrou `guardClosed()` |
-| `sync.js` | 456 | — (moteur) | fusion champ par champ entre appareils : dates par feuille, pierres tombales, formes de tableaux (§ 2.4). Aucune dépendance — ni Firebase, ni `state` |
+| `sync.js` | 534 | — (moteur) | fusion champ par champ entre appareils : dates par feuille, pierres tombales, formes de tableaux (§ 2.4). Aucune dépendance — ni Firebase, ni `state` |
 | `fiscal-data.js` | 269 | — (données) | paramètres fiscaux par année (`fiscal(year)`), paliers d'impôt, RRQ / FSS / RQAP, taux de DPA |
 | `recommandations.js` | 337 | `recommandations` | pistes de rentabilité classées par gain estimé + bandeau d'accueil |
 | `impot.js` | 447 | `impot` | impôt estimé, acomptes provisionnels avec retards et manque à verser, provision à mettre de côté |
@@ -322,7 +322,8 @@ débogage doit les évaluer par leur nom nu.
 | `simulateur.js` | 427 | `simulateur` | simulateur d'achat d'immeuble et de km Uber supplémentaires |
 | `vente.js` | 391 | `vente` | simulateur de vente : récupération de DPA (100 %), gain en capital (50 %), perte finale |
 | `tableau-bord.js` | 283 | `tableau-bord` | tableau de bord pluriannuel (lit les autres années via `readYear`) |
-| `cloture.js` | 216 | `cloture` | clôture d'année verrouillée + empreinte des chiffres déclarés |
+| `cloture.js` | 221 | `cloture` | clôture d'année verrouillée + empreinte des chiffres déclarés |
+| `journal.js` | 532 | `journal` | historique des modifications : qui, quand, quelle cellule, ancienne → nouvelle valeur (§ 2.10) |
 | `dossier.js` | 307 | `dossier` | dossier comptable complet en un ZIP |
 
 **Le 6ᵉ onglet.** `FISCAL_SUBS` (index.html:1994) décrit les 10 sous-onglets dans
@@ -400,6 +401,61 @@ Les PNG sont **rendus** depuis les SVG par Chrome sans tête
 (`--headless --screenshot --window-size=N,N`) ; ne les retouchez pas à la main : modifiez
 le SVG et régénérez. Les quatre propositions soumises au choix (`A-plex`, `B-courbe`,
 `C-flux`, `D-monogramme`) sont conservées dans le même dossier à titre d'archive.
+
+### 2.10 Historique des modifications (`js/journal.js`)
+
+Depuis la 2.6.0. Répond à « le total n'est plus celui que j'ai envoyé — qu'est-ce qui a
+changé ? », question à laquelle la clôture d'année ne savait répondre que par
+« les chiffres ne correspondent plus ».
+
+**Le journal ne calcule rien.** Sa matière vient entièrement de la synchronisation, qui
+la produisait déjà et la jetait :
+
+| Source | Ce qu'elle rend | Inscrit comme |
+|---|---|---|
+| `syncDater(meta, avant, apres, ts)` | `changements: [{ chemin, avant, apres, genre }]` | ✏️ saisi ici |
+| `syncFusionner(local, distant)` | les valeurs réellement prises à l'autre appareil | 📥 reçu de `<appareil>` |
+
+C'est la propriété structurante : **aucune des ~60 fonctions de saisie de l'application
+n'a été touchée**, donc aucune ne peut oublier de journaliser. Tout ce qui est daté est
+inscrit, parce que c'est le même calcul qui date et qui raconte.
+
+**Stockage.** Une clé `localStorage` par année — `depenses_journal_<année>` — à côté des
+données et de la méta, jamais dedans : le JSON exporté ne contient pas d'historique.
+Plafond de `JOURNAL_MAX = 800` lignes, les plus vieilles tombant en premier. L'écriture
+est volontairement incapable de faire échouer une sauvegarde : les données sont déjà
+écrites quand `journalConsigner()` est appelé, et si le stockage est plein le journal se
+réduit de moitié puis renonce en silence.
+
+**Ce qui n'est pas inscrit**, et c'est délibéré :
+
+- une valeur **écartée** par un arbitrage de fusion — elle n'a rien changé ici, et la
+  pastille de synchronisation la signale déjà ;
+- une case qui passe de **vide à vide** : ouvrir un écran crée des structures vides ;
+- trois hésitations sur un même montant à moins de deux minutes : elles se **replient**
+  sur une ligne portant la valeur de départ et la valeur finale, et une correction
+  annulée (142 → 150 → 142) ne laisse rien ;
+- le détail d'une fusion de plus de 40 valeurs — le premier raccordement d'un appareil
+  tient en **une ligne de synthèse**, sinon le bruit chasse l'historique utile.
+
+**Pourquoi le journal ne se synchronise pas.** Un journal est un tableau en ajout seul, et
+la fusion traite un tableau sans `id` comme une seule feuille : le synchroniser tel quel
+perdrait des lignes. Lui donner des `id` le ferait grossir dans un document Firestore
+déjà limité à un mégaoctet. Surtout, c'est inutile : ce qui arrive d'un autre appareil est
+inscrit **à l'arrivée**, donc le journal local explique la totalité des changements de
+l'état local. Ce qu'il n'est pas : un registre central et inviolable de qui a fait quoi —
+cela demanderait un serveur qui refuse les écritures non journalisées, pas une app hors
+ligne.
+
+**Une suppression garde la trace de ce qu'elle emporte** (`apercu`, calculé par
+`syncApercu()` au moment de la suppression) : `Trajet › tB — retiré (6 cases :
+2026-03-02, Rona, 18)`. Après coup, l'identifiant interne du trajet ne dit plus rien,
+et son libellé n'existe plus nulle part.
+
+**Lecture.** `journalLabel(chemin, lexique)` traduit un chemin de fusion en mots de
+l'application ; le lexique (libellés d'immeubles, champs Uber/Lyft, trajets) est
+reconstruit à chaque affichage, de sorte qu'un immeuble renommé change de nom dans tout
+l'historique — ce qu'on désigne est la cellule, pas le mot qui la nommait ce jour-là.
 
 ---
 
