@@ -45,6 +45,38 @@ struct BackupService {
         var lyft: [LyftDTO]
         var vehicle: [String: Double]
         var checklist: [ChecklistDTO]
+        /// v2.9 : saisie d'impôt et registre de DPA. Absents des sauvegardes
+        /// antérieures — optionnels pour qu'elles restent lisibles.
+        var impot: TaxInputsDTO? = nil
+        var biens: [CapitalAssetDTO]? = nil
+    }
+
+    struct TaxInputsDTO: Codable {
+        var revenuT4: Double
+        var impotRetenuFed: Double
+        var impotRetenuQc: Double
+        var gainsRRQCotises: Double
+        var autresRevenus: Double
+        var autresDeductions: Double
+        var acomptesFed: [Double]
+        var acomptesQc: [Double]
+    }
+
+    struct CapitalAssetDTO: Codable {
+        /// Conservé : c'est lui qui relie le bien d'une année à l'autre et qui
+        /// fait tenir le report de la FNACC.
+        var assetId: String
+        var propId: String
+        var label: String
+        var categorie: String
+        var dateAcquisition: String
+        var cout: Double
+        var coutTerrain: Double
+        var lie: Bool
+        var fnaccOuverture: Double?
+        var dispositionDate: String
+        var dispositionProduit: Double
+        var dpaReclamee: Double
     }
 
     struct TripDTO: Codable {
@@ -133,6 +165,24 @@ struct BackupService {
             vehicle: Dictionary(uniqueKeysWithValues: data.vehicleExpenses().map { ($0.category, $0.amount) }),
             checklist: data.checklist().map {
                 ChecklistDTO(label: $0.label, isDone: $0.isDone, sortOrder: $0.sortOrder)
+            },
+            impot: {
+                let t = data.ensureTaxInputs()
+                return TaxInputsDTO(
+                    revenuT4: t.revenuT4, impotRetenuFed: t.impotRetenuFed,
+                    impotRetenuQc: t.impotRetenuQc, gainsRRQCotises: t.gainsRRQCotises,
+                    autresRevenus: t.autresRevenus, autresDeductions: t.autresDeductions,
+                    acomptesFed: t.acomptesFedNormalises, acomptesQc: t.acomptesQcNormalises)
+            }(),
+            biens: data.capitalAssets().map {
+                CapitalAssetDTO(
+                    assetId: $0.assetId, propId: $0.propId, label: $0.label,
+                    categorie: $0.categorie, dateAcquisition: $0.dateAcquisition,
+                    cout: $0.cout, coutTerrain: $0.coutTerrain, lie: $0.lie,
+                    fnaccOuverture: $0.fnaccOuverture,
+                    dispositionDate: $0.dispositionDate,
+                    dispositionProduit: $0.dispositionProduit,
+                    dpaReclamee: $0.dpaReclamee)
             }
         )
         let encoder = JSONEncoder()
@@ -241,6 +291,20 @@ struct BackupService {
         for c in snapshot.checklist {
             context.insert(ChecklistItem(year: snapshot.year, label: c.label,
                                          sortOrder: c.sortOrder, isDone: c.isDone))
+        }
+        if let i = snapshot.impot {
+            let t = data.ensureTaxInputs()
+            t.revenuT4 = i.revenuT4
+            t.impotRetenuFed = i.impotRetenuFed
+            t.impotRetenuQc = i.impotRetenuQc
+            t.gainsRRQCotises = i.gainsRRQCotises
+            t.autresRevenus = i.autresRevenus
+            t.autresDeductions = i.autresDeductions
+            t.acomptesFed = i.acomptesFed
+            t.acomptesQc = i.acomptesQc
+        }
+        for b in snapshot.biens ?? [] {
+            insererBien(b, year: snapshot.year, context: context)
         }
         try? context.save()
         return snapshot.year
@@ -406,9 +470,67 @@ struct BackupService {
         } else {
             data.seedChecklistIfEmpty()
         }
+
+        // Impôt : mêmes noms de champs que dans `state.impot` de la PWA.
+        if let i = state["impot"] as? [String: Any] {
+            let t = data.ensureTaxInputs()
+            t.revenuT4 = double(i["revenuT4"]) ?? 0
+            t.impotRetenuFed = double(i["impotRetenuFed"]) ?? 0
+            t.impotRetenuQc = double(i["impotRetenuQc"]) ?? 0
+            t.gainsRRQCotises = double(i["gainsRRQCotises"]) ?? 0
+            t.autresRevenus = double(i["autresRevenus"]) ?? 0
+            t.autresDeductions = double(i["autresDeductions"]) ?? 0
+            t.acomptesFed = acomptes(i["acomptesFed"])
+            t.acomptesQc = acomptes(i["acomptesQc"])
+        }
+
+        // Registre de DPA : `state.biens`, où `dpa` est un dictionnaire
+        // année → montant. Seule l'année restaurée est reprise ; les autres
+        // appartiennent aux sauvegardes de ces années-là.
+        for raw in (state["biens"] as? [[String: Any]]) ?? [] {
+            let dpa = (raw["dpa"] as? [String: Any]) ?? [:]
+            let dto = CapitalAssetDTO(
+                assetId: (raw["id"] as? String) ?? UUID().uuidString,
+                propId: (raw["propId"] as? String) ?? CCAService.vehPseudoProp,
+                label: (raw["description"] as? String) ?? "",
+                categorie: (raw["categorie"] as? String) ?? "1",
+                dateAcquisition: (raw["dateAcquisition"] as? String) ?? "",
+                cout: double(raw["cout"]) ?? 0,
+                coutTerrain: double(raw["coutTerrain"]) ?? 0,
+                lie: (raw["lie"] as? Bool) ?? false,
+                // Chaîne vide côté PWA = pas de surcharge, et non zéro.
+                fnaccOuverture: double(raw["fnaccOuverture"]),
+                dispositionDate: (raw["dispositionDate"] as? String) ?? "",
+                dispositionProduit: double(raw["dispositionProduit"]) ?? 0,
+                dpaReclamee: double(dpa[String(year)]) ?? 0)
+            insererBien(dto, year: year, context: context)
+        }
         try? context.save()
 
         return year
+    }
+
+    /// Quatre échéances, quoi que contienne le fichier : le noyau indexe par
+    /// échéance et un tableau plus court ferait sortir l'écran de ses bornes.
+    private static func acomptes(_ raw: Any?) -> [Double] {
+        let brut = (raw as? [Any]) ?? []
+        let v = brut.map { double($0) ?? 0 }
+        return v.count >= 4 ? Array(v.prefix(4)) : v + Array(repeating: 0, count: 4 - v.count)
+    }
+
+    private static func insererBien(_ b: CapitalAssetDTO, year: Int, context: ModelContext) {
+        let asset = CapitalAsset(assetId: b.assetId, year: year, propId: b.propId)
+        asset.label = b.label
+        asset.categorie = b.categorie
+        asset.dateAcquisition = b.dateAcquisition
+        asset.cout = b.cout
+        asset.coutTerrain = b.coutTerrain
+        asset.lie = b.lie
+        asset.fnaccOuverture = b.fnaccOuverture
+        asset.dispositionDate = b.dispositionDate
+        asset.dispositionProduit = b.dispositionProduit
+        asset.dpaReclamee = b.dpaReclamee
+        context.insert(asset)
     }
 
     /// Immeuble décrit par la configuration webapp (`setup.propsList`) :

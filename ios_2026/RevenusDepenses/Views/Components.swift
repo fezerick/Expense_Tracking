@@ -201,3 +201,73 @@ extension Date {
         Calendar.current.component(.month, from: Date()) - 1
     }
 }
+
+// MARK: - Encadré explicatif (pendant des infoBox / warnBox / sourceNote de la PWA)
+
+/// Un écran fiscal qui donne un chiffre sans dire d'où il vient n'est pas
+/// utilisable : ces encadrés portent la règle et sa source, comme dans la PWA.
+struct NoteBox: View {
+    enum Kind {
+        /// Ce qu'il faut savoir pour que le chiffre ait un sens.
+        case info
+        /// Ce qui coûte de l'argent si on l'ignore.
+        case warning
+        /// L'article de loi ou la mécanique derrière le calcul.
+        case source
+
+        var color: Color {
+            switch self {
+            case .info: AppConfig.Palette.blue
+            case .warning: AppConfig.Palette.orange
+            case .source: .secondary
+            }
+        }
+
+        var icon: String? {
+            switch self {
+            case .info: "info.circle.fill"
+            case .warning: "exclamationmark.triangle.fill"
+            case .source: nil
+            }
+        }
+    }
+
+    let text: String
+    var kind: Kind = .info
+
+    init(_ text: String, kind: Kind = .info) {
+        self.text = text
+        self.kind = kind
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            if let icon = kind.icon {
+                Image(systemName: icon)
+                    .font(.caption)
+                    .foregroundStyle(kind.color)
+            }
+            Text(.init(text))      // **gras** interprété comme du Markdown
+                .font(.caption)
+                .foregroundStyle(kind == .source ? .secondary : .primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Rangée de deux cartes résumé
+
+struct SummaryPair: View {
+    let left: SummaryCard
+    let right: SummaryCard?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            left
+            if let right { right }
+        }
+        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+        .listRowBackground(Color.clear)
+    }
+}

@@ -21,6 +21,8 @@ struct SummaryView: View {
     @Query(sort: [SortDescriptor(\RentalProperty.sortOrder), SortDescriptor(\RentalProperty.createdAt)])
     private var allProperties: [RentalProperty]
     @Query(sort: \ChecklistItem.sortOrder) private var allChecklistItems: [ChecklistItem]
+    @Query private var allTaxInputs: [TaxInputs]
+    @Query private var allAssets: [CapitalAsset]
 
     @State private var showRestoreImporter = false
     @State private var restoreMessage: String?
@@ -34,6 +36,7 @@ struct SummaryView: View {
     var body: some View {
         List {
             globalSummary
+            fiscalScreens
             sourceTable
             exportSection
             checklistSection
@@ -93,6 +96,53 @@ struct SummaryView: View {
                       amount: data.globalNet(includeRideshare: moduleRideshare), bold: true,
                       color: data.globalNet(includeRideshare: moduleRideshare) >= 0
                              ? AppConfig.Palette.green : .red)
+        }
+    }
+
+    // MARK: - Écrans fiscaux
+
+    /// La barre d'onglets en compte déjà cinq : un sixième serait replié dans un
+    /// menu « Plus » par UIKit. L'impôt et la DPA s'ouvrent donc depuis ici,
+    /// comme dans la PWA où l'onglet fiscal les regroupe.
+    private var fiscalScreens: some View {
+        Section("Impôt et amortissement") {
+            NavigationLink {
+                TaxView(year: year)
+            } label: {
+                lienFiscal(titre: "Impôt \(String(year))",
+                           sous: "Provision, taux marginal, acomptes",
+                           montant: data.calculImpot().provision,
+                           icone: "banknote.fill",
+                           couleur: AppConfig.Palette.orange)
+            }
+            NavigationLink {
+                CCAView(year: year)
+            } label: {
+                lienFiscal(titre: "Amortissement (DPA)",
+                           sous: "Registre des biens, FNACC, art. 1100(11)",
+                           montant: data.calculDPA().total,
+                           icone: "building.2.fill",
+                           couleur: AppConfig.Palette.blue)
+            }
+        }
+    }
+
+    private func lienFiscal(titre: String, sous: String, montant: Double,
+                            icone: String, couleur: Color) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icone)
+                .foregroundStyle(couleur)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(titre)
+                    .font(.subheadline)
+                Text(sous)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(AppConfig.currency(montant))
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(couleur)
         }
     }
 

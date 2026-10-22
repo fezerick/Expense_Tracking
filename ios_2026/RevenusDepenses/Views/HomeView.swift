@@ -95,6 +95,9 @@ struct HomeView: View {
                                 icon: "car.2.fill")
                 }
             }
+            // L'impôt à provisionner est la seule donnée qu'on regrette de ne
+            // pas avoir vue avant le 15 mars : elle s'affiche sur l'Accueil.
+            ProvisionBanner(year: year)
         }
     }
 

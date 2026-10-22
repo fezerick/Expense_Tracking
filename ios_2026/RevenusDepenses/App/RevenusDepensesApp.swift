@@ -17,7 +17,9 @@ struct RevenusDepensesApp: App {
             UberValue.self,
             LyftMonth.self,
             VehicleExpense.self,
-            ChecklistItem.self
+            ChecklistItem.self,
+            TaxInputs.self,
+            CapitalAsset.self
         ])
 
         // 1) Essai avec CloudKit, seulement si AppConfig.iCloudCapabilityEnabled est activé

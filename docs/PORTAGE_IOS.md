@@ -4,13 +4,14 @@
 Ce document ne raconte pas ce que fait l'application ; il dit, module par module, *ce qui
 doit être réécrit à l'identique*, *ce qui peut être repensé*, et *ce qui ne se porte pas*.
 
-**État au 22 octobre 2026** — PWA `pwa_2026/` : version 2.8.0, 20 fichiers dans `js/`,
-dont 17 modules enregistrés. iOS `ios_2026/` : 23 fichiers Swift d'interface et de
+**État au 22 octobre 2026** — PWA `pwa_2026/` : version 2.9.0, 20 fichiers dans `js/`,
+dont 17 modules enregistrés. iOS `ios_2026/` : 25 fichiers Swift d'interface et de
 persistance, **plus un noyau de calcul de 7 fichiers** (`RevenusDepenses/Core/`) qui porte
 la vague 1 — le socle, les paramètres fiscaux, l'impôt, la DPA — et la vague 1 bis — la
 fusion champ par champ et le journal des modifications. Vérifié par 94 assertions de
-parité contre la PWA (`npm run parite`). L'écart restant est l'interface des vues Impôt et
-DPA, le raccordement Firestore, et les vagues 2 à 4.
+parité contre la PWA (`npm run parite`). **La vague 1 est close** : les vues Impôt et DPA
+existent et sont alimentées. L'écart restant est le raccordement Firestore et les vagues
+2 à 4.
 
 ---
 
@@ -112,8 +113,8 @@ reproduire au cent près ; le reste du fichier est du rendu.
 
 | Module (`id`) | Fichier | Clé d'état | Calcul à porter | Destination iOS | Vague |
 |---|---|---|---|---|---|
-| `impot` | `impot.js` (447 l.) | `impot` | `assiettes()`, `calculImpot()`, `tauxMarginalEstime()`, `calculAcomptes()`, `dpaReclameeParUsage()`, `vehiculeProrataAffaires()`, `lyftNetIncome()` (délègue à `lyftNetTotal()`) | **✅ `Core/TaxService.swift`** ; vue Impôt à écrire | 1 |
-| `dpa` | `dpa.js` (512 l.) | `biens` | `clePool()`, `calculDPA(year)`, `admissibleAII()`, `fnaccReportee()`, `reclamerMaxDPA()`, `renoncerDPA()` | **✅ `Core/CCAService.swift`** ; vue DPA à écrire | 1 |
+| `impot` | `impot.js` (447 l.) | `impot` | `assiettes()`, `calculImpot()`, `tauxMarginalEstime()`, `calculAcomptes()`, `dpaReclameeParUsage()`, `vehiculeProrataAffaires()`, `lyftNetIncome()` (délègue à `lyftNetTotal()`) | **✅ `Core/TaxService.swift`** + `Views/TaxView.swift` et le bandeau de provision | 1 |
+| `dpa` | `dpa.js` (512 l.) | `biens` | `clePool()`, `calculDPA(year)`, `admissibleAII()`, `fnaccReportee()`, `reclamerMaxDPA()`, `renoncerDPA()` | **✅ `Core/CCAService.swift`** + `Views/CCAView.swift` (registre, éditeur, arbitrage) | 1 |
 | `baux` | `baux.js` (468 l.) | `baux` | `moisCouvertsParBail()`, `totalSaisiUnite()`, `ecartsLoyers()`, `bauxRL31()`, `reporterBaux()`, `decalerAnnee()` | `Models/Lease.swift` + vue Baux | 2 |
 | `taxes` | `tps-tvq.js` (276 l.) | `taxes` | `contenuTaxes()`, `calculTaxes()`, `lyftTaxableBase()`, `lyftTaxTotals()` | `Services/SalesTaxService.swift` | 2 |
 | `vehicule-methodes` | `vehicule-methodes.js` (130 l.) | *(lecture seule)* | `vehDepensesTotal()`, `comparerMethodesVehicule()` | vue Véhicule | 2 |
@@ -142,10 +143,23 @@ recommandations.
 
 Les quatre fichiers livrés alors dans `RevenusDepenses/Core/` rendent **les mêmes nombres
 que la PWA**, vérifié par 57 assertions — la suite en compte 94 depuis la vague 1 bis
-(§ 7). Ce qui reste de la vague 1 est de l'interface : les vues
-Impôt et DPA, et le branchement de `DataService` sur `EntreesImpot` et
-`[BienAmortissable]`. Le calcul, lui, est fini et ne lit rien — c'est ce qui rend le reste
-mécanique.
+(§ 7).
+
+**L'interface est livrée le 22 octobre 2026 (2.9.0), et la vague est close.**
+`Views/TaxView.swift`, `Views/CCAView.swift`, le bandeau de provision de l'Accueil, et le
+branchement de `DataService` sur `EntreesImpot` et `[BienAmortissable]` via les deux
+modèles `TaxInputs` et `CapitalAsset`. Deux choix de portage y méritent d'être retenus :
+
+- **Le registre de DPA est annuel, et `assetId` est stable.** La PWA garde les biens dans
+  `depenses_<année>.biens` ; un `CapitalAsset` par année reproduit cela exactement, et
+  c'est `assetId` — le même d'un exercice à l'autre — que le `fournisseur` de
+  `CCAService` suit pour rapporter la FNACC de clôture en ouverture de l'année suivante.
+  Un identifiant régénéré à chaque année casserait le report sans rien signaler.
+- **`fnaccOuverture` reste optionnel.** Le noyau distingue `nil` (report automatique) d'une
+  valeur (surcharge manuelle qui amorce le registre sur un bien déjà amorti). Un `Double`
+  non optionnel à zéro aurait écrasé le report par un zéro.
+
+Le calcul, lui, ne lit rien — c'est ce qui a rendu ce branchement mécanique.
 
 > **Le noyau ne dépend que de Foundation** : ni UIKit, ni SwiftData, ni état d'application.
 > Ce n'est pas un purisme. C'est ce qui permet de le compiler pour macOS et d'exécuter la

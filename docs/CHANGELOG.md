@@ -18,6 +18,63 @@ La version est écrite aux six endroits par `scripts/version.sh`, seul outil aut
 
 ---
 
+## 2.9.0 — 22 octobre 2026
+
+**L'impôt et l'amortissement s'utilisent sur l'iPhone.** Les deux moteurs portés par la
+2.7.0 avaient tout du calcul et rien de l'usage : aucun écran ne les appelait, et aucune
+donnée saisie ne leur parvenait. Cette version livre les deux vues SwiftUI, les deux
+modèles de persistance qui les alimentent, et leur place dans la sauvegarde. La vague 1 du
+portage (voir [PORTAGE_IOS.md](PORTAGE_IOS.md) § 5) est close.
+
+Rien ne change dans la PWA, dont le comportement est inchangé — seuls le numéro de version
+et le nom du cache le sont.
+
+### Ajouté
+- **`Views/TaxView.swift`** (357 l.) — le portage de l'écran `impot.js` : la provision à
+  constituer, le taux marginal, le détail du revenu net et de l'impôt, et les quatre
+  échéances d'acomptes avec leur état (en retard, versé, échu, à venir). La vue ne calcule
+  rien : elle appelle `Core/TaxService.swift` et ne collecte que les montants que
+  l'application ne peut pas deviner — salaire, retenues à la source, gains déjà cotisés au
+  RRQ, acomptes réellement versés.
+- **`ProvisionBanner`** — le portage de `renderBandeauProvision()`, sur l'Accueil. C'est la
+  seule donnée qu'on regrette de ne pas avoir vue avant le 15 mars : elle s'affiche en
+  orange, en rouge dès qu'un acompte manque, et ouvre l'écran Impôt d'un toucher.
+- **`Views/CCAView.swift`** (498 l.) — le portage de l'écran `dpa.js` : le tableau des
+  catégories mises en commun (FNACC d'ouverture reportée, ajouts, demi-taux, DPA maximale,
+  réclamée, clôture), le registre des biens, l'éditeur d'un bien, l'import du registre
+  d'une année antérieure, et la feuille d'arbitrage **« Faut-il réclamer la DPA cette
+  année ? »** — qui chiffre l'économie immédiate en face de la récupération imposable à
+  100 % à la revente.
+- **`TaxInputs` et `CapitalAsset`** (`Models/Models.swift`) — la persistance SwiftData des
+  deux écrans, compatible CloudKit comme les autres. Le registre de DPA est annuel, comme
+  `depenses_<année>.biens` dans la PWA, et c'est `assetId` — conservé à l'identique d'une
+  année à l'autre — qui relie les exercices et permet le report automatique de la FNACC.
+- **La section DPA de `DataService`** — `entreesImpot()`, `calculImpot()`,
+  `calculAcomptes()`, `tauxMarginalEstime()`, `calculDPA()`, `reclamerDPA()`,
+  `reclamerMaxDPA()`, `renoncerDPA()`, `importerRegistre(depuis:)`, `dpaCumulee()`. C'est
+  tout le branchement : le noyau reçoit des valeurs, ne lit rien, et reste compilable hors
+  simulateur.
+- **L'impôt et le registre dans la sauvegarde** (`Services/BackupService.swift`) — exportés
+  en v2.9, relus à l'import iOS, et **lus depuis une sauvegarde de la PWA** (`state.impot`,
+  `state.biens`). Les deux champs sont optionnels : une sauvegarde antérieure se relit
+  telle quelle.
+
+### Corrigé
+- **« Autres déductions » dans le détail du revenu net.** Le montant était déduit du revenu
+  net par soustraction. Or `Assiettes.revenuNet` est borné à zéro : dès que les déductions
+  dépassent le revenu, la soustraction rendait un montant faux. La ligne lit désormais la
+  valeur saisie.
+
+### Notes
+- Les deux écrans ne sont pas un sixième onglet : la barre en compte déjà cinq, et UIKit
+  replierait le sixième dans un menu « Plus ». Ils s'ouvrent depuis le **Sommaire fiscal**
+  et, pour l'impôt, depuis le bandeau de l'Accueil — comme dans la PWA, où l'onglet fiscal
+  les regroupe.
+- Le noyau n'est pas touché : les **94 assertions de parité** restent vertes, et la suite
+  PWA rend 426/426. La build iOS passe sans avertissement (Xcode 27, simulateur).
+
+---
+
 ## 2.8.0 — 22 octobre 2026
 
 **L'iPhone saura fusionner au lieu d'écraser.** La vague 1 bis du portage

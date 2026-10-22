@@ -37,7 +37,8 @@ RevenusDepenses/
 ├── Models/
 │   ├── AppConfig.swift            # Config centrale : propriétés, catégories, taux, couleurs
 │   └── Models.swift               # FiscalYear, Trip, EntryAmount, UberValue, LyftMonth,
-│                                  # VehicleExpense, ChecklistItem (SwiftData, compatibles CloudKit)
+│                                  # VehicleExpense, ChecklistItem, TaxInputs, CapitalAsset
+│                                  # (SwiftData, compatibles CloudKit)
 ├── Services/
 │   ├── DataService.swift          # Accès données + TOUTES les formules de calcul
 │   ├── DistanceService.swift      # Distance routière via MapKit (MKDirections)
@@ -50,7 +51,9 @@ RevenusDepenses/
 │   ├── TripsView.swift            # Journal complet, par mois, groupé par propriété
 │   ├── PropertiesView.swift       # Logements : saisie mensuelle/annuelle, reçus, récurrents
 │   ├── RideshareView.swift        # Uber | Lyft | Véhicule (proration au prorata des km)
-│   ├── SummaryView.swift          # Sommaire, exports PDF/CSV/JSON, checklist
+│   ├── SummaryView.swift          # Sommaire, exports PDF/CSV/JSON, checklist, liens fiscaux
+│   ├── TaxView.swift              # Impôt : provision, taux marginal, acomptes (= js/impot.js)
+│   ├── CCAView.swift              # DPA : catégories, registre des biens, arbitrage (= js/dpa.js)
 │   ├── SettingsView.swift         # Taux $/km, km annuel, véhicule, iCloud, effacement
 │   ├── PDFImportReviewView.swift  # Écran de révision avant application d'un import PDF
 │   └── Components.swift           # Cartes, champs montant, navigateur de mois…
@@ -81,6 +84,12 @@ Au démarrage, l'app tente CloudKit et se replie automatiquement sur le stockage
 - [ ] Activer les capabilities iCloud/CloudKit (voir ci-dessus) pour la synchro.
 - [ ] Tester l'import PDF avec vos vrais relevés Uber/Lyft 2026 et ajuster les libellés dans `PDFStatementParser.swift` si un champ n'est pas détecté.
 - [ ] Écran de lancement personnalisé (optionnel — généré automatiquement pour l'instant).
+- [ ] Verrou biométrique (Face ID) à l'ouverture — chantier C.4.
+- [ ] Widgets d'écran d'accueil (provision d'impôt, bénéfice net) — chantier D.2.
+- [ ] `FirestoreSync` : lire le document distant, appeler `SyncService.fusionner`, écrire le
+      résultat et poser les entrées de journal. **Tant que ce n'est pas fait, l'app iOS
+      n'écrit pas dans `users/<uid>/years/<année>`** — le moteur de fusion existe (2.8.0),
+      il n'est pas branché.
 
 ## Données et calculs (fidèles à la PWA)
 
@@ -91,3 +100,10 @@ Au démarrage, l'app tente CloudKit et se replie automatiquement sur le stockage
 - Lyft net mensuel = taxable + primes + pourboires − frais.
 - Bénéfice global = bénéfice locatif net − déduction véhicule Uber − déduction véhicule Lyft.
 - Multi-année : chaque année fiscale a ses trajets, montants, relevés, réglages et checklist propres.
+- Impôt estimé et acomptes : calculés par `Core/TaxService.swift`, à parité vérifiée avec
+  `js/impot.js`. L'écran Impôt ne collecte que ce que l'app ne peut pas deviner — salaire,
+  retenues à la source, case 26 du T4, acomptes versés.
+- DPA : calculée par `Core/CCAService.swift` (pools par catégorie, classe distincte au-delà
+  de 50 000 $, demi-taux et son suspens par l'IIA, plafond de l'art. 1100(11)). Le registre
+  est annuel ; `assetId` est conservé d'une année à l'autre et c'est lui qui permet le
+  report automatique de la FNACC. Ne pas le régénérer.

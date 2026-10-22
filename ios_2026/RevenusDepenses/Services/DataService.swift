@@ -368,6 +368,206 @@ struct DataService {
         vehicleTotalExpenses() * pctLyft()
     }
 
+    // MARK: - Impôt estimé (noyau : Core/TaxService.swift)
+
+    /// Les montants saisis à la main pour l'année, créés au besoin.
+    @discardableResult
+    func ensureTaxInputs() -> TaxInputs {
+        let y = year
+        let descriptor = FetchDescriptor<TaxInputs>(predicate: #Predicate { $0.year == y })
+        if let existing = try? context.fetch(descriptor).first { return existing }
+        let t = TaxInputs(year: year)
+        context.insert(t)
+        return t
+    }
+
+    /// Assemble les entrées du noyau. C'est le pendant exact de ce que
+    /// `assiettes()` va chercher dans `state` côté PWA : les totaux locatifs,
+    /// les revenus rideshare, le véhicule, la DPA réclamée séparée par usage, et
+    /// les montants saisis dans l'écran d'impôt.
+    ///
+    /// Aucune règle fiscale ici : les modules sont transmis tels quels et c'est
+    /// `TaxService.assiettes` qui décide ce qu'un module masqué annule.
+    func entreesImpot(moduleProps: Bool = AppSetup.moduleProperties,
+                      moduleRideshare: Bool = AppSetup.moduleRideshare) -> EntreesImpot {
+        let t = ensureTaxInputs()
+        let fy = ensureFiscalYear()
+        let dpa = dpaReclameeParUsage()
+        return EntreesImpot(
+            moduleProps: moduleProps,
+            moduleRideshare: moduleRideshare,
+            revenuLocatif: totalRevenueAll(),
+            depensesLocatives: totalDeductibleAll(),
+            uberNet: uberNetIncome(),
+            lyftNet: lyftNetTotal(),
+            depensesVehicule: vehicleTotalExpenses(),
+            kmTotalAnnuel: fy.vehicleTotalKm,
+            kmUber: uberKmOnline(),
+            kmLyft: lyftKmTotal(),
+            dpaLocative: dpa.locatif,
+            dpaEntreprise: dpa.entreprise,
+            revenuT4: t.revenuT4,
+            autresRevenus: t.autresRevenus,
+            autresDeductions: t.autresDeductions,
+            gainsRRQCotises: t.gainsRRQCotises,
+            impotRetenuFed: t.impotRetenuFed,
+            impotRetenuQc: t.impotRetenuQc,
+            acomptesFed: t.acomptesFedNormalises,
+            acomptesQc: t.acomptesQcNormalises)
+    }
+
+    func calculImpot() -> ResultatImpot {
+        TaxService.calculImpot(entreesImpot(), year: year)
+    }
+
+    func calculAcomptes() -> ResultatAcomptes {
+        TaxService.calculAcomptes(entreesImpot(), year: year)
+    }
+
+    /// Taux marginal combiné, utilisé par l'arbitrage de la DPA.
+    func tauxMarginalEstime() -> Double {
+        TaxService.tauxMarginalEstime(entreesImpot(), year: year)
+    }
+
+    // MARK: - DPA : registre des biens (noyau : Core/CCAService.swift)
+
+    func capitalAssets(year an: Int? = nil) -> [CapitalAsset] {
+        let y = an ?? year
+        let descriptor = FetchDescriptor<CapitalAsset>(
+            predicate: #Predicate { $0.year == y },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        return (try? context.fetch(descriptor)) ?? []
+    }
+
+    func capitalAsset(assetId: String) -> CapitalAsset? {
+        capitalAssets().first { $0.assetId == assetId }
+    }
+
+    /// Plafond de l'art. 1100(11) : la DPA locative ne peut excéder le revenu
+    /// net de location AVANT DPA, tous immeubles confondus. `nil` quand le
+    /// module Logements est masqué — il n'y a alors pas de locatif à plafonner.
+    func plafondLocatifDPA(moduleProps: Bool = AppSetup.moduleProperties) -> Double? {
+        guard moduleProps else { return nil }
+        return max(0, totalRevenueAll() - totalDeductibleAll())
+    }
+
+    func calculDPA() -> CalculDPA {
+        CCAService.calculer(year: year,
+                            biens: capitalAssets().map(\.bien),
+                            plafondLocatif: plafondLocatifDPA(),
+                            nomImmeuble: { [self] id in property(id: id)?.name ?? id },
+                            fournisseur: fournisseurBiens)
+    }
+
+    /// Les biens d'une année antérieure, ou `nil` si cette année n'a jamais été
+    /// saisie : c'est ce `nil` qui arrête le report et fait de la plus ancienne
+    /// année connue l'amorce du registre.
+    private var fournisseurBiens: CCAService.FournisseurBiens {
+        { [self] an in
+            let rows = capitalAssets(year: an)
+            return rows.isEmpty ? nil : rows.map(\.bien)
+        }
+    }
+
+    /// DPA réclamée, séparée entre le locatif et l'entreprise : les deux ne
+    /// jouent pas sur les mêmes assiettes.
+    func dpaReclameeParUsage() -> (locatif: Double, entreprise: Double) {
+        let c = calculDPA()
+        return (c.pools.filter(\.locatif).reduce(0) { $0 + $1.reclamee },
+                c.pools.filter { !$0.locatif }.reduce(0) { $0 + $1.reclamee })
+    }
+
+    /// Inscrit la DPA d'une catégorie sur son premier bien, comme la PWA :
+    /// la catégorie est mise en commun, un seul porteur suffit.
+    func reclamerDPA(pool: PoolDPA, montant: Double) {
+        guard let premier = pool.biens.first,
+              let row = capitalAsset(assetId: premier.id) else { return }
+        row.dpaReclamee = min(max(0, montant), (pool.dpaMax * 100).rounded() / 100)
+    }
+
+    /// Réclame le maximum admissible, plafond de l'art. 1100(11) compris.
+    func reclamerMaxDPA() {
+        var biens = capitalAssets().map(\.bien)
+        CCAService.reclamerMax(biens: &biens, year: year,
+                               plafondLocatif: plafondLocatifDPA(),
+                               nomImmeuble: { [self] id in property(id: id)?.name ?? id },
+                               fournisseur: fournisseurBiens)
+        appliquer(biens)
+    }
+
+    /// Ne rien réclamer cette année : le solde reste dans la FNACC.
+    func renoncerDPA() {
+        var biens = capitalAssets().map(\.bien)
+        CCAService.renoncer(biens: &biens, year: year)
+        appliquer(biens)
+    }
+
+    /// Reporte dans le registre les montants que le noyau a inscrits sur les
+    /// biens. Un bien dont la DPA a été effacée revient à 0 : le noyau retire
+    /// la clé, l'enregistrement ne peut pas être absent.
+    private func appliquer(_ biens: [BienAmortissable]) {
+        let parId = Dictionary(biens.map { ($0.id, $0.dpa[year] ?? 0) },
+                               uniquingKeysWith: { a, _ in a })
+        for row in capitalAssets() {
+            row.dpaReclamee = parId[row.assetId] ?? 0
+        }
+    }
+
+    @discardableResult
+    func nouveauBien() -> CapitalAsset {
+        let asset = CapitalAsset(
+            year: year,
+            propId: properties().first?.propId ?? CCAService.vehPseudoProp)
+        asset.dateAcquisition = "\(year)-01-01"
+        context.insert(asset)
+        return asset
+    }
+
+    func delete(_ asset: CapitalAsset) {
+        context.delete(asset)
+    }
+
+    /// Reprend le registre d'une autre année, en CONSERVANT `assetId` : c'est
+    /// lui qui relie le bien d'un exercice à l'autre et permet le report
+    /// automatique de la FNACC. La DPA de l'année d'arrivée repart à zéro, et
+    /// la surcharge manuelle de FNACC n'est pas reprise — l'ouverture vient
+    /// désormais du report.
+    @discardableResult
+    func importerRegistre(depuis an: Int) -> Int {
+        let existants = Set(capitalAssets().map(\.assetId))
+        var n = 0
+        for src in capitalAssets(year: an) where !existants.contains(src.assetId) {
+            let copie = CapitalAsset(assetId: src.assetId, year: year, propId: src.propId)
+            copie.label = src.label
+            copie.categorie = src.categorie
+            copie.dateAcquisition = src.dateAcquisition
+            copie.cout = src.cout
+            copie.coutTerrain = src.coutTerrain
+            copie.lie = src.lie
+            copie.dispositionDate = src.dispositionDate
+            copie.dispositionProduit = src.dispositionProduit
+            context.insert(copie)
+            n += 1
+        }
+        return n
+    }
+
+    /// Années du registre autres que l'année courante, les plus récentes d'abord.
+    func anneesRegistre() -> [Int] {
+        let descriptor = FetchDescriptor<CapitalAsset>()
+        let rows = (try? context.fetch(descriptor)) ?? []
+        return Array(Set(rows.map(\.year))).filter { $0 != year }.sorted(by: >)
+    }
+
+    /// DPA réclamée sur ce bien, toutes années confondues : c'est le montant qui
+    /// sera récupéré à la vente.
+    func dpaCumulee(assetId: String) -> Double {
+        let descriptor = FetchDescriptor<CapitalAsset>()
+        let rows = (try? context.fetch(descriptor)) ?? []
+        return rows.filter { $0.assetId == assetId }.reduce(0) { $0 + $1.dpaReclamee }
+    }
+
     // MARK: - Checklist
 
     func checklist() -> [ChecklistItem] {
@@ -408,6 +608,9 @@ struct DataService {
         lyftMonths().forEach { context.delete($0) }
         vehicleExpenses().forEach { context.delete($0) }
         checklist().forEach { context.delete($0) }
+        capitalAssets().forEach { context.delete($0) }
+        let taxDescriptor = FetchDescriptor<TaxInputs>(predicate: #Predicate { $0.year == y })
+        ((try? context.fetch(taxDescriptor)) ?? []).forEach { context.delete($0) }
         // Concrétise les suppressions avant tout nouveau fetch : un fetch avec des
         // objets supprimés en attente fait planter l'évaluation des #Predicate.
         try? context.save()

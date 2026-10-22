@@ -5,7 +5,7 @@ Campagne du 18 octobre 2026, sur les deux applications : PWA (`pwa_2026/`) et iO
 l'interface, et vérification à l'exécution des sorties remises au comptable (PDF, CSV,
 sauvegardes).
 
-**État au 22 octobre 2026, version 2.8.0** — trois suites et quatre vérifications de
+**État au 22 octobre 2026, version 2.9.0** — trois suites et quatre vérifications de
 fichiers, **toutes vertes**, exécutables **sans navigateur** par `npm test`, plus une
 quatrième suite qui compare le noyau Swift à la PWA (`npm run parite`) :
 
@@ -508,8 +508,9 @@ Chaque étape exécutée dans le navigateur, sur l'application réelle.
 ### 4.1 Compilation
 
 `xcodebuild` sur le schéma `RevenusDepenses`, SDK iOS 27.0 : **BUILD SUCCEEDED, zéro
-avertissement du compilateur**. Revérifié le 22 octobre 2026, avec le noyau `Core/` de la
-vague 1 inclus, pour les deux SDK :
+avertissement du compilateur**. Revérifié le 22 octobre 2026 pour la 2.9.0, avec le noyau
+`Core/`, les écrans Impôt et DPA et les deux nouveaux modèles SwiftData, pour les deux
+SDK :
 
 ```bash
 xcodebuild -project ios_2026/RevenusDepenses.xcodeproj -scheme RevenusDepenses \
@@ -521,6 +522,16 @@ xcodebuild -project ios_2026/RevenusDepenses.xcodeproj -scheme RevenusDepenses \
 Les deux rendent `** BUILD SUCCEEDED **`, zéro `warning:`. (Une note de `ios_2026/README.md`
 annonçait un conflit entre le catalogue d'actifs et les runtimes simulateur installés ; il
 n'existe plus, la note a été retirée.)
+
+**Ce que cette compilation ne dit pas, et c'est important pour la 2.9.0.** Les écrans
+Impôt et DPA ne sont couverts par aucune assertion : la parité (§ 4.5) vérifie le noyau,
+qui ne les connaît pas, et les suites JS vérifient la PWA. Ce qui a été réellement
+vérifié ici, c'est que le projet compile et que le noyau reste à parité — pas que les deux
+écrans affichent les bons nombres sur un simulateur. Le branchement a d'ailleurs révélé un
+défaut que seule une relecture a trouvé : « Autres déductions » était déduit du revenu net
+par soustraction, alors que `Assiettes.revenuNet` est borné à zéro, donc le montant
+devenait faux dès que les déductions dépassaient le revenu (corrigé en 2.9.0, la ligne lit
+la valeur saisie). Un parcours d'interface iOS reste à faire, au modèle du § 3.
 
 ### 4.2 Import PWA → iOS, à l'exécution
 

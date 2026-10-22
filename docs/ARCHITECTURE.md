@@ -9,7 +9,7 @@ québécois + travail autonome rideshare) et échangent leurs données par fichi
 |---|---|---|
 | Dossier | `pwa_2026/` | `ios_2026/` |
 | Techno | HTML/CSS/JS, aucun build | SwiftUI + SwiftData, iOS 17+ |
-| Taille | 12 188 lignes (`index.html` 5 340 + 20 fichiers `js/` 6 848) | 8 356 lignes Swift, 30 fichiers — dont un noyau de calcul de 7 fichiers (§ 3.6) |
+| Taille | 12 188 lignes (`index.html` 5 340 + 20 fichiers `js/` 6 848) | 11 221 lignes Swift, 38 fichiers — dont un noyau de calcul de 7 fichiers (§ 3.6) |
 | Stockage | `localStorage` + Firestore | SwiftData (CloudKit ou local) |
 | Hébergement | Firebase Hosting `suivi-depenses-7dc02` | Xcode / appareil |
 | Sortie comptable | PDF jsPDF + CSV | PDF UIGraphics + CSV |
@@ -473,25 +473,34 @@ l'historique — ce qu'on désigne est la cellule, pas le mot qui la nommait ce 
 
 ```
 ios_2026/RevenusDepenses/
-├── Core/       Socle.swift (121)       FiscalData.swift (360)
-│               TaxService.swift (321)  CCAService.swift (314)   ← § 3.6
-├── App/        RevenusDepensesApp.swift (52)   RootView.swift (133)
-├── Models/     AppConfig.swift (306)  Models.swift (175)
+├── Core/       SyncService.swift (689)   JournalService.swift (458)
+│               Valeur.swift (439)        FiscalData.swift (360)
+│               TaxService.swift (321)    CCAService.swift (314)
+│               Socle.swift (121)                                ← § 3.6
+├── App/        RevenusDepensesApp.swift (54)   RootView.swift (133)
+├── Models/     AppConfig.swift (306)  Models.swift (288)
 │               RentalProperty.swift (167)  AppSetup.swift (102)
-├── Services/   DataService.swift (411)        BackupService.swift (411)
-│               PDFReportGenerator.swift (607) PDFStatementParser.swift (178)
-│               CSVExportService.swift (80)    DistanceService.swift (53)
+├── Services/   DataService.swift (623)        PDFReportGenerator.swift (607)
+│               BackupService.swift (595)      PDFStatementParser.swift (178)
+│               CSVExportService.swift (82)    DistanceService.swift (53)
 │               DebugPDFSmokeTest.swift (165)  ← harnais DEBUG
-└── Views/      PropertiesView (499)  OnboardingView (384)  PropertyEditorView (350)
-                HomeView (320)  RideshareView (316)  SummaryView (269)
-                Components (203)  SettingsView (202)  TripsView (102)
-                PDFImportReviewView (85)
+└── Views/      PropertiesView (499)  CCAView (498)  OnboardingView (384)
+                TaxView (357)  PropertyEditorView (350)  SummaryView (330)
+                HomeView (323)  RideshareView (316)  Components (273)
+                SettingsView (202)  TripsView (102)  PDFImportReviewView (85)
 ```
 
 ### 3.2 Persistance
 
-Huit entités `@Model` SwiftData : `FiscalYear`, `RentalProperty`, `Trip`, `EntryAmount`,
-`UberValue`, `LyftMonth`, `VehicleExpense`, `ChecklistItem`.
+Dix entités `@Model` SwiftData : `FiscalYear`, `RentalProperty`, `Trip`, `EntryAmount`,
+`UberValue`, `LyftMonth`, `VehicleExpense`, `ChecklistItem`, et depuis la 2.9.0
+`TaxInputs` (la saisie d'impôt de l'année) et `CapitalAsset` (le registre de DPA).
+
+`CapitalAsset` est **annuel**, comme `depenses_<année>.biens` dans la PWA : un
+enregistrement par bien et par exercice, relié d'une année à l'autre par un `assetId`
+stable. C'est ce lien que `CCAService` suit pour reporter la FNACC de clôture en ouverture
+de l'année suivante ; sans lui, la fraction non amortie du coût en capital devrait être
+retapée chaque année.
 
 Toutes sont **compatibles CloudKit** : valeurs par défaut partout, aucun
 `@Attribute(.unique)`, aucune collection non supportée (les catégories d'un immeuble sont
@@ -552,7 +561,7 @@ SIMCTL_CHILD_PDF_SMOKE_TEST=1 xcrun simctl launch <device> com.ericfezeu.revenus
 
 ### 3.6 Noyau de calcul (`Core/`) et parité avec la PWA
 
-Depuis la 2.7.0, étendu en 2.8.0. `Core/` est le portage Swift des modules de calcul de la
+Depuis la 2.7.0, étendu en 2.8.0, branché sur l'interface en 2.9.0. `Core/` est le portage Swift des modules de calcul de la
 PWA — les **vagues 1 et 1 bis** de [PORTAGE_IOS.md](PORTAGE_IOS.md) :
 
 | Fichier Swift | Vient de | Contenu | Vague |
@@ -589,6 +598,17 @@ relève ses propres valeurs mesurées là où ses assertions les vérifient,
 refusant d'écrire si une assertion est rouge — et `scripts/ios-parity.sh` compile le noyau
 avec `swiftc` dans un répertoire temporaire pour rejouer ce fichier. **94 assertions**, le
 détail est au § 4.5 de [TESTS.md](TESTS.md).
+
+**Qui appelle ce noyau, depuis la 2.9.0.** `DataService` est la seule couche qui le
+touche : elle traduit les entités SwiftData en valeurs (`EntreesImpot`,
+`[BienAmortissable]`) et rend les résultats aux vues. Les vues `TaxView` et `CCAView` ne
+contiennent aucune règle fiscale — pas un taux, pas un plafond — et c'est vérifiable :
+le noyau étant hors de leur portée, une règle écrite dans une vue ne serait couverte par
+aucune assertion de parité. Deux pièges de ce branchement, tous deux déjà rencontrés :
+`TaxService.assiettes` applique **lui-même** les drapeaux de module, donc `entreesImpot`
+lui passe des totaux bruts et se garde de les filtrer deux fois ; et une catégorie mise en
+commun porte sa réclamation sur son **premier** bien (`premier.dpa[year]`), donc l'écran
+écrit là et nulle part ailleurs.
 
 Le noyau de fusion est **porté mais pas branché** : aucune écriture iOS ne part vers
 `users/<uid>/years/<année>` tant qu'un `FirestoreSync` n'appelle pas `fusionner` (§ 2.10 et
