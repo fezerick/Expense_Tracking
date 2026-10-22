@@ -1,6 +1,6 @@
 // Nom aligne sur APP_VERSION (index.html). Ecrit par scripts/version.sh, pas a
 // la main : un cache non renomme sert les anciens modules apres un deploiement.
-const CACHE = 'depenses-2.7.0'
+const CACHE = 'depenses-2.8.0'
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./manifest.json'])))

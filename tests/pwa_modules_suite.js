@@ -1227,7 +1227,8 @@ ${FIX_YEAR}-04-12,QUINCAILLERIE TEST,-45.00`
     const sVide = { uber: { rides_gross: '' } }, sPlein = { uber: { rides_gross: '450' } }
     eq('M273', 'Une case vide non datée n\'écrase pas une vraie valeur',
        '450', syncFusionner({ state: sVide, meta: null }, { state: sPlein, meta: null }).state.uber.rides_gross)
-    const mVide = syncDater(meta0(sPlein, 1000), sPlein, sVide, 5000).meta
+    const dVideCase = syncDater(meta0(sPlein, 1000), sPlein, sVide, 5000)
+    const mVide = dVideCase.meta
     eq('M274', 'Une case vidée volontairement, elle, se défend',
        '', syncFusionner({ state: sVide, meta: mVide },
                          { state: sPlein, meta: meta0(sPlein, 1000) }).state.uber.rides_gross)
@@ -1236,7 +1237,8 @@ ${FIX_YEAR}-04-12,QUINCAILLERIE TEST,-45.00`
     const sT1 = { trips: [{ id: 't1', km: 10 }, { id: 't2', km: 20 }] }
     const mT1 = meta0(sT1, 1000)
     const sT2 = { trips: [{ id: 't1', km: 10 }] }
-    const mT2 = syncDater(copie(mT1), sT1, sT2, 4000).meta
+    const dT2 = syncDater(copie(mT1), sT1, sT2, 4000)
+    const mT2 = dT2.meta
     eq('M275', 'Un trajet supprimé n\'est pas ressuscité par l\'autre appareil',
        ['t1'], syncFusionner({ state: sT2, meta: mT2 }, { state: sT1, meta: mT1 }).state.trips.map(t => t.id))
     eq('M276', 'La suppression se propage à l\'appareil qui l\'ignorait',
@@ -1302,7 +1304,8 @@ ${FIX_YEAR}-04-12,QUINCAILLERIE TEST,-45.00`
     const sIdx = { recusIndex: { r1: 111, r2: 222 } }
     const mIdx = syncDater(null, {}, sIdx, 1000).meta
     const sIdx2 = { recusIndex: { r1: 111 } }
-    const mIdx2 = syncDater(copie(mIdx), sIdx, sIdx2, 4000).meta
+    const dIdx2 = syncDater(copie(mIdx), sIdx, sIdx2, 4000)
+    const mIdx2 = dIdx2.meta
     check('M291', 'Supprimer un reçu laisse une tombale sur sa ligne d\'index', '> 0',
           syncDateSuppression(mIdx2, P('recusIndex','r2')),
           syncDateSuppression(mIdx2, P('recusIndex','r2')) > 0)
@@ -1368,11 +1371,185 @@ ${FIX_YEAR}-04-12,QUINCAILLERIE TEST,-45.00`
     eq('M303', 'Et les deux appareils convergent sur les douze mêmes cases',
        syncEmpreinteEtat(vuTel.state), syncEmpreinteEtat(vuPort.state))
     // Vider une case qui PORTAIT un montant reste une écriture qui se défend.
-    const dVide = syncDater(copie(meta0(sTel, 1000)), sTel, { p1090: { revenus: { 'Coloc 1': an([1,'700'],[2,'700']) } } }, 4000)
+    const sTelEfface = { p1090: { revenus: { 'Coloc 1': an([1,'700'],[2,'700']) } } }
+    const dVide = syncDater(copie(meta0(sTel, 1000)), sTel, sTelEfface, 4000)
     eq('M304', 'Effacer un loyer saisi se date, et gagne contre l\'ancienne valeur', '',
        syncFusionner({ state: sTel, meta: meta0(sTel, 1000) },
-                     { state: { p1090: { revenus: { 'Coloc 1': an([1,'700'],[2,'700']) } } }, meta: dVide.meta })
+                     { state: sTelEfface, meta: dVide.meta })
          .state.p1090.revenus['Coloc 1'][0])
+
+    // ── Référence de parité, vague 1 bis : sync.js → SyncService.swift ───────
+    // Les valeurs attendues côté Swift ne sont PAS retapées : on relève ici ce
+    // que la PWA vient de produire sur les mêmes entrées que les assertions
+    // ci-dessus, et `npm run parite` rejoue le tout en Swift. Chaque scénario
+    // porte donc à la fois ses entrées et son résultat mesuré.
+    // Voir docs/PORTAGE_IOS.md § 7.
+    const docJSON = (st, meta) => ({ state: copie(st), meta: meta ? copie(meta) : null })
+    // La fusion est une fonction pure : la rejouer sur les mêmes entrées rend
+    // exactement ce que les assertions ci-dessus ont vérifié.
+    const fusionJSON = (nom, local, distant) => {
+      const f = syncFusionner(local, distant)
+      return {
+        nom,
+        local: docJSON(local.state, local.meta),
+        distant: docJSON(distant.state, distant.meta),
+        attendu: {
+          empreinte: syncEmpreinteEtat(f.state),
+          etat: copie(f.state),
+          meta: copie(f.meta),
+          conflits: copie(f.conflits),
+          stats: copie(f.stats),
+          changements: copie(f.changements),
+          resume: syncResume(f.stats),
+          doitRenvoyer: syncDoitRenvoyer(f, distant)
+        }
+      }
+    }
+    const datageJSON = (nom, meta, avant, apres, ts, d) => ({
+      nom, meta: meta ? copie(meta) : null, avant: copie(avant), apres: copie(apres), ts,
+      attendu: { meta: copie(d.meta), modifiees: d.modifiees, supprimees: d.supprimees,
+                 changements: copie(d.changements) }
+    })
+    const mT1p = meta0(sT1, 1000), mS1p = meta0(sS1, 1000), mS2p = meta0(sS2, 2000)
+    const mN1p = meta0(sN1, 1000), mN2p = meta0(sN2, 2000), mPlein = meta0(sPlein, 1000)
+    const mVide0 = meta0(sVide0, 1000), mPremier2 = meta0(sPremier2, 2000)
+    const mTel = meta0(sTel, 1000)
+    const sAcc = { pA: { deductibles: { 'Électricité': an([2,'142.30']) } } }
+    const mEgalVide = meta0({ uber: { rides_gross: 'x' } }, 7000)
+    const mEgalPlein = meta0({ uber: { rides_gross: '450' } }, 7000)
+
+    PARITE.sync = {
+      separateur: SYNC_SEP,
+      ensembles: SYNC_SETS.slice(),
+      ignores: SYNC_SKIP.slice(),
+
+      // M260 à M264, M290 : la forme des tableaux décide de tout le reste.
+      aplatir: [
+        { nom: 'mois indexés par position', entree: copie({ p1090: { revenus: { Coloc: ['100',''] } } }),
+          attendu: syncAplatir({ p1090: { revenus: { Coloc: ['100',''] } } }) },
+        { nom: 'trajets indexés par id', entree: copie({ trips: [{ id: 'a1', km: 12 }] }),
+          attendu: syncAplatir({ trips: [{ id: 'a1', km: 12 }] }) },
+        { nom: 'empreintes d\'import en ensemble', entree: copie({ importHashes: ['h1','h2'] }),
+          attendu: syncAplatir({ importHashes: ['h1','h2'] }) },
+        { nom: 'photos de reçus hors fusion', entree: copie({ receipts: { r1: 'data:image/jpeg;base64,AAA' } }),
+          attendu: syncAplatir({ receipts: { r1: 'data:image/jpeg;base64,AAA' } }) },
+        { nom: 'tableau sans clé stable : une feuille', entree: copie({ closedHistory: [{ at: 'x' }] }),
+          attendu: syncAplatir({ closedHistory: [{ at: 'x' }] }) },
+        { nom: 'index des reçus', entree: copie({ recusIndex: { 'p1090:deductibles:Taxes:3': 1700000000000 } }),
+          attendu: syncAplatir({ recusIndex: { 'p1090:deductibles:Taxes:3': 1700000000000 } }) },
+        { nom: 'catégorie vide : une feuille', entree: copie(sVide0), attendu: syncAplatir(sVide0) },
+        { nom: 'les douze cases du téléphone', entree: copie(sTel), attendu: syncAplatir(sTel) }
+      ],
+
+      // Le datage : c'est lui qui donne sa date à chaque feuille.
+      datages: [
+        datageJSON('première valeur d\'une catégorie', mVide0, sVide0, sPremier, 2000, dPremier),
+        datageJSON('vider une catégorie', copie(dPremier.meta), sPremier, sVide0, 3000, dRetire),
+        datageJSON('onze cases créées vides ne sont pas datées', syncMetaVide(), {}, sPort, 2000, dPort),
+        datageJSON('effacer un loyer saisi', copie(mTel), sTel, sTelEfface, 4000, dVide),
+        datageJSON('vider une case qui portait un montant', mPlein, sPlein, sVide, 5000, dVideCase),
+        datageJSON('supprimer un trajet', copie(mT1p), sT1, sT2, 4000, dT2),
+        datageJSON('supprimer une ligne d\'index de reçus', copie(mIdx), sIdx, sIdx2, 4000, dIdx2)
+      ],
+
+      // Les fusions, dans les deux sens quand le sens compte.
+      fusions: [
+        fusionJSON('deux champs du même mois Lyft', { state: sA, meta: mA }, { state: sB, meta: mB }),
+        fusionJSON('refusionner ne change plus rien', { state: fAB.state, meta: fAB.meta }, { state: sB, meta: mB }),
+        fusionJSON('la plus récente gagne, reçue', { state: sC, meta: mC }, { state: sD, meta: mD }),
+        fusionJSON('la plus récente gagne, gardée', { state: sD, meta: mD }, { state: sC, meta: mC }),
+        fusionJSON('sans dates, union', { state: sE, meta: null }, { state: sG, meta: null }),
+        fusionJSON('sans dates, union, vue de l\'autre appareil', { state: sG, meta: null }, { state: sE, meta: null }),
+        fusionJSON('point fixe après publication de l\'union', { state: fUnion.state, meta: fUnion.meta }, docUnion),
+        fusionJSON('point fixe, vu de l\'autre appareil', { state: fUnionInverse.state, meta: fUnionInverse.meta }, docUnion),
+        fusionJSON('à égalité, une valeur bat une case vide',
+                   { state: { uber: { rides_gross: '' } }, meta: mEgalVide },
+                   { state: { uber: { rides_gross: '450' } }, meta: mEgalPlein }),
+        fusionJSON('à égalité, et dans l\'autre sens',
+                   { state: { uber: { rides_gross: '450' } }, meta: mEgalPlein },
+                   { state: { uber: { rides_gross: '' } }, meta: mEgalVide }),
+        fusionJSON('une case vide non datée n\'écrase pas', { state: sVide, meta: null }, { state: sPlein, meta: null }),
+        fusionJSON('une case vidée volontairement se défend', { state: sVide, meta: mVide }, { state: sPlein, meta: mPlein }),
+        fusionJSON('un trajet supprimé n\'est pas ressuscité', { state: sT2, meta: mT2 }, { state: sT1, meta: mT1 }),
+        fusionJSON('la suppression se propage', { state: sT1, meta: mT1 }, { state: sT2, meta: mT2 }),
+        fusionJSON('un trajet ajouté ailleurs arrive', { state: sT2, meta: mT2 }, { state: sT3, meta: mT3 }),
+        fusionJSON('deux imports cumulent leurs empreintes', { state: sS1, meta: mS1p }, { state: sS2, meta: mS2p }),
+        fusionJSON('deux mois saisis sur deux appareils', { state: sM3, meta: mM3 }, { state: sM2, meta: mM2 }),
+        fusionJSON('une catégorie entière créée ailleurs', { state: sN1, meta: mN1p }, { state: sN2, meta: mN2p }),
+        fusionJSON('un reçu supprimé ne revient pas', { state: sIdx2, meta: mIdx2 }, { state: sIdx, meta: mIdx }),
+        fusionJSON('la première valeur arrive sur la catégorie vide', { state: sVide0, meta: mVide0 },
+                   { state: sPremier, meta: dPremier.meta }),
+        fusionJSON('une coquille vide reçue n\'écrase pas', { state: sPremier2, meta: mPremier2 }, { state: sVide0, meta: null }),
+        fusionJSON('et dans l\'autre sens', { state: sVide0, meta: null }, { state: sPremier2, meta: mPremier2 }),
+        fusionJSON('douze cases, vu du téléphone', { state: sTel, meta: mTel }, { state: sPort, meta: dPort.meta }),
+        fusionJSON('douze cases, vu du portable', { state: sPort, meta: dPort.meta }, { state: sTel, meta: mTel }),
+        fusionJSON('effacer un loyer gagne contre l\'ancienne valeur', { state: sTel, meta: mTel },
+                   { state: sTelEfface, meta: dVide.meta })
+        // Trois autres fusions s'ajoutent à cette liste à la fin de la section J :
+        // leurs états servent d'abord à vérifier ce que la fusion journalise.
+      ],
+
+      // M281 à M283 : l'empreinte, qui empêche l'aller-retour sans fin.
+      empreintes: [
+        { nom: 'ordre des clés indifférent', entree: copie({ uber: { a: '1', b: '2' } }),
+          attendu: syncEmpreinteEtat({ uber: { a: '1', b: '2' } }) },
+        { nom: 'ordre inverse, même empreinte', entree: copie({ uber: { b: '2', a: '1' } }),
+          attendu: syncEmpreinteEtat({ uber: { b: '2', a: '1' } }) },
+        { nom: 'douze cases', entree: copie(sTel), attendu: syncEmpreinteEtat(sTel) },
+        { nom: 'catégorie accentuée', entree: copie(sAcc), attendu: syncEmpreinteEtat(sAcc) }
+      ],
+      renvois: [
+        { nom: 'le cloud porte déjà le résultat',
+          fusion: docJSON({ uber: { b: '2', a: '1' } }, meta0({ uber: { a: '1' } }, 10)),
+          distant: docJSON({ uber: { a: '1', b: '2' } }, meta0({ uber: { a: '1' } }, 10)),
+          attendu: syncDoitRenvoyer({ state: { uber: { b: '2', a: '1' } }, meta: meta0({ uber: { a: '1' } }, 10) },
+                                    { state: { uber: { a: '1', b: '2' } }, meta: meta0({ uber: { a: '1' } }, 10) }) },
+        { nom: 'on détient une valeur que le cloud ignore',
+          fusion: docJSON({ uber: { a: '1', b: '2' } }, null),
+          distant: docJSON({ uber: { a: '1' } }, null),
+          attendu: syncDoitRenvoyer({ state: { uber: { a: '1', b: '2' } }, meta: null },
+                                    { state: { uber: { a: '1' } }, meta: null }) }
+      ],
+
+      // M286, M291, M295, M297 : lire une date, et la tombale qui la couvre.
+      dates: [
+        { nom: 'tombale sur une ligne d\'index', meta: copie(mIdx2), chemin: P('recusIndex','r2'),
+          attenduEcriture: syncDateDe(mIdx2, P('recusIndex','r2')),
+          attenduSuppression: syncDateSuppression(mIdx2, P('recusIndex','r2')) },
+        { nom: 'remplir une catégorie vide ne pose rien', meta: copie(dPremier.meta), chemin: P('uber','rides_gross'),
+          attenduEcriture: syncDateDe(dPremier.meta, P('uber','rides_gross')),
+          attenduSuppression: syncDateSuppression(dPremier.meta, P('uber','rides_gross')) },
+        { nom: 'vider une catégorie, en revanche, oui', meta: copie(dRetire.meta), chemin: P('uber','rides_gross'),
+          attenduEcriture: syncDateDe(dRetire.meta, P('uber','rides_gross')),
+          attenduSuppression: syncDateSuppression(dRetire.meta, P('uber','rides_gross')) },
+        { nom: 'une tombale de trajet couvre ses champs', meta: copie(mT2), chemin: P('trips','t2','km'),
+          attenduEcriture: syncDateDe(mT2, P('trips','t2','km')),
+          attenduSuppression: syncDateSuppression(mT2, P('trips','t2','km')) }
+      ],
+
+      // Le départage d'une égalité : la règle qui doit trancher PAREIL des deux
+      // côtés, sinon les deux appareils ne convergent pas.
+      egalites: [['', '450'], ['450', ''], ['100', '200'], ['200', '100'],
+                 ['Électricité', 'Eau'], ['Eau', 'Électricité'], ['', '']]
+        .map(([a, b]) => ({ local: a, distant: b, attendu: syncTrancherEgalite(a, b) })),
+
+      cheminsTexte: [P('p1090','revenus','Coloc 1','3'), P('uber','rides_gross')]
+        .map(ch => ({ chemin: ch, attendu: syncPathTexte(ch) })),
+
+      // L'empreinte trie les chemins avec `Array.prototype.sort()`, c'est-à-dire
+      // par unités de code UTF-16. Les deux dernières listes sont volontairement
+      // tordues : c'est le seul cas où ce tri diffère d'un tri par caractères
+      // (Swift), et c'est précisément ce qu'il faut figer — deux appareils qui
+      // trient différemment calculent deux empreintes différentes du MÊME état,
+      // et se renvoient leurs documents sans fin.
+      tris: [['Électricité', 'Eau', 'Zinc', 'école', 'assurance', 'Taxes', 'à payer'],
+             ['10', '9', '2', '100', '1'],
+             [P('uber','tolls'), P('uber','rides_gross'), P('p1090','revenus','Coloc 1','10'),
+              P('p1090','revenus','Coloc 1','2')],
+             ['\u{1F3E0} Toiture', '\uf8ff Logiciel', 'Loyer'],
+             ['\u{1F600}', '\ufffd', 'a']]
+        .map(l => ({ entree: l.slice(), attendu: l.slice().sort() }))
+    }
 
     // ══ J. HISTORIQUE DES MODIFICATIONS (js/journal.js) ══════════════════════
     // Le journal ne recalcule rien : il habille ce que syncDater() et
@@ -1521,6 +1698,185 @@ ${FIX_YEAR}-04-12,QUINCAILLERIE TEST,-45.00`
     if (closedSauve) state.closed = closedSauve; else delete state.closed
     journalVider(AN_J)
     sansErreur('J30', 'L\'écran d\'historique se rend sans lever', () => renderJournal())
+
+    // ── Référence de parité, vague 1 bis : journal.js → JournalService.swift ──
+    // Même principe que pour la fusion : rien n'est retapé. Les entrées sont
+    // celles des assertions ci-dessus, et les valeurs attendues sont ce que la
+    // PWA vient d'en faire. Les clés absentes (`undefined`) disparaissent au
+    // passage par copie() exactement comme JSON.stringify les laisse tomber,
+    // donc le JSON lu par Swift décrit la même chose que l'objet JS.
+    const lexJ = journalLexique()
+    const entreesJSON = (nom, changements, ts, origine, appareil, prefixe) => ({
+      nom, changements: copie(changements), ts, origine, appareil, prefixe: prefixe || null,
+      attendu: copie(journalEntrees(changements, ts, origine, appareil, prefixe))
+    })
+    const ajoutJSON = (nom, journal, nouvelles, max, fenetre) => ({
+      nom, journal: copie(journal), nouvelles: copie(nouvelles),
+      max: max == null ? null : max, fenetre: fenetre == null ? null : fenetre,
+      attendu: copie(journalAjouter(journal, nouvelles, max, fenetre))
+    })
+    const jr1 = journalAjouter([], e1)
+    const jr2 = journalAjouter(jr1, e2)
+    const eTard = journalEntrees([{ chemin: chemElec, avant: '142', apres: '900', genre: 'maj' }],
+                                 1000 + JOURNAL_FUSION_MS + 1, 'saisie', 'Mac')
+    const dixLignes = Array.from({ length: 10 }, (_, i) =>
+      ({ ts: 1000 + i, chemin: 'c' + i, genre: 'ajout', origine: 'saisie', appareil: 'Mac', avant: '', apres: 'v' }))
+    const eLot = journalEntreeLot(beaucoup, 1, 'iPhone')
+
+    PARITE.journal = {
+      constantes: { max: JOURNAL_MAX, fenetre: JOURNAL_FUSION_MS, valMax: JOURNAL_VAL_MAX, seuilLot: JOURNAL_SEUIL_LOT },
+      mois: JOURNAL_MOIS.slice(),
+      sections: copie(JOURNAL_SECTIONS),
+      lexique: copie(lexJ),
+
+      // J06 : nommer l'appareil, pour qu'une ligne dise d'où elle vient.
+      appareils: ['Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)',
+                  'Mozilla/5.0 (iPad; CPU OS 17_0)',
+                  'Mozilla/5.0 (Linux; Android 14)',
+                  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+                  'Mozilla/5.0 (Windows NT 10.0)',
+                  'Mozilla/5.0 (X11; Linux x86_64)',
+                  'curl/8.0', '']
+        .map(ua => ({ ua, attendu: journalAppareil(ua) })),
+
+      // J05 : ce qu'on inscrit à la place d'une valeur. L'absence, `null` et la
+      // chaîne vide décrivent la même chose : une case vide.
+      valeurs: [{ absente: true }, { v: null }, { v: '' }, { v: '  142.30  ' }, { v: true }, { v: false },
+                { v: 42 }, { v: 0 }, { v: 'z'.repeat(400) }, { v: { a: 1, b: 'deux' } }, { v: ['x', 'y'] },
+                { v: 'z'.repeat(JOURNAL_VAL_MAX - 1) }, { v: 'z'.repeat(JOURNAL_VAL_MAX) },
+                { v: 'z'.repeat(JOURNAL_VAL_MAX + 1) }, { v: 'é'.repeat(JOURNAL_VAL_MAX + 1) }]
+        .map(c => ({ absente: !!c.absente, entree: c.absente ? null : copie(c.v),
+                     attendu: journalValeur(c.absente ? undefined : c.v) })),
+      moisDe: ['0', '2', '11', '12', '-1', '', 'x', '1.5'].map(seg => ({ segment: seg, attendu: journalMois(seg) })),
+
+      // J12 à J14, J26 : un chemin de fusion devient un libellé lisible. Une
+      // branche par forme de chemin — c'est là que le portage dérape le plus
+      // facilement, puisque chaque branche a sa propre règle.
+      labels: [chemElec,
+               P('pA','revenus','Coloc 1','0'),
+               P('pA','capital','Toiture'),
+               P('lyft','2','taxable'),
+               P('uber','rides_gross'),
+               P('config','modules','trips'),
+               P('trips','t9'),
+               P('trips','t9','km'),
+               P('trips','inconnu','destination'),
+               P('vehicule','2026','kmTotalAnnuel'),
+               P('settings','mileageRate'),
+               P('recurring','pA','3'),
+               P('recusIndex','pA:deductibles:Taxes:3'),
+               P('notes','pA','5'),
+               P('closed'),
+               P('closedHistory','0'),
+               P('inconnu','2','x'),
+               'sansSeparateur']
+        .map(ch => ({ chemin: ch, avecLexique: journalLabel(ch, lexJ), sansLexique: journalLabel(ch, null) })),
+
+      // J01 à J05, J20 à J22 : les lignes construites à partir de ce que la
+      // synchronisation a mesuré.
+      entrees: [
+        entreesJSON('une correction de montant', dJ.changements, 5000, 'saisie', 'Mac'),
+        entreesJSON('une première saisie est un ajout', dJ2.changements, 5000, 'saisie', 'Mac'),
+        entreesJSON('une catégorie retirée', dJ3.changements, 6000, 'saisie', 'Mac'),
+        entreesJSON('un trajet supprimé garde son aperçu', dTraj.changements, 9000, 'saisie', 'Mac'),
+        entreesJSON('ce qui arrive par fusion', fJ.changements, 6000, 'distant', 'iPhone'),
+        entreesJSON('une valeur écartée ne laisse rien', fGarde.changements, 6000, 'distant', 'iPhone'),
+        entreesJSON('de vide à vide : aucune ligne',
+                    [{ chemin: 'x', avant: '', apres: null, genre: 'maj' }], 1, 'saisie', 'Mac'),
+        entreesJSON('une valeur très longue est coupée',
+                    [{ chemin: 'x', avant: '', apres: 'z'.repeat(400), genre: 'ajout' }], 1, 'saisie', 'Mac'),
+        entreesJSON('un préfixe est posé devant le chemin', dJ.changements, 5000, 'distant', 'iPhone', 'p1090'),
+        entreesJSON('rien du tout', [], 1, 'saisie', 'Mac')
+      ],
+
+      // J23, J24 : la ligne de synthèse d'un premier raccordement.
+      lots: [
+        { nom: '120 valeurs reçues', changements: copie(beaucoup), ts: 1, appareil: 'iPhone', seuil: null,
+          attendu: eLot ? copie(eLot) : null },
+        { nom: 'une seule valeur reste détaillée',
+          changements: copie([{ chemin: 'c', avant: '', apres: 'v', genre: 'ajout' }]), ts: 1, appareil: 'iPhone',
+          seuil: null, attendu: journalEntreeLot([{ chemin: 'c', avant: '', apres: 'v', genre: 'ajout' }], 1, 'iPhone') },
+        { nom: 'avec des suppressions, et un seuil abaissé',
+          changements: copie([{ chemin: 'a', apres: 'v', genre: 'ajout' },
+                              { chemin: 'b', genre: 'suppression', feuilles: 2 }]),
+          ts: 7000, appareil: 'Mac', seuil: 2,
+          attendu: copie(journalEntreeLot([{ chemin: 'a', apres: 'v', genre: 'ajout' },
+                                           { chemin: 'b', genre: 'suppression', feuilles: 2 }], 7000, 'Mac', 2)) }
+      ],
+
+      // J07 à J11, J25 : le repli, qui fait qu'une hésitation sur un montant
+      // n'occupe qu'une ligne — et le plafond.
+      ajouts: [
+        ajoutJSON('première correction', [], e1),
+        ajoutJSON('deuxième correction rapprochée', jr1, e2),
+        ajoutJSON('troisième correction rapprochée', jr2, e3),
+        ajoutJSON('retour à la valeur de départ : la ligne disparaît', jReplie, retour),
+        ajoutJSON('hors de la fenêtre de repli : deux lignes', jr1, eTard),
+        ajoutJSON('plafond atteint : les plus vieilles tombent', [], dixLignes, 2),
+        ajoutJSON('la même suppression décrite deux fois', journalAjouter([], supEntree(1000)), supEntree(1200)),
+        ajoutJSON('fenêtre resserrée : plus de repli', jr1, e2, null, 1),
+        ajoutJSON('à la seconde près, le repli joue encore', jr1,
+                  journalEntrees([{ chemin: chemElec, avant: '142', apres: '777', genre: 'maj' }],
+                                 1000 + JOURNAL_FUSION_MS, 'saisie', 'Mac')),
+        ajoutJSON('une milliseconde plus tard, non', jr1,
+                  journalEntrees([{ chemin: chemElec, avant: '142', apres: '777', genre: 'maj' }],
+                                 1000 + JOURNAL_FUSION_MS + 1, 'saisie', 'Mac')),
+        ajoutJSON('rien à ajouter', jReplie, [])
+      ],
+
+      // J16 à J19 : consultation — le plus récent d'abord, filtré, groupé.
+      consultation: copie(jConsult),
+      filtres: [
+        { nom: 'tout', filtre: {}, attendu: copie(journalFiltrer(jConsult, {})) },
+        { nom: 'ce qui vient d\'un autre appareil', filtre: { origine: 'distant' },
+          attendu: copie(journalFiltrer(jConsult, { origine: 'distant' })) },
+        { nom: '« tout » n\'est pas une origine', filtre: { origine: 'tout' },
+          attendu: copie(journalFiltrer(jConsult, { origine: 'tout' })) },
+        { nom: 'recherche sur le libellé lisible', filtre: { texte: 'électricité', avecLexique: true },
+          attendu: copie(journalFiltrer(jConsult, { texte: 'électricité', lexique: lexJ })) },
+        { nom: 'recherche sans lexique ne trouve pas le libellé', filtre: { texte: 'électricité' },
+          attendu: copie(journalFiltrer(jConsult, { texte: 'électricité' })) },
+        { nom: 'bornes de dates', filtre: { depuis: jConsult[1].ts, jusqua: jConsult[2].ts },
+          attendu: copie(journalFiltrer(jConsult, { depuis: jConsult[1].ts, jusqua: jConsult[2].ts })) }
+      ],
+      groupes: journalGrouper(journalFiltrer(jConsult, {}))
+        .map(g => ({ jour: g.jour, ts: g.entrees.map(e => e.ts) })),
+      jours: [{ jour: '2026-03-01', aujourdhui: Date.parse('2026-03-01T12:00:00') },
+              { jour: '2026-03-01', aujourdhui: Date.parse('2026-03-02T12:00:00') },
+              { jour: '2026-03-01', aujourdhui: Date.parse('2026-03-05T12:00:00') },
+              { jour: '2026-12-31', aujourdhui: Date.parse('2026-03-05T12:00:00') }]
+        .map(c => ({ jour: c.jour, aujourdhui: c.aujourdhui, attendu: journalJourLibelle(c.jour, c.aujourdhui) })),
+
+      // J15, J26 : une ligne se lit d'une phrase.
+      phrases: [
+        journalEntrees(dJ.changements, 5000, 'saisie', 'Mac').find(e => e.chemin === chemElec),
+        journalEntrees(dJ2.changements, 5000, 'saisie', 'Mac').find(e => e.chemin === chemElec),
+        eTraj,
+        journalEntrees([{ chemin: chemElec, avant: '142.30', apres: '', genre: 'maj' }], 1, 'saisie', 'Mac')[0],
+        journalEntrees([{ chemin: P('trips','t8'), genre: 'suppression', feuilles: 1, avant: 'Rona' }], 1, 'saisie', 'Mac')[0],
+        eLot
+      ].filter(Boolean).map(e => ({ entree: copie(e), avecLexique: journalPhrase(e, lexJ),
+                                    sansLexique: journalPhrase(e, null) }))
+    }
+
+    // Deux datages de plus, pour les APERÇUS de suppression : ce qu'un trajet
+    // emportait (ses trois premières valeurs, sans son id) et ce qu'une
+    // catégorie entière emporte (douze cases).
+    PARITE.sync.datages.push(
+      datageJSON('supprimer un trajet et dire ce qu\'il contenait', meta0(sTraj, 1000),
+                 sTraj, { trips: [sTraj.trips[0]] }, 9000, dTraj),
+      datageJSON('retirer une catégorie de douze cases', meta0(sAvant, 1000),
+                 sAvant, { pA: { deductibles: {} } }, 6000, dJ3))
+
+    // Les trois fusions annoncées plus haut : leurs états servent d'abord aux
+    // assertions J20 à J22, c'est pourquoi elles rejoignent la liste ici.
+    PARITE.sync.fusions.push(
+      fusionJSON('la fusion dit ce qu\'elle a pris', { state: sAvant, meta: meta0(sAvant, 1000) },
+                 { state: sApres, meta: dJ.meta }),
+      fusionJSON('une valeur écartée ne laisse rien', { state: sApres, meta: meta0(sApres, 9000) },
+                 { state: sAvant, meta: meta0(sAvant, 1000) }),
+      fusionJSON('une fusion qui n\'apporte rien', { state: sAvant, meta: meta0(sAvant, 1000) },
+                 { state: sAvant, meta: meta0(sAvant, 1000) }))
 
     // ══ R. ROBUSTESSE : ÉTAT VIERGE ═══════════════════════════════════════════
     const stateSauve = state

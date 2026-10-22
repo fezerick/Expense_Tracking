@@ -18,6 +18,81 @@ La version est écrite aux six endroits par `scripts/version.sh`, seul outil aut
 
 ---
 
+## 2.8.0 — 22 octobre 2026
+
+**L'iPhone saura fusionner au lieu d'écraser.** La vague 1 bis du portage
+(voir [PORTAGE_IOS.md](PORTAGE_IOS.md) § 5) est livrée : le moteur de fusion champ par
+champ et le journal des modifications existent en Swift, et rendent exactement les mêmes
+écritures que la PWA. Rien de visible dans la PWA, dont le comportement est inchangé —
+seul le numéro de version et le nom du cache le sont.
+
+C'est la condition posée à la fin de la 2.7.0 : sans cette vague, un iPhone qui écrirait
+dans Firestore remplacerait le document au lieu de le fusionner, et ré-introduirait la
+perte de données que la 2.5.0 avait éliminée côté PWA.
+
+### Ajouté
+- **`Core/SyncService.swift`** (689 l.) — le portage de `js/sync.js` : `aplatir()`,
+  `dater()`, `fusionner()`, l'empreinte d'un état, la décision de renvoyer au cloud, les
+  pierres tombales et leurs ancêtres, le départage de deux écritures à la même
+  milliseconde.
+- **`Core/JournalService.swift`** (458 l.) — le portage de `js/journal.js` : le nom de
+  l'appareil, le libellé d'un chemin avec et sans lexique, les entrées, le regroupement
+  d'une rafale de saisies, l'entrée de lot au-delà de 40 changements, les filtres de
+  consultation, le groupement par jour et la phrase de chaque ligne.
+- **`Core/Valeur.swift`** (439 l.) — l'arbre JSON du noyau, **qui préserve l'ordre des
+  clés** et distingue une clé absente d'une clé à `null`. Voir ci-dessous : ce n'est pas
+  un confort, c'est la condition de la fusion.
+- **37 assertions de parité supplémentaires** (`P29`–`P57`) : la suite passe de **57 à
+  94**. La référence relevée sur la PWA passe de 1 022 à 6 216 lignes de JSON
+  (150,7 Ko, 19 sections).
+
+### Interne
+- **La fusion compare des *écritures*, pas des valeurs.** `sync.js` décide de l'identité
+  de deux feuilles par `JSON.stringify(a) === JSON.stringify(b)`, et départage deux
+  écritures à la même milliseconde par un `>` sur ces deux mêmes textes. Donc tout ce qui
+  change la *façon d'écrire* un nombre ou un objet change le résultat de la fusion :
+  `1` et `1.0`, `{a:1,b:2}` et `{b:2,a:1}` ne sont pas la même chose pour elle. Swift n'a
+  rien d'équivalent — `JSONSerialization` réordonne les clés et `"\(1.0)"` rend `1.0` là
+  où JS rend `1`. D'où `Valeur.swift`, avec son lecteur JSON écrit à la main, son
+  `nombreJS`, son `texteEstPlusGrandJS` (comparaison par unités de code UTF-16) et son
+  `triJS` (l'ordre de `Array.prototype.sort()`). Un dictionnaire Swift ordinaire aurait
+  suffi à faire diverger deux appareils.
+- **La parité ne se compare plus par nombres, mais par textes canoniques.** Les sections
+  `sync` et `journal` de la référence ne sont **pas** décodées en types `Decodable` fixes :
+  elles sont relues par le lecteur du noyau lui-même, et chaque résultat Swift est comparé
+  au résultat PWA clé par clé, dans l'ordre, sous forme de JSON canonique
+  (`ios_2026/Tests/Parity/ParityCodec.swift`). Un `Decodable` aurait perdu précisément les
+  deux choses vérifiées : l'ordre des clés et la différence entre absent et `null`.
+- **Une assertion agrégée sans aucun cas est désormais un échec.** Le premier passage
+  affichait 93/93 en vert alors qu'une section de la référence était mal nommée et que la
+  comparaison portait donc sur zéro paire. Une liste vide fait maintenant rougir
+  l'assertion, ce qui a immédiatement révélé la section manquante (93/94).
+- **Le harnais a été prouvé capable d'échouer, faute par faute.** Onze défauts ont été
+  injectés un par un dans une copie du noyau (départage inversé, `tsD >= tsL` au lieu de
+  `>`, tombales d'ancêtres oubliées, liste des clés ignorées vidée, largeur d'aperçu,
+  fenêtre de regroupement du journal divisée par deux, tri des chemins remplacé par
+  `sorted()`…) : chacun rougit au moins une assertion, de 1 à 7 selon le défaut.
+  **Trois d'entre eux ne rougissaient rien au départ** — le tri des chemins, la largeur de
+  l'aperçu d'une suppression et les deux bornes du journal. Trois cas ont donc été ajoutés
+  à la référence pour les attraper : des listes de chemins à emoji et caractères d'usage
+  privé (`P42`), la suppression d'un trajet à trois valeurs et d'une catégorie de douze
+  cases (`P31`, `P34`), et les valeurs juste en deçà, à et au-delà du plafond
+  (`P46`, `P52`).
+- **Quatre invariants de la suite JS repris sous leur identifiant d'origine** : `M267`
+  (fusionner deux fois ne change rien la seconde), `M281` (l'ordre des clés d'une méta),
+  `M299` (deux appareils convergent vers la même empreinte), `M303` (les douze cases d'une
+  catégorie naissante), plus `J07`, `J09`, `J11` et `J25` pour le journal.
+- **`MetaSync` porte maintenant le numéro de schéma `v`.** Il voyage jusqu'à Firestore,
+  où un appareil resté sur une version antérieure le lit : une méta écrite sans `v` ferait
+  croire à la PWA qu'elle lit des données d'avant la 2.5.0.
+- `scripts/ios-parity.sh` compile désormais **tous** les fichiers de `Tests/Parity/`
+  (la suite était répartie en deux fichiers) et ne répète plus que `xcodebuild` échoue :
+  il construit l'application, vérifié le 22 octobre 2026 pour l'appareil et le simulateur
+  — il n'a simplement aucune cible de tests à exécuter.
+- Suites : 111 + 297 + 18, plus **94** assertions de parité iOS.
+
+---
+
 ## 2.7.0 — 22 octobre 2026
 
 **L'application iOS commence à calculer, et elle calcule juste.** La vague 1 du portage

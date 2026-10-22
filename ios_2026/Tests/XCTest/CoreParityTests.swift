@@ -9,8 +9,9 @@
 //
 //  Pour l'activer, dans Xcode :
 //    1. File ▸ New ▸ Target ▸ Unit Testing Bundle, nommée « CoreTests ».
-//    2. Y ajouter ios_2026/Tests/Parity/ParityReference.swift et ParitySuite.swift,
-//       mais PAS main.swift : un `main` dans une cible de tests ne compile pas.
+//    2. Y ajouter TOUS les fichiers de ios_2026/Tests/Parity/ — ParityReference,
+//       ParityCodec, ParitySuite, ParitySuiteSync — mais PAS main.swift : un
+//       `main` dans une cible de tests ne compile pas.
 //    3. Y ajouter parite-vague1.json comme ressource (Copy Bundle Resources).
 //    4. Les fichiers du Core sont déjà dans la cible de l'app via le groupe
 //       synchronisé ; cocher « CoreTests » dans leur appartenance de cible.
@@ -62,7 +63,7 @@ final class CoreParityTests: XCTestCase {
         let echecs = rapport.assertions.filter { !$0.ok }.count
         XCTAssertEqual(echecs, 0,
                        "\(echecs) écart(s) sur \(rapport.assertions.count) assertions de parité")
-        XCTAssertGreaterThan(rapport.assertions.count, 40,
+        XCTAssertGreaterThan(rapport.assertions.count, 90,
                              "La suite de parité s'est arrêtée trop tôt : la référence est-elle tronquée ?")
     }
 }

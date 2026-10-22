@@ -9,7 +9,7 @@ Application iOS native (iOS 17+) de préparation de la déclaration de revenus :
 
 Le projet compile tel quel : vérifié le 22 octobre 2026 avec le SDK iOS 27.0, pour l'appareil (`-sdk iphoneos`) comme pour le simulateur (`-sdk iphonesimulator`), **BUILD SUCCEEDED et zéro avertissement**. (Une note antérieure signalait ici un conflit entre le catalogue d'assets et les runtimes simulateur installés ; il n'existe plus.)
 
-**Le noyau de calcul se vérifie sans Xcode.** `RevenusDepenses/Core/` ne dépend que de Foundation — ni UIKit, ni SwiftData, ni état d'application — et rend les mêmes nombres que la PWA, vérifié par 57 assertions :
+**Le noyau de calcul se vérifie sans Xcode.** `RevenusDepenses/Core/` ne dépend que de Foundation — ni UIKit, ni SwiftData, ni état d'application — et rend les mêmes nombres que la PWA, vérifié par 94 assertions :
 
 ```bash
 cd ..               # à la racine du dépôt
@@ -25,6 +25,15 @@ RevenusDepenses/
 ├── App/
 │   ├── RevenusDepensesApp.swift   # Entrée ; container SwiftData (CloudKit → repli local)
 │   └── RootView.swift             # TabView 5 onglets, sélecteur d'année, réglages
+├── Core/                          # Noyau de calcul porté de la PWA — Foundation SEUL
+│   ├── Socle.swift                # num, fmt, money, csvCell/csvLigne, anneeDe, shortLabel
+│   ├── FiscalData.swift           # Paramètres fiscaux par année, 13 catégories de DPA
+│   ├── TaxService.swift           # Assiettes, impôt fédéral + Québec, acomptes
+│   ├── CCAService.swift           # DPA : pools, demi-taux, 1100(11), FNACC reportée
+│   ├── Valeur.swift               # Arbre JSON avec la sémantique JS (ordre des clés,
+│   │                              # undefined ≠ null, écriture canonique)
+│   ├── SyncService.swift          # Fusion champ par champ entre appareils (= js/sync.js)
+│   └── JournalService.swift       # Historique des modifications (= js/journal.js)
 ├── Models/
 │   ├── AppConfig.swift            # Config centrale : propriétés, catégories, taux, couleurs
 │   └── Models.swift               # FiscalYear, Trip, EntryAmount, UberValue, LyftMonth,

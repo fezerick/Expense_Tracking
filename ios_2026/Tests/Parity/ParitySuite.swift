@@ -71,7 +71,17 @@ final class Rapport {
     }
 
     /// Même principe, pour des champs non numériques.
+    ///
+    /// Une liste VIDE est un échec, et non un succès silencieux : les scénarios
+    /// de la vague 1 bis sont lus dans la référence JSON, et une section mal
+    /// nommée rendrait zéro cas à comparer. « Rien à comparer » n'a jamais
+    /// voulu dire « tout concorde ».
     func textes(_ id: String, _ titre: String, _ paires: [(String, String, String)]) {
+        guard !paires.isEmpty else {
+            ajouter(id, titre, ok: false, attendu: "au moins un cas",
+                    obtenu: "aucun cas comparé (section absente de la référence ?)")
+            return
+        }
         let ecarts = paires.filter { $0.1 != $0.2 }.map { "\($0.0) : attendu « \($0.1) », obtenu « \($0.2) »" }
         ajouter(id, titre, ok: ecarts.isEmpty,
                 attendu: "\(paires.count) champs identiques",
@@ -100,6 +110,8 @@ enum ParitySuite {
         fonctionsABaremes(r, ref, an)
         amortissement(r, ref)
         impot(r, ref, an)
+        synchronisation(r, ref)      // ParitySuiteSync.swift
+        journal(r, ref)
 
         return r
     }

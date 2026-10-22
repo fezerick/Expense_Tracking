@@ -206,8 +206,22 @@ struct Reference: Decodable {
     let bpaFed: [RefBpaCas]
     let impot: RefImpot
 
+    /// Les sections `sync` et `journal` ne sont pas décodées en types fixes :
+    /// ce sont des états, où l'ordre des clés et la différence entre une clé
+    /// absente et une clé à `null` font partie de ce qui est vérifié. Elles sont
+    /// relues par le lecteur du noyau, qui préserve l'un et l'autre — voir
+    /// ParityCodec.swift.
+    var brut: Valeur = .nul
+
+    private enum CodingKeys: String, CodingKey {
+        case annee, aujourdhui, params, categoriesDPA, num, csv, immeubles
+        case dpaHorsAII, dpaCourant, dpaReport, km, paliers, fss, rrq, rqap, bpaFed, impot
+    }
+
     static func charger(_ chemin: String) throws -> Reference {
         let data = try Data(contentsOf: URL(fileURLWithPath: chemin))
-        return try JSONDecoder().decode(Reference.self, from: data)
+        var ref = try JSONDecoder().decode(Reference.self, from: data)
+        ref.brut = try Valeur.depuisJSON(donnees: data)
+        return ref
     }
 }

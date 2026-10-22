@@ -9,7 +9,7 @@ québécois + travail autonome rideshare) et échangent leurs données par fichi
 |---|---|---|
 | Dossier | `pwa_2026/` | `ios_2026/` |
 | Techno | HTML/CSS/JS, aucun build | SwiftUI + SwiftData, iOS 17+ |
-| Taille | 12 188 lignes (`index.html` 5 340 + 20 fichiers `js/` 6 848) | 5 654 lignes Swift, 23 fichiers |
+| Taille | 12 188 lignes (`index.html` 5 340 + 20 fichiers `js/` 6 848) | 8 356 lignes Swift, 30 fichiers — dont un noyau de calcul de 7 fichiers (§ 3.6) |
 | Stockage | `localStorage` + Firestore | SwiftData (CloudKit ou local) |
 | Hébergement | Firebase Hosting `suivi-depenses-7dc02` | Xcode / appareil |
 | Sortie comptable | PDF jsPDF + CSV | PDF UIGraphics + CSV |
@@ -168,6 +168,12 @@ par feuille** et la fusion garde, pour chaque valeur terminale, la plus récente
 - **Une date à `0` n'est pas une date.** `syncMetaNormalisee()` écarte les dates nulles :
   inscrites au journal, elles faisaient passer une feuille que l'autre appareil ignore
   pour une version plus récente à renvoyer — l'autre moitié du même va-et-vient.
+- **Le moteur existe aussi en Swift depuis la 2.8.0** (`Core/SyncService.swift`, § 3.6),
+  à parité vérifiée — mais il n'est **pas encore branché** sur Firestore. Jusqu'à ce qu'un
+  `FirestoreSync` lise le document distant, appelle `fusionner` et réécrive le résultat,
+  l'app iOS n'écrit pas dans `users/<uid>/years/<année>` : elle s'en tient à
+  l'import/export d'enveloppe. Un `syncPush` iOS écrit en remplacement ré-introduirait
+  exactement la perte de données que la 2.5.0 a éliminée.
 
 **Disposition Firestore** (tout sous `users/<uid>`, après connexion Google —
 `signInWithGoogle`, index.html:3947) :
@@ -408,6 +414,8 @@ Depuis la 2.6.0. Répond à « le total n'est plus celui que j'ai envoyé — qu
 changé ? », question à laquelle la clôture d'année ne savait répondre que par
 « les chiffres ne correspondent plus ».
 
+Porté en Swift depuis la 2.8.0 (`Core/JournalService.swift`, § 3.6), à parité vérifiée.
+
 **Le journal ne calcule rien.** Sa matière vient entièrement de la synchronisation, qui
 la produisait déjà et la jetait :
 
@@ -544,15 +552,26 @@ SIMCTL_CHILD_PDF_SMOKE_TEST=1 xcrun simctl launch <device> com.ericfezeu.revenus
 
 ### 3.6 Noyau de calcul (`Core/`) et parité avec la PWA
 
-Depuis la 2.7.0. `Core/` est le portage Swift des modules de calcul de la PWA — la
-**vague 1** de [PORTAGE_IOS.md](PORTAGE_IOS.md) :
+Depuis la 2.7.0, étendu en 2.8.0. `Core/` est le portage Swift des modules de calcul de la
+PWA — les **vagues 1 et 1 bis** de [PORTAGE_IOS.md](PORTAGE_IOS.md) :
 
-| Fichier Swift | Vient de | Contenu |
-|---|---|---|
-| `Socle.swift` | `js/utils.js` | `num`, `fmt`, `shortLabel`, `csvLigne`… |
-| `FiscalData.swift` | `js/fiscal-data.js` | paramètres fiscaux par année, catégories de DPA |
-| `TaxService.swift` | `js/impot.js` | assiettes, impôt des deux paliers, acomptes |
-| `CCAService.swift` | `js/dpa.js` | pools de DPA, demi-taux, 1100(11), FNACC reportée |
+| Fichier Swift | Vient de | Contenu | Vague |
+|---|---|---|---|
+| `Socle.swift` | `js/utils.js` | `num`, `fmt`, `shortLabel`, `csvLigne`… | 1 |
+| `FiscalData.swift` | `js/fiscal-data.js` | paramètres fiscaux par année, catégories de DPA | 1 |
+| `TaxService.swift` | `js/impot.js` | assiettes, impôt des deux paliers, acomptes | 1 |
+| `CCAService.swift` | `js/dpa.js` | pools de DPA, demi-taux, 1100(11), FNACC reportée | 1 |
+| `Valeur.swift` | *(aucun — propre à Swift)* | l'arbre JSON avec la sémantique de JavaScript : ordre des clés conservé, `undefined` ≠ `null`, écriture canonique au caractère près | 1 bis |
+| `SyncService.swift` | `js/sync.js` | aplatissement en chemins, datage, fusion champ par champ, pierres tombales, empreinte d'un état | 1 bis |
+| `JournalService.swift` | `js/journal.js` | libellé d'un chemin, entrées, regroupement d'une rafale, entrée de lot, filtres, phrase d'une ligne | 1 bis |
+
+**`Valeur.swift` n'a pas d'équivalent dans la PWA, et c'est normal :** il reproduit ce que
+JavaScript fait gratuitement. La fusion décide de l'identité de deux feuilles par
+`JSON.stringify(a) === JSON.stringify(b)` et départage deux écritures de la même
+milliseconde par un `>` sur ces deux textes — donc l'ordre des clés, l'écriture d'un
+nombre (`1`, pas `1.0`) et la différence entre une clé absente et une clé à `null` font
+partie du comportement, pas de la présentation. Un `[String: Any]` et `JSONSerialization`
+auraient suffi à faire diverger deux appareils.
 
 **Une règle, et c'est la seule qui compte ici : `Core/` n'importe que Foundation.** Ni
 UIKit, ni SwiftUI, ni SwiftData, ni état d'application. Deux conséquences, l'une
@@ -568,8 +587,13 @@ C'est ce que fait `npm run parite`. Les nombres attendus ne sont pas retapés : 
 relève ses propres valeurs mesurées là où ses assertions les vérifient,
 `npm run parite:export` les écrit dans `ios_2026/Tests/Parity/parite-vague1.json` — en
 refusant d'écrire si une assertion est rouge — et `scripts/ios-parity.sh` compile le noyau
-avec `swiftc` dans un répertoire temporaire pour rejouer ce fichier. **57 assertions**, le
+avec `swiftc` dans un répertoire temporaire pour rejouer ce fichier. **94 assertions**, le
 détail est au § 4.5 de [TESTS.md](TESTS.md).
+
+Le noyau de fusion est **porté mais pas branché** : aucune écriture iOS ne part vers
+`users/<uid>/years/<année>` tant qu'un `FirestoreSync` n'appelle pas `fusionner` (§ 2.10 et
+§ 5). C'était la condition à lever avant qu'un iPhone puisse écrire dans le document
+partagé sans effacer le travail de la PWA.
 
 `ios_2026/Tests/` vit **hors** du groupe `RevenusDepenses` : ce groupe est un
 `PBXFileSystemSynchronizedRootGroup`, qui embarque automatiquement tout `.swift` placé

@@ -1018,5 +1018,5199 @@
       ]
     },
     "tauxMarginalEstime": 0.361175
+  },
+  "sync": {
+    "separateur": "\u001f",
+    "ensembles": [
+      "importHashes"
+    ],
+    "ignores": [
+      "receipts"
+    ],
+    "aplatir": [
+      {
+        "nom": "mois indexés par position",
+        "entree": {
+          "p1090": {
+            "revenus": {
+              "Coloc": [
+                "100",
+                ""
+              ]
+            }
+          }
+        },
+        "attendu": {
+          "p1090\u001frevenus\u001fColoc\u001f0": "100",
+          "p1090\u001frevenus\u001fColoc\u001f1": ""
+        }
+      },
+      {
+        "nom": "trajets indexés par id",
+        "entree": {
+          "trips": [
+            {
+              "id": "a1",
+              "km": 12
+            }
+          ]
+        },
+        "attendu": {
+          "trips\u001fa1\u001fid": "a1",
+          "trips\u001fa1\u001fkm": 12
+        }
+      },
+      {
+        "nom": "empreintes d'import en ensemble",
+        "entree": {
+          "importHashes": [
+            "h1",
+            "h2"
+          ]
+        },
+        "attendu": {
+          "importHashes\u001fh1": true,
+          "importHashes\u001fh2": true
+        }
+      },
+      {
+        "nom": "photos de reçus hors fusion",
+        "entree": {
+          "receipts": {
+            "r1": "data:image/jpeg;base64,AAA"
+          }
+        },
+        "attendu": {}
+      },
+      {
+        "nom": "tableau sans clé stable : une feuille",
+        "entree": {
+          "closedHistory": [
+            {
+              "at": "x"
+            }
+          ]
+        },
+        "attendu": {
+          "closedHistory": [
+            {
+              "at": "x"
+            }
+          ]
+        }
+      },
+      {
+        "nom": "index des reçus",
+        "entree": {
+          "recusIndex": {
+            "p1090:deductibles:Taxes:3": 1700000000000
+          }
+        },
+        "attendu": {
+          "recusIndex\u001fp1090:deductibles:Taxes:3": 1700000000000
+        }
+      },
+      {
+        "nom": "catégorie vide : une feuille",
+        "entree": {
+          "uber": {}
+        },
+        "attendu": {
+          "uber": {}
+        }
+      },
+      {
+        "nom": "les douze cases du téléphone",
+        "entree": {
+          "p1090": {
+            "revenus": {
+              "Coloc 1": [
+                "700",
+                "700",
+                "700",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ]
+            }
+          }
+        },
+        "attendu": {
+          "p1090\u001frevenus\u001fColoc 1\u001f0": "700",
+          "p1090\u001frevenus\u001fColoc 1\u001f1": "700",
+          "p1090\u001frevenus\u001fColoc 1\u001f2": "700",
+          "p1090\u001frevenus\u001fColoc 1\u001f3": "",
+          "p1090\u001frevenus\u001fColoc 1\u001f4": "",
+          "p1090\u001frevenus\u001fColoc 1\u001f5": "",
+          "p1090\u001frevenus\u001fColoc 1\u001f6": "",
+          "p1090\u001frevenus\u001fColoc 1\u001f7": "",
+          "p1090\u001frevenus\u001fColoc 1\u001f8": "",
+          "p1090\u001frevenus\u001fColoc 1\u001f9": "",
+          "p1090\u001frevenus\u001fColoc 1\u001f10": "",
+          "p1090\u001frevenus\u001fColoc 1\u001f11": ""
+        }
+      }
+    ],
+    "datages": [
+      {
+        "nom": "première valeur d'une catégorie",
+        "meta": {
+          "v": 1,
+          "feuilles": {},
+          "sup": {}
+        },
+        "avant": {
+          "uber": {}
+        },
+        "apres": {
+          "uber": {
+            "rides_gross": "100"
+          }
+        },
+        "ts": 2000,
+        "attendu": {
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 2000
+            },
+            "sup": {}
+          },
+          "modifiees": 1,
+          "supprimees": 0,
+          "changements": [
+            {
+              "chemin": "uber\u001frides_gross",
+              "apres": "100",
+              "genre": "ajout"
+            }
+          ]
+        }
+      },
+      {
+        "nom": "vider une catégorie",
+        "meta": {
+          "v": 1,
+          "feuilles": {
+            "uber\u001frides_gross": 2000
+          },
+          "sup": {}
+        },
+        "avant": {
+          "uber": {
+            "rides_gross": "100"
+          }
+        },
+        "apres": {
+          "uber": {}
+        },
+        "ts": 3000,
+        "attendu": {
+          "meta": {
+            "v": 1,
+            "feuilles": {},
+            "sup": {
+              "uber\u001frides_gross": 3000
+            }
+          },
+          "modifiees": 0,
+          "supprimees": 1,
+          "changements": [
+            {
+              "chemin": "uber\u001frides_gross",
+              "genre": "suppression",
+              "avant": "100",
+              "feuilles": 1
+            }
+          ]
+        }
+      },
+      {
+        "nom": "onze cases créées vides ne sont pas datées",
+        "meta": {
+          "v": 1,
+          "feuilles": {},
+          "sup": {}
+        },
+        "avant": {},
+        "apres": {
+          "p1090": {
+            "revenus": {
+              "Coloc 1": [
+                "",
+                "",
+                "",
+                "850",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ]
+            }
+          }
+        },
+        "ts": 2000,
+        "attendu": {
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p1090\u001frevenus\u001fColoc 1\u001f3": 2000
+            },
+            "sup": {}
+          },
+          "modifiees": 1,
+          "supprimees": 0,
+          "changements": [
+            {
+              "chemin": "p1090\u001frevenus\u001fColoc 1\u001f3",
+              "apres": "850",
+              "genre": "ajout"
+            }
+          ]
+        }
+      },
+      {
+        "nom": "effacer un loyer saisi",
+        "meta": {
+          "v": 1,
+          "feuilles": {
+            "p1090\u001frevenus\u001fColoc 1\u001f0": 1000,
+            "p1090\u001frevenus\u001fColoc 1\u001f1": 1000,
+            "p1090\u001frevenus\u001fColoc 1\u001f2": 1000
+          },
+          "sup": {}
+        },
+        "avant": {
+          "p1090": {
+            "revenus": {
+              "Coloc 1": [
+                "700",
+                "700",
+                "700",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ]
+            }
+          }
+        },
+        "apres": {
+          "p1090": {
+            "revenus": {
+              "Coloc 1": [
+                "",
+                "700",
+                "700",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ]
+            }
+          }
+        },
+        "ts": 4000,
+        "attendu": {
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p1090\u001frevenus\u001fColoc 1\u001f0": 4000,
+              "p1090\u001frevenus\u001fColoc 1\u001f1": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f2": 1000
+            },
+            "sup": {}
+          },
+          "modifiees": 1,
+          "supprimees": 0,
+          "changements": [
+            {
+              "chemin": "p1090\u001frevenus\u001fColoc 1\u001f0",
+              "avant": "700",
+              "apres": "",
+              "genre": "maj"
+            }
+          ]
+        }
+      },
+      {
+        "nom": "vider une case qui portait un montant",
+        "meta": {
+          "v": 1,
+          "feuilles": {
+            "uber\u001frides_gross": 1000
+          },
+          "sup": {}
+        },
+        "avant": {
+          "uber": {
+            "rides_gross": "450"
+          }
+        },
+        "apres": {
+          "uber": {
+            "rides_gross": ""
+          }
+        },
+        "ts": 5000,
+        "attendu": {
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 5000
+            },
+            "sup": {}
+          },
+          "modifiees": 1,
+          "supprimees": 0,
+          "changements": [
+            {
+              "chemin": "uber\u001frides_gross",
+              "avant": "450",
+              "apres": "",
+              "genre": "maj"
+            }
+          ]
+        }
+      },
+      {
+        "nom": "supprimer un trajet",
+        "meta": {
+          "v": 1,
+          "feuilles": {
+            "trips\u001ft1\u001fid": 1000,
+            "trips\u001ft1\u001fkm": 1000,
+            "trips\u001ft2\u001fid": 1000,
+            "trips\u001ft2\u001fkm": 1000
+          },
+          "sup": {}
+        },
+        "avant": {
+          "trips": [
+            {
+              "id": "t1",
+              "km": 10
+            },
+            {
+              "id": "t2",
+              "km": 20
+            }
+          ]
+        },
+        "apres": {
+          "trips": [
+            {
+              "id": "t1",
+              "km": 10
+            }
+          ]
+        },
+        "ts": 4000,
+        "attendu": {
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "trips\u001ft1\u001fid": 1000,
+              "trips\u001ft1\u001fkm": 1000
+            },
+            "sup": {
+              "trips\u001ft2": 4000
+            }
+          },
+          "modifiees": 0,
+          "supprimees": 1,
+          "changements": [
+            {
+              "chemin": "trips\u001ft2",
+              "genre": "suppression",
+              "apercu": [
+                20
+              ],
+              "feuilles": 2
+            }
+          ]
+        }
+      },
+      {
+        "nom": "supprimer une ligne d'index de reçus",
+        "meta": {
+          "v": 1,
+          "feuilles": {
+            "recusIndex\u001fr1": 1000,
+            "recusIndex\u001fr2": 1000
+          },
+          "sup": {}
+        },
+        "avant": {
+          "recusIndex": {
+            "r1": 111,
+            "r2": 222
+          }
+        },
+        "apres": {
+          "recusIndex": {
+            "r1": 111
+          }
+        },
+        "ts": 4000,
+        "attendu": {
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "recusIndex\u001fr1": 1000
+            },
+            "sup": {
+              "recusIndex\u001fr2": 4000
+            }
+          },
+          "modifiees": 0,
+          "supprimees": 1,
+          "changements": [
+            {
+              "chemin": "recusIndex\u001fr2",
+              "genre": "suppression",
+              "avant": 222,
+              "feuilles": 1
+            }
+          ]
+        }
+      },
+      {
+        "nom": "supprimer un trajet et dire ce qu'il contenait",
+        "meta": {
+          "v": 1,
+          "feuilles": {
+            "trips\u001ft8\u001fid": 1000,
+            "trips\u001ft8\u001fdate": 1000,
+            "trips\u001ft8\u001fdestination": 1000,
+            "trips\u001ft8\u001fkm": 1000,
+            "trips\u001ft9\u001fid": 1000,
+            "trips\u001ft9\u001fdate": 1000,
+            "trips\u001ft9\u001fdestination": 1000,
+            "trips\u001ft9\u001fkm": 1000
+          },
+          "sup": {}
+        },
+        "avant": {
+          "trips": [
+            {
+              "id": "t8",
+              "date": "2026-01-04",
+              "destination": "Quincaillerie",
+              "km": 5
+            },
+            {
+              "id": "t9",
+              "date": "2026-03-02",
+              "destination": "Rona",
+              "km": 18
+            }
+          ]
+        },
+        "apres": {
+          "trips": [
+            {
+              "id": "t8",
+              "date": "2026-01-04",
+              "destination": "Quincaillerie",
+              "km": 5
+            }
+          ]
+        },
+        "ts": 9000,
+        "attendu": {
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "trips\u001ft8\u001fid": 1000,
+              "trips\u001ft8\u001fdate": 1000,
+              "trips\u001ft8\u001fdestination": 1000,
+              "trips\u001ft8\u001fkm": 1000
+            },
+            "sup": {
+              "trips\u001ft9": 9000
+            }
+          },
+          "modifiees": 0,
+          "supprimees": 1,
+          "changements": [
+            {
+              "chemin": "trips\u001ft9",
+              "genre": "suppression",
+              "apercu": [
+                "2026-03-02",
+                "Rona",
+                18
+              ],
+              "feuilles": 4
+            }
+          ]
+        }
+      },
+      {
+        "nom": "retirer une catégorie de douze cases",
+        "meta": {
+          "v": 1,
+          "feuilles": {
+            "pA\u001fdeductibles\u001fÉlectricité\u001f2": 1000
+          },
+          "sup": {}
+        },
+        "avant": {
+          "pA": {
+            "deductibles": {
+              "Électricité": [
+                "",
+                "",
+                "142.30",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ]
+            }
+          }
+        },
+        "apres": {
+          "pA": {
+            "deductibles": {}
+          }
+        },
+        "ts": 6000,
+        "attendu": {
+          "meta": {
+            "v": 1,
+            "feuilles": {},
+            "sup": {
+              "pA\u001fdeductibles\u001fÉlectricité": 6000
+            }
+          },
+          "modifiees": 0,
+          "supprimees": 1,
+          "changements": [
+            {
+              "chemin": "pA\u001fdeductibles\u001fÉlectricité",
+              "genre": "suppression",
+              "apercu": [
+                "",
+                "",
+                "142.30"
+              ],
+              "feuilles": 12
+            }
+          ]
+        }
+      }
+    ],
+    "fusions": [
+      {
+        "nom": "deux champs du même mois Lyft",
+        "local": {
+          "state": {
+            "lyft": {
+              "6": {
+                "taxable": "500",
+                "tips": "13"
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "lyft\u001f6\u001ftaxable": 1000,
+              "lyft\u001f6\u001ftips": 2000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "lyft": {
+              "6": {
+                "taxable": "500",
+                "fees": "88"
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "lyft\u001f6\u001ftaxable": 1000,
+              "lyft\u001f6\u001ffees": 2500
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "lyft\u001f6\u001ffees=\"88\"\u001elyft\u001f6\u001ftaxable=\"500\"\u001elyft\u001f6\u001ftips=\"13\"",
+          "etat": {
+            "lyft": {
+              "6": {
+                "taxable": "500",
+                "tips": "13",
+                "fees": "88"
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "lyft\u001f6\u001ftaxable": 1000,
+              "lyft\u001f6\u001ftips": 2000,
+              "lyft\u001f6\u001ffees": 2500
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 0,
+            "ajoutesDistant": 1,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [
+            {
+              "chemin": "lyft\u001f6\u001ffees",
+              "apres": "88",
+              "genre": "ajout"
+            }
+          ],
+          "resume": "1 valeur reçue",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "refusionner ne change plus rien",
+        "local": {
+          "state": {
+            "lyft": {
+              "6": {
+                "taxable": "500",
+                "tips": "13",
+                "fees": "88"
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "lyft\u001f6\u001ftaxable": 1000,
+              "lyft\u001f6\u001ftips": 2000,
+              "lyft\u001f6\u001ffees": 2500
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "lyft": {
+              "6": {
+                "taxable": "500",
+                "fees": "88"
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "lyft\u001f6\u001ftaxable": 1000,
+              "lyft\u001f6\u001ffees": 2500
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "lyft\u001f6\u001ffees=\"88\"\u001elyft\u001f6\u001ftaxable=\"500\"\u001elyft\u001f6\u001ftips=\"13\"",
+          "etat": {
+            "lyft": {
+              "6": {
+                "taxable": "500",
+                "tips": "13",
+                "fees": "88"
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "lyft\u001f6\u001ftaxable": 1000,
+              "lyft\u001f6\u001ftips": 2000,
+              "lyft\u001f6\u001ffees": 2500
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 0,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [],
+          "resume": "déjà à jour",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "la plus récente gagne, reçue",
+        "local": {
+          "state": {
+            "uber": {
+              "rides_gross": "100"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 1000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "uber": {
+              "rides_gross": "200"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 3000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "uber\u001frides_gross=\"200\"",
+          "etat": {
+            "uber": {
+              "rides_gross": "200"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 3000
+            },
+            "sup": {}
+          },
+          "conflits": [
+            {
+              "chemin": "uber\u001frides_gross",
+              "garde": "200",
+              "ecarte": "100",
+              "origine": "distant"
+            }
+          ],
+          "stats": {
+            "prisDistant": 1,
+            "gardesLocal": 0,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 1
+          },
+          "changements": [
+            {
+              "chemin": "uber\u001frides_gross",
+              "avant": "100",
+              "apres": "200",
+              "genre": "maj"
+            }
+          ],
+          "resume": "1 mise à jour",
+          "doitRenvoyer": false
+        }
+      },
+      {
+        "nom": "la plus récente gagne, gardée",
+        "local": {
+          "state": {
+            "uber": {
+              "rides_gross": "200"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 3000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "uber": {
+              "rides_gross": "100"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 1000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "uber\u001frides_gross=\"200\"",
+          "etat": {
+            "uber": {
+              "rides_gross": "200"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 3000
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 1,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [],
+          "resume": "déjà à jour",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "sans dates, union",
+        "local": {
+          "state": {
+            "uber": {
+              "rides_gross": "100",
+              "tolls": "5"
+            }
+          },
+          "meta": null
+        },
+        "distant": {
+          "state": {
+            "uber": {
+              "rides_gross": "200",
+              "tips_rides": "9"
+            }
+          },
+          "meta": null
+        },
+        "attendu": {
+          "empreinte": "uber\u001frides_gross=\"200\"\u001euber\u001ftips_rides=\"9\"\u001euber\u001ftolls=\"5\"",
+          "etat": {
+            "uber": {
+              "rides_gross": "200",
+              "tolls": "5",
+              "tips_rides": "9"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001ftips_rides": 0
+            },
+            "sup": {}
+          },
+          "conflits": [
+            {
+              "chemin": "uber\u001frides_gross",
+              "garde": "200",
+              "ecarte": "100",
+              "origine": "distant"
+            }
+          ],
+          "stats": {
+            "prisDistant": 1,
+            "gardesLocal": 0,
+            "ajoutesDistant": 1,
+            "supprimes": 0,
+            "conflits": 1
+          },
+          "changements": [
+            {
+              "chemin": "uber\u001frides_gross",
+              "avant": "100",
+              "apres": "200",
+              "genre": "maj"
+            },
+            {
+              "chemin": "uber\u001ftips_rides",
+              "apres": "9",
+              "genre": "ajout"
+            }
+          ],
+          "resume": "1 valeur reçue, 1 mise à jour",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "sans dates, union, vue de l'autre appareil",
+        "local": {
+          "state": {
+            "uber": {
+              "rides_gross": "200",
+              "tips_rides": "9"
+            }
+          },
+          "meta": null
+        },
+        "distant": {
+          "state": {
+            "uber": {
+              "rides_gross": "100",
+              "tolls": "5"
+            }
+          },
+          "meta": null
+        },
+        "attendu": {
+          "empreinte": "uber\u001frides_gross=\"200\"\u001euber\u001ftips_rides=\"9\"\u001euber\u001ftolls=\"5\"",
+          "etat": {
+            "uber": {
+              "rides_gross": "200",
+              "tips_rides": "9",
+              "tolls": "5"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001ftolls": 0
+            },
+            "sup": {}
+          },
+          "conflits": [
+            {
+              "chemin": "uber\u001frides_gross",
+              "garde": "200",
+              "ecarte": "100",
+              "origine": "local"
+            }
+          ],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 1,
+            "ajoutesDistant": 1,
+            "supprimes": 0,
+            "conflits": 1
+          },
+          "changements": [
+            {
+              "chemin": "uber\u001ftolls",
+              "apres": "5",
+              "genre": "ajout"
+            }
+          ],
+          "resume": "1 valeur reçue",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "point fixe après publication de l'union",
+        "local": {
+          "state": {
+            "uber": {
+              "rides_gross": "200",
+              "tolls": "5",
+              "tips_rides": "9"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001ftips_rides": 0
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "uber": {
+              "rides_gross": "200",
+              "tolls": "5",
+              "tips_rides": "9"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001ftips_rides": 0
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "uber\u001frides_gross=\"200\"\u001euber\u001ftips_rides=\"9\"\u001euber\u001ftolls=\"5\"",
+          "etat": {
+            "uber": {
+              "rides_gross": "200",
+              "tolls": "5",
+              "tips_rides": "9"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 0,
+              "uber\u001ftolls": 0,
+              "uber\u001ftips_rides": 0
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 0,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [],
+          "resume": "déjà à jour",
+          "doitRenvoyer": false
+        }
+      },
+      {
+        "nom": "point fixe, vu de l'autre appareil",
+        "local": {
+          "state": {
+            "uber": {
+              "rides_gross": "200",
+              "tips_rides": "9",
+              "tolls": "5"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001ftolls": 0
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "uber": {
+              "rides_gross": "200",
+              "tolls": "5",
+              "tips_rides": "9"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001ftips_rides": 0
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "uber\u001frides_gross=\"200\"\u001euber\u001ftips_rides=\"9\"\u001euber\u001ftolls=\"5\"",
+          "etat": {
+            "uber": {
+              "rides_gross": "200",
+              "tips_rides": "9",
+              "tolls": "5"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 0,
+              "uber\u001ftolls": 0,
+              "uber\u001ftips_rides": 0
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 0,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [],
+          "resume": "déjà à jour",
+          "doitRenvoyer": false
+        }
+      },
+      {
+        "nom": "à égalité, une valeur bat une case vide",
+        "local": {
+          "state": {
+            "uber": {
+              "rides_gross": ""
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 7000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "uber": {
+              "rides_gross": "450"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 7000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "uber\u001frides_gross=\"450\"",
+          "etat": {
+            "uber": {
+              "rides_gross": "450"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 7000
+            },
+            "sup": {}
+          },
+          "conflits": [
+            {
+              "chemin": "uber\u001frides_gross",
+              "garde": "450",
+              "ecarte": "",
+              "origine": "distant"
+            }
+          ],
+          "stats": {
+            "prisDistant": 1,
+            "gardesLocal": 0,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 1
+          },
+          "changements": [
+            {
+              "chemin": "uber\u001frides_gross",
+              "avant": "",
+              "apres": "450",
+              "genre": "maj"
+            }
+          ],
+          "resume": "1 mise à jour",
+          "doitRenvoyer": false
+        }
+      },
+      {
+        "nom": "à égalité, et dans l'autre sens",
+        "local": {
+          "state": {
+            "uber": {
+              "rides_gross": "450"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 7000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "uber": {
+              "rides_gross": ""
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 7000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "uber\u001frides_gross=\"450\"",
+          "etat": {
+            "uber": {
+              "rides_gross": "450"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 7000
+            },
+            "sup": {}
+          },
+          "conflits": [
+            {
+              "chemin": "uber\u001frides_gross",
+              "garde": "450",
+              "ecarte": "",
+              "origine": "local"
+            }
+          ],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 1,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 1
+          },
+          "changements": [],
+          "resume": "déjà à jour",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "une case vide non datée n'écrase pas",
+        "local": {
+          "state": {
+            "uber": {
+              "rides_gross": ""
+            }
+          },
+          "meta": null
+        },
+        "distant": {
+          "state": {
+            "uber": {
+              "rides_gross": "450"
+            }
+          },
+          "meta": null
+        },
+        "attendu": {
+          "empreinte": "uber\u001frides_gross=\"450\"",
+          "etat": {
+            "uber": {
+              "rides_gross": "450"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 0
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 1,
+            "gardesLocal": 0,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [
+            {
+              "chemin": "uber\u001frides_gross",
+              "avant": "",
+              "apres": "450",
+              "genre": "maj"
+            }
+          ],
+          "resume": "1 mise à jour",
+          "doitRenvoyer": false
+        }
+      },
+      {
+        "nom": "une case vidée volontairement se défend",
+        "local": {
+          "state": {
+            "uber": {
+              "rides_gross": ""
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 5000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "uber": {
+              "rides_gross": "450"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 1000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "uber\u001frides_gross=\"\"",
+          "etat": {
+            "uber": {
+              "rides_gross": ""
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 5000
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 1,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [],
+          "resume": "déjà à jour",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "un trajet supprimé n'est pas ressuscité",
+        "local": {
+          "state": {
+            "trips": [
+              {
+                "id": "t1",
+                "km": 10
+              }
+            ]
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "trips\u001ft1\u001fid": 1000,
+              "trips\u001ft1\u001fkm": 1000
+            },
+            "sup": {
+              "trips\u001ft2": 4000
+            }
+          }
+        },
+        "distant": {
+          "state": {
+            "trips": [
+              {
+                "id": "t1",
+                "km": 10
+              },
+              {
+                "id": "t2",
+                "km": 20
+              }
+            ]
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "trips\u001ft1\u001fid": 1000,
+              "trips\u001ft1\u001fkm": 1000,
+              "trips\u001ft2\u001fid": 1000,
+              "trips\u001ft2\u001fkm": 1000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "trips\u001ft1\u001fid=\"t1\"\u001etrips\u001ft1\u001fkm=10",
+          "etat": {
+            "trips": [
+              {
+                "id": "t1",
+                "km": 10
+              }
+            ]
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "trips\u001ft1\u001fid": 1000,
+              "trips\u001ft1\u001fkm": 1000
+            },
+            "sup": {
+              "trips\u001ft2": 4000
+            }
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 0,
+            "ajoutesDistant": 0,
+            "supprimes": 2,
+            "conflits": 0
+          },
+          "changements": [],
+          "resume": "2 supprimées",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "la suppression se propage",
+        "local": {
+          "state": {
+            "trips": [
+              {
+                "id": "t1",
+                "km": 10
+              },
+              {
+                "id": "t2",
+                "km": 20
+              }
+            ]
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "trips\u001ft1\u001fid": 1000,
+              "trips\u001ft1\u001fkm": 1000,
+              "trips\u001ft2\u001fid": 1000,
+              "trips\u001ft2\u001fkm": 1000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "trips": [
+              {
+                "id": "t1",
+                "km": 10
+              }
+            ]
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "trips\u001ft1\u001fid": 1000,
+              "trips\u001ft1\u001fkm": 1000
+            },
+            "sup": {
+              "trips\u001ft2": 4000
+            }
+          }
+        },
+        "attendu": {
+          "empreinte": "trips\u001ft1\u001fid=\"t1\"\u001etrips\u001ft1\u001fkm=10",
+          "etat": {
+            "trips": [
+              {
+                "id": "t1",
+                "km": 10
+              }
+            ]
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "trips\u001ft1\u001fid": 1000,
+              "trips\u001ft1\u001fkm": 1000
+            },
+            "sup": {
+              "trips\u001ft2": 4000
+            }
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 0,
+            "ajoutesDistant": 0,
+            "supprimes": 1,
+            "conflits": 0
+          },
+          "changements": [
+            {
+              "chemin": "trips\u001ft2",
+              "genre": "suppression",
+              "apercu": [
+                20
+              ],
+              "feuilles": 2
+            }
+          ],
+          "resume": "1 supprimée",
+          "doitRenvoyer": false
+        }
+      },
+      {
+        "nom": "un trajet ajouté ailleurs arrive",
+        "local": {
+          "state": {
+            "trips": [
+              {
+                "id": "t1",
+                "km": 10
+              }
+            ]
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "trips\u001ft1\u001fid": 1000,
+              "trips\u001ft1\u001fkm": 1000
+            },
+            "sup": {
+              "trips\u001ft2": 4000
+            }
+          }
+        },
+        "distant": {
+          "state": {
+            "trips": [
+              {
+                "id": "t1",
+                "km": 10
+              },
+              {
+                "id": "t9",
+                "km": 90
+              }
+            ]
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "trips\u001ft1\u001fid": 1000,
+              "trips\u001ft1\u001fkm": 1000,
+              "trips\u001ft9\u001fid": 6000,
+              "trips\u001ft9\u001fkm": 6000
+            },
+            "sup": {
+              "trips\u001ft2": 4000
+            }
+          }
+        },
+        "attendu": {
+          "empreinte": "trips\u001ft1\u001fid=\"t1\"\u001etrips\u001ft1\u001fkm=10\u001etrips\u001ft9\u001fid=\"t9\"\u001etrips\u001ft9\u001fkm=90",
+          "etat": {
+            "trips": [
+              {
+                "id": "t1",
+                "km": 10
+              },
+              {
+                "id": "t9",
+                "km": 90
+              }
+            ]
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "trips\u001ft1\u001fid": 1000,
+              "trips\u001ft1\u001fkm": 1000,
+              "trips\u001ft9\u001fid": 6000,
+              "trips\u001ft9\u001fkm": 6000
+            },
+            "sup": {
+              "trips\u001ft2": 4000
+            }
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 0,
+            "ajoutesDistant": 2,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [
+            {
+              "chemin": "trips\u001ft9\u001fid",
+              "apres": "t9",
+              "genre": "ajout"
+            },
+            {
+              "chemin": "trips\u001ft9\u001fkm",
+              "apres": 90,
+              "genre": "ajout"
+            }
+          ],
+          "resume": "2 valeurs reçues",
+          "doitRenvoyer": false
+        }
+      },
+      {
+        "nom": "deux imports cumulent leurs empreintes",
+        "local": {
+          "state": {
+            "importHashes": [
+              "a",
+              "b"
+            ]
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "importHashes\u001fa": 1000,
+              "importHashes\u001fb": 1000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "importHashes": [
+              "b",
+              "c"
+            ]
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "importHashes\u001fb": 2000,
+              "importHashes\u001fc": 2000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "importHashes\u001fa=true\u001eimportHashes\u001fb=true\u001eimportHashes\u001fc=true",
+          "etat": {
+            "importHashes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "importHashes\u001fa": 1000,
+              "importHashes\u001fb": 2000,
+              "importHashes\u001fc": 2000
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 0,
+            "ajoutesDistant": 1,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [
+            {
+              "chemin": "importHashes\u001fc",
+              "apres": true,
+              "genre": "ajout"
+            }
+          ],
+          "resume": "1 valeur reçue",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "deux mois saisis sur deux appareils",
+        "local": {
+          "state": {
+            "p1090": {
+              "revenus": {
+                "Coloc": [
+                  "100",
+                  "",
+                  "",
+                  "400"
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p1090\u001frevenus\u001fColoc\u001f0": 1000,
+              "p1090\u001frevenus\u001fColoc\u001f3": 3500
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "p1090": {
+              "revenus": {
+                "Coloc": [
+                  "100",
+                  "250",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p1090\u001frevenus\u001fColoc\u001f0": 1000,
+              "p1090\u001frevenus\u001fColoc\u001f1": 3000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "p1090\u001frevenus\u001fColoc\u001f0=\"100\"\u001ep1090\u001frevenus\u001fColoc\u001f1=\"250\"\u001ep1090\u001frevenus\u001fColoc\u001f2=\"\"\u001ep1090\u001frevenus\u001fColoc\u001f3=\"400\"",
+          "etat": {
+            "p1090": {
+              "revenus": {
+                "Coloc": [
+                  "100",
+                  "250",
+                  "",
+                  "400"
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p1090\u001frevenus\u001fColoc\u001f0": 1000,
+              "p1090\u001frevenus\u001fColoc\u001f3": 3500,
+              "p1090\u001frevenus\u001fColoc\u001f1": 3000,
+              "p1090\u001frevenus\u001fColoc\u001f2": 0
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 1,
+            "gardesLocal": 1,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [
+            {
+              "chemin": "p1090\u001frevenus\u001fColoc\u001f1",
+              "avant": "",
+              "apres": "250",
+              "genre": "maj"
+            }
+          ],
+          "resume": "1 mise à jour",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "une catégorie entière créée ailleurs",
+        "local": {
+          "state": {
+            "p470": {
+              "revenus": {}
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {},
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "p470": {
+              "revenus": {
+                "Loyer 470": [
+                  "900",
+                  "900"
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p470\u001frevenus\u001fLoyer 470\u001f0": 2000,
+              "p470\u001frevenus\u001fLoyer 470\u001f1": 2000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "p470\u001frevenus\u001fLoyer 470\u001f0=\"900\"\u001ep470\u001frevenus\u001fLoyer 470\u001f1=\"900\"",
+          "etat": {
+            "p470": {
+              "revenus": {
+                "Loyer 470": [
+                  "900",
+                  "900"
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p470\u001frevenus\u001fLoyer 470\u001f0": 2000,
+              "p470\u001frevenus\u001fLoyer 470\u001f1": 2000
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 0,
+            "ajoutesDistant": 2,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [
+            {
+              "chemin": "p470\u001frevenus\u001fLoyer 470\u001f0",
+              "apres": "900",
+              "genre": "ajout"
+            },
+            {
+              "chemin": "p470\u001frevenus\u001fLoyer 470\u001f1",
+              "apres": "900",
+              "genre": "ajout"
+            }
+          ],
+          "resume": "2 valeurs reçues",
+          "doitRenvoyer": false
+        }
+      },
+      {
+        "nom": "un reçu supprimé ne revient pas",
+        "local": {
+          "state": {
+            "recusIndex": {
+              "r1": 111
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "recusIndex\u001fr1": 1000
+            },
+            "sup": {
+              "recusIndex\u001fr2": 4000
+            }
+          }
+        },
+        "distant": {
+          "state": {
+            "recusIndex": {
+              "r1": 111,
+              "r2": 222
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "recusIndex\u001fr1": 1000,
+              "recusIndex\u001fr2": 1000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "recusIndex\u001fr1=111",
+          "etat": {
+            "recusIndex": {
+              "r1": 111
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "recusIndex\u001fr1": 1000
+            },
+            "sup": {
+              "recusIndex\u001fr2": 4000
+            }
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 0,
+            "ajoutesDistant": 0,
+            "supprimes": 1,
+            "conflits": 0
+          },
+          "changements": [],
+          "resume": "1 supprimée",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "la première valeur arrive sur la catégorie vide",
+        "local": {
+          "state": {
+            "uber": {}
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {},
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "uber": {
+              "rides_gross": "100"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 2000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "uber\u001frides_gross=\"100\"",
+          "etat": {
+            "uber": {
+              "rides_gross": "100"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 2000
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 0,
+            "ajoutesDistant": 1,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [
+            {
+              "chemin": "uber\u001frides_gross",
+              "apres": "100",
+              "genre": "ajout"
+            }
+          ],
+          "resume": "1 valeur reçue",
+          "doitRenvoyer": false
+        }
+      },
+      {
+        "nom": "une coquille vide reçue n'écrase pas",
+        "local": {
+          "state": {
+            "uber": {
+              "rides_gross": "5000"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 2000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "uber": {}
+          },
+          "meta": null
+        },
+        "attendu": {
+          "empreinte": "uber\u001frides_gross=\"5000\"",
+          "etat": {
+            "uber": {
+              "rides_gross": "5000"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 2000
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 0,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [],
+          "resume": "déjà à jour",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "et dans l'autre sens",
+        "local": {
+          "state": {
+            "uber": {}
+          },
+          "meta": null
+        },
+        "distant": {
+          "state": {
+            "uber": {
+              "rides_gross": "5000"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 2000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "uber\u001frides_gross=\"5000\"",
+          "etat": {
+            "uber": {
+              "rides_gross": "5000"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001frides_gross": 2000
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 0,
+            "ajoutesDistant": 1,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [
+            {
+              "chemin": "uber\u001frides_gross",
+              "apres": "5000",
+              "genre": "ajout"
+            }
+          ],
+          "resume": "1 valeur reçue",
+          "doitRenvoyer": false
+        }
+      },
+      {
+        "nom": "douze cases, vu du téléphone",
+        "local": {
+          "state": {
+            "p1090": {
+              "revenus": {
+                "Coloc 1": [
+                  "700",
+                  "700",
+                  "700",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p1090\u001frevenus\u001fColoc 1\u001f0": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f1": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f2": 1000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "p1090": {
+              "revenus": {
+                "Coloc 1": [
+                  "",
+                  "",
+                  "",
+                  "850",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p1090\u001frevenus\u001fColoc 1\u001f3": 2000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "p1090\u001frevenus\u001fColoc 1\u001f0=\"700\"\u001ep1090\u001frevenus\u001fColoc 1\u001f1=\"700\"\u001ep1090\u001frevenus\u001fColoc 1\u001f10=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f11=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f2=\"700\"\u001ep1090\u001frevenus\u001fColoc 1\u001f3=\"850\"\u001ep1090\u001frevenus\u001fColoc 1\u001f4=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f5=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f6=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f7=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f8=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f9=\"\"",
+          "etat": {
+            "p1090": {
+              "revenus": {
+                "Coloc 1": [
+                  "700",
+                  "700",
+                  "700",
+                  "850",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p1090\u001frevenus\u001fColoc 1\u001f0": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f1": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f2": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f3": 2000,
+              "p1090\u001frevenus\u001fColoc 1\u001f4": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f5": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f6": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f7": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f8": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f9": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f10": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f11": 0
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 1,
+            "gardesLocal": 3,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [
+            {
+              "chemin": "p1090\u001frevenus\u001fColoc 1\u001f3",
+              "avant": "",
+              "apres": "850",
+              "genre": "maj"
+            }
+          ],
+          "resume": "1 mise à jour",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "douze cases, vu du portable",
+        "local": {
+          "state": {
+            "p1090": {
+              "revenus": {
+                "Coloc 1": [
+                  "",
+                  "",
+                  "",
+                  "850",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p1090\u001frevenus\u001fColoc 1\u001f3": 2000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "p1090": {
+              "revenus": {
+                "Coloc 1": [
+                  "700",
+                  "700",
+                  "700",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p1090\u001frevenus\u001fColoc 1\u001f0": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f1": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f2": 1000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "p1090\u001frevenus\u001fColoc 1\u001f0=\"700\"\u001ep1090\u001frevenus\u001fColoc 1\u001f1=\"700\"\u001ep1090\u001frevenus\u001fColoc 1\u001f10=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f11=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f2=\"700\"\u001ep1090\u001frevenus\u001fColoc 1\u001f3=\"850\"\u001ep1090\u001frevenus\u001fColoc 1\u001f4=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f5=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f6=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f7=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f8=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f9=\"\"",
+          "etat": {
+            "p1090": {
+              "revenus": {
+                "Coloc 1": [
+                  "700",
+                  "700",
+                  "700",
+                  "850",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p1090\u001frevenus\u001fColoc 1\u001f3": 2000,
+              "p1090\u001frevenus\u001fColoc 1\u001f0": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f1": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f2": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f4": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f5": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f6": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f7": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f8": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f9": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f10": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f11": 0
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 3,
+            "gardesLocal": 1,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [
+            {
+              "chemin": "p1090\u001frevenus\u001fColoc 1\u001f0",
+              "avant": "",
+              "apres": "700",
+              "genre": "maj"
+            },
+            {
+              "chemin": "p1090\u001frevenus\u001fColoc 1\u001f1",
+              "avant": "",
+              "apres": "700",
+              "genre": "maj"
+            },
+            {
+              "chemin": "p1090\u001frevenus\u001fColoc 1\u001f2",
+              "avant": "",
+              "apres": "700",
+              "genre": "maj"
+            }
+          ],
+          "resume": "3 mises à jour",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "effacer un loyer gagne contre l'ancienne valeur",
+        "local": {
+          "state": {
+            "p1090": {
+              "revenus": {
+                "Coloc 1": [
+                  "700",
+                  "700",
+                  "700",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p1090\u001frevenus\u001fColoc 1\u001f0": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f1": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f2": 1000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "p1090": {
+              "revenus": {
+                "Coloc 1": [
+                  "",
+                  "700",
+                  "700",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p1090\u001frevenus\u001fColoc 1\u001f0": 4000,
+              "p1090\u001frevenus\u001fColoc 1\u001f1": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f2": 1000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "p1090\u001frevenus\u001fColoc 1\u001f0=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f1=\"700\"\u001ep1090\u001frevenus\u001fColoc 1\u001f10=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f11=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f2=\"700\"\u001ep1090\u001frevenus\u001fColoc 1\u001f3=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f4=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f5=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f6=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f7=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f8=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f9=\"\"",
+          "etat": {
+            "p1090": {
+              "revenus": {
+                "Coloc 1": [
+                  "",
+                  "700",
+                  "700",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "p1090\u001frevenus\u001fColoc 1\u001f0": 4000,
+              "p1090\u001frevenus\u001fColoc 1\u001f1": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f2": 1000,
+              "p1090\u001frevenus\u001fColoc 1\u001f3": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f4": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f5": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f6": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f7": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f8": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f9": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f10": 0,
+              "p1090\u001frevenus\u001fColoc 1\u001f11": 0
+            },
+            "sup": {}
+          },
+          "conflits": [
+            {
+              "chemin": "p1090\u001frevenus\u001fColoc 1\u001f0",
+              "garde": "",
+              "ecarte": "700",
+              "origine": "distant"
+            }
+          ],
+          "stats": {
+            "prisDistant": 1,
+            "gardesLocal": 0,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 1
+          },
+          "changements": [
+            {
+              "chemin": "p1090\u001frevenus\u001fColoc 1\u001f0",
+              "avant": "700",
+              "apres": "",
+              "genre": "maj"
+            }
+          ],
+          "resume": "1 mise à jour",
+          "doitRenvoyer": false
+        }
+      },
+      {
+        "nom": "la fusion dit ce qu'elle a pris",
+        "local": {
+          "state": {
+            "pA": {
+              "deductibles": {
+                "Électricité": [
+                  "",
+                  "",
+                  "142.30",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "pA\u001fdeductibles\u001fÉlectricité\u001f2": 1000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "pA": {
+              "deductibles": {
+                "Électricité": [
+                  "",
+                  "",
+                  "150.00",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "pA\u001fdeductibles\u001fÉlectricité\u001f2": 5000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "pA\u001fdeductibles\u001fÉlectricité\u001f0=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f1=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f10=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f11=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f2=\"150.00\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f3=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f4=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f5=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f6=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f7=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f8=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f9=\"\"",
+          "etat": {
+            "pA": {
+              "deductibles": {
+                "Électricité": [
+                  "",
+                  "",
+                  "150.00",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "pA\u001fdeductibles\u001fÉlectricité\u001f2": 5000,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f0": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f1": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f3": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f4": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f5": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f6": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f7": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f8": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f9": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f10": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f11": 0
+            },
+            "sup": {}
+          },
+          "conflits": [
+            {
+              "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+              "garde": "150.00",
+              "ecarte": "142.30",
+              "origine": "distant"
+            }
+          ],
+          "stats": {
+            "prisDistant": 1,
+            "gardesLocal": 0,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 1
+          },
+          "changements": [
+            {
+              "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+              "avant": "142.30",
+              "apres": "150.00",
+              "genre": "maj"
+            }
+          ],
+          "resume": "1 mise à jour",
+          "doitRenvoyer": false
+        }
+      },
+      {
+        "nom": "une valeur écartée ne laisse rien",
+        "local": {
+          "state": {
+            "pA": {
+              "deductibles": {
+                "Électricité": [
+                  "",
+                  "",
+                  "150.00",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "pA\u001fdeductibles\u001fÉlectricité\u001f2": 9000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "pA": {
+              "deductibles": {
+                "Électricité": [
+                  "",
+                  "",
+                  "142.30",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "pA\u001fdeductibles\u001fÉlectricité\u001f2": 1000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "pA\u001fdeductibles\u001fÉlectricité\u001f0=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f1=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f10=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f11=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f2=\"150.00\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f3=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f4=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f5=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f6=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f7=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f8=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f9=\"\"",
+          "etat": {
+            "pA": {
+              "deductibles": {
+                "Électricité": [
+                  "",
+                  "",
+                  "150.00",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "pA\u001fdeductibles\u001fÉlectricité\u001f2": 9000,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f0": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f1": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f3": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f4": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f5": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f6": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f7": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f8": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f9": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f10": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f11": 0
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 1,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [],
+          "resume": "déjà à jour",
+          "doitRenvoyer": true
+        }
+      },
+      {
+        "nom": "une fusion qui n'apporte rien",
+        "local": {
+          "state": {
+            "pA": {
+              "deductibles": {
+                "Électricité": [
+                  "",
+                  "",
+                  "142.30",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "pA\u001fdeductibles\u001fÉlectricité\u001f2": 1000
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "pA": {
+              "deductibles": {
+                "Électricité": [
+                  "",
+                  "",
+                  "142.30",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "pA\u001fdeductibles\u001fÉlectricité\u001f2": 1000
+            },
+            "sup": {}
+          }
+        },
+        "attendu": {
+          "empreinte": "pA\u001fdeductibles\u001fÉlectricité\u001f0=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f1=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f10=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f11=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f2=\"142.30\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f3=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f4=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f5=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f6=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f7=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f8=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f9=\"\"",
+          "etat": {
+            "pA": {
+              "deductibles": {
+                "Électricité": [
+                  "",
+                  "",
+                  "142.30",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                  ""
+                ]
+              }
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "pA\u001fdeductibles\u001fÉlectricité\u001f2": 1000,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f0": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f1": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f3": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f4": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f5": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f6": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f7": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f8": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f9": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f10": 0,
+              "pA\u001fdeductibles\u001fÉlectricité\u001f11": 0
+            },
+            "sup": {}
+          },
+          "conflits": [],
+          "stats": {
+            "prisDistant": 0,
+            "gardesLocal": 0,
+            "ajoutesDistant": 0,
+            "supprimes": 0,
+            "conflits": 0
+          },
+          "changements": [],
+          "resume": "déjà à jour",
+          "doitRenvoyer": false
+        }
+      }
+    ],
+    "empreintes": [
+      {
+        "nom": "ordre des clés indifférent",
+        "entree": {
+          "uber": {
+            "a": "1",
+            "b": "2"
+          }
+        },
+        "attendu": "uber\u001fa=\"1\"\u001euber\u001fb=\"2\""
+      },
+      {
+        "nom": "ordre inverse, même empreinte",
+        "entree": {
+          "uber": {
+            "b": "2",
+            "a": "1"
+          }
+        },
+        "attendu": "uber\u001fa=\"1\"\u001euber\u001fb=\"2\""
+      },
+      {
+        "nom": "douze cases",
+        "entree": {
+          "p1090": {
+            "revenus": {
+              "Coloc 1": [
+                "700",
+                "700",
+                "700",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ]
+            }
+          }
+        },
+        "attendu": "p1090\u001frevenus\u001fColoc 1\u001f0=\"700\"\u001ep1090\u001frevenus\u001fColoc 1\u001f1=\"700\"\u001ep1090\u001frevenus\u001fColoc 1\u001f10=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f11=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f2=\"700\"\u001ep1090\u001frevenus\u001fColoc 1\u001f3=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f4=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f5=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f6=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f7=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f8=\"\"\u001ep1090\u001frevenus\u001fColoc 1\u001f9=\"\""
+      },
+      {
+        "nom": "catégorie accentuée",
+        "entree": {
+          "pA": {
+            "deductibles": {
+              "Électricité": [
+                "",
+                "",
+                "142.30",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ]
+            }
+          }
+        },
+        "attendu": "pA\u001fdeductibles\u001fÉlectricité\u001f0=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f1=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f10=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f11=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f2=\"142.30\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f3=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f4=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f5=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f6=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f7=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f8=\"\"\u001epA\u001fdeductibles\u001fÉlectricité\u001f9=\"\""
+      }
+    ],
+    "renvois": [
+      {
+        "nom": "le cloud porte déjà le résultat",
+        "fusion": {
+          "state": {
+            "uber": {
+              "b": "2",
+              "a": "1"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001fa": 10
+            },
+            "sup": {}
+          }
+        },
+        "distant": {
+          "state": {
+            "uber": {
+              "a": "1",
+              "b": "2"
+            }
+          },
+          "meta": {
+            "v": 1,
+            "feuilles": {
+              "uber\u001fa": 10
+            },
+            "sup": {}
+          }
+        },
+        "attendu": false
+      },
+      {
+        "nom": "on détient une valeur que le cloud ignore",
+        "fusion": {
+          "state": {
+            "uber": {
+              "a": "1",
+              "b": "2"
+            }
+          },
+          "meta": null
+        },
+        "distant": {
+          "state": {
+            "uber": {
+              "a": "1"
+            }
+          },
+          "meta": null
+        },
+        "attendu": true
+      }
+    ],
+    "dates": [
+      {
+        "nom": "tombale sur une ligne d'index",
+        "meta": {
+          "v": 1,
+          "feuilles": {
+            "recusIndex\u001fr1": 1000
+          },
+          "sup": {
+            "recusIndex\u001fr2": 4000
+          }
+        },
+        "chemin": "recusIndex\u001fr2",
+        "attenduEcriture": 0,
+        "attenduSuppression": 4000
+      },
+      {
+        "nom": "remplir une catégorie vide ne pose rien",
+        "meta": {
+          "v": 1,
+          "feuilles": {
+            "uber\u001frides_gross": 2000
+          },
+          "sup": {}
+        },
+        "chemin": "uber\u001frides_gross",
+        "attenduEcriture": 2000,
+        "attenduSuppression": 0
+      },
+      {
+        "nom": "vider une catégorie, en revanche, oui",
+        "meta": {
+          "v": 1,
+          "feuilles": {},
+          "sup": {
+            "uber\u001frides_gross": 3000
+          }
+        },
+        "chemin": "uber\u001frides_gross",
+        "attenduEcriture": 0,
+        "attenduSuppression": 3000
+      },
+      {
+        "nom": "une tombale de trajet couvre ses champs",
+        "meta": {
+          "v": 1,
+          "feuilles": {
+            "trips\u001ft1\u001fid": 1000,
+            "trips\u001ft1\u001fkm": 1000
+          },
+          "sup": {
+            "trips\u001ft2": 4000
+          }
+        },
+        "chemin": "trips\u001ft2\u001fkm",
+        "attenduEcriture": 0,
+        "attenduSuppression": 4000
+      }
+    ],
+    "egalites": [
+      {
+        "local": "",
+        "distant": "450",
+        "attendu": true
+      },
+      {
+        "local": "450",
+        "distant": "",
+        "attendu": false
+      },
+      {
+        "local": "100",
+        "distant": "200",
+        "attendu": true
+      },
+      {
+        "local": "200",
+        "distant": "100",
+        "attendu": false
+      },
+      {
+        "local": "Électricité",
+        "distant": "Eau",
+        "attendu": false
+      },
+      {
+        "local": "Eau",
+        "distant": "Électricité",
+        "attendu": true
+      },
+      {
+        "local": "",
+        "distant": "",
+        "attendu": false
+      }
+    ],
+    "cheminsTexte": [
+      {
+        "chemin": "p1090\u001frevenus\u001fColoc 1\u001f3",
+        "attendu": "p1090 › revenus › Coloc 1 › 3"
+      },
+      {
+        "chemin": "uber\u001frides_gross",
+        "attendu": "uber › rides_gross"
+      }
+    ],
+    "tris": [
+      {
+        "entree": [
+          "Électricité",
+          "Eau",
+          "Zinc",
+          "école",
+          "assurance",
+          "Taxes",
+          "à payer"
+        ],
+        "attendu": [
+          "Eau",
+          "Taxes",
+          "Zinc",
+          "assurance",
+          "Électricité",
+          "à payer",
+          "école"
+        ]
+      },
+      {
+        "entree": [
+          "10",
+          "9",
+          "2",
+          "100",
+          "1"
+        ],
+        "attendu": [
+          "1",
+          "10",
+          "100",
+          "2",
+          "9"
+        ]
+      },
+      {
+        "entree": [
+          "uber\u001ftolls",
+          "uber\u001frides_gross",
+          "p1090\u001frevenus\u001fColoc 1\u001f10",
+          "p1090\u001frevenus\u001fColoc 1\u001f2"
+        ],
+        "attendu": [
+          "p1090\u001frevenus\u001fColoc 1\u001f10",
+          "p1090\u001frevenus\u001fColoc 1\u001f2",
+          "uber\u001frides_gross",
+          "uber\u001ftolls"
+        ]
+      },
+      {
+        "entree": [
+          "🏠 Toiture",
+          " Logiciel",
+          "Loyer"
+        ],
+        "attendu": [
+          "Loyer",
+          "🏠 Toiture",
+          " Logiciel"
+        ]
+      },
+      {
+        "entree": [
+          "😀",
+          "�",
+          "a"
+        ],
+        "attendu": [
+          "a",
+          "😀",
+          "�"
+        ]
+      }
+    ]
+  },
+  "journal": {
+    "constantes": {
+      "max": 800,
+      "fenetre": 120000,
+      "valMax": 60,
+      "seuilLot": 40
+    },
+    "mois": [
+      "janvier",
+      "février",
+      "mars",
+      "avril",
+      "mai",
+      "juin",
+      "juillet",
+      "août",
+      "septembre",
+      "octobre",
+      "novembre",
+      "décembre"
+    ],
+    "sections": {
+      "revenus": "Revenus",
+      "deductibles": "Dépenses",
+      "capital": "Capital"
+    },
+    "lexique": {
+      "props": {
+        "pA": "Duplex A",
+        "pB": "Triplex B"
+      },
+      "champs": {
+        "rides_gross": "Tarifs bruts courses (Gross Fares)",
+        "green_surcharge": "Surtaxe verte (Green Surcharge)",
+        "booking_fee": "Frais de réservation (Booking Fee)",
+        "mtq_dues": "Droits MTQ",
+        "airport_fee": "Frais d'aéroport",
+        "tolls": "Péages encaissés ($)",
+        "tips_rides": "Pourboires courses",
+        "gst_riders": "TPS perçue des passagers",
+        "qst_riders": "TVQ perçue des passagers",
+        "service_fee": "Frais de service Uber",
+        "other_fees": "Autres frais Uber",
+        "fee_discount": "Remise sur frais (Fee Discount)",
+        "gst_paid_uber": "TPS payée à Uber",
+        "qst_paid_uber": "TVQ payée à Uber",
+        "eats_gross": "Tarif brut Uber Eats",
+        "eats_tips": "Pourboires Uber Eats",
+        "other_income": "Autres revenus",
+        "gst_remitted": "TPS versée par Lyft en votre nom",
+        "qst_remitted": "TVQ versée par Lyft en votre nom",
+        "taxable": "Base taxable ($)",
+        "bonuses": "Primes ($)",
+        "tips": "Pourboires ($)",
+        "fees": "Frais Lyft ($)",
+        "km": "km",
+        "courses": "Nombre de courses",
+        "gst_bonuses": "TPS perçue sur les primes",
+        "qst_bonuses": "TVQ perçue sur les primes",
+        "gst_fees": "TPS payée sur les frais Lyft (CTI)",
+        "qst_fees": "TVQ payée sur les frais Lyft (RTI)",
+        "mileageRate": "Taux du kilométrage",
+        "kmTotalAnnuel": "Kilométrage annuel du véhicule",
+        "vehicleModel": "Modèle du véhicule",
+        "googleMapsApiKey": "Clé Google Maps",
+        "syncAuto": "Synchronisation automatique",
+        "date": "date",
+        "property": "immeuble",
+        "purpose": "motif",
+        "destination": "destination",
+        "modules": "Modules",
+        "propsList": "Immeubles",
+        "done": "Assistant terminé"
+      },
+      "trajets": {
+        "t1": "2026-01-15",
+        "t2": "2026-03-10"
+      }
+    },
+    "appareils": [
+      {
+        "ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)",
+        "attendu": "iPhone"
+      },
+      {
+        "ua": "Mozilla/5.0 (iPad; CPU OS 17_0)",
+        "attendu": "iPad"
+      },
+      {
+        "ua": "Mozilla/5.0 (Linux; Android 14)",
+        "attendu": "Android"
+      },
+      {
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "attendu": "Mac"
+      },
+      {
+        "ua": "Mozilla/5.0 (Windows NT 10.0)",
+        "attendu": "Windows"
+      },
+      {
+        "ua": "Mozilla/5.0 (X11; Linux x86_64)",
+        "attendu": "Linux"
+      },
+      {
+        "ua": "curl/8.0",
+        "attendu": "cet appareil"
+      },
+      {
+        "ua": "",
+        "attendu": "cet appareil"
+      }
+    ],
+    "valeurs": [
+      {
+        "absente": true,
+        "entree": null,
+        "attendu": ""
+      },
+      {
+        "absente": false,
+        "entree": null,
+        "attendu": ""
+      },
+      {
+        "absente": false,
+        "entree": "",
+        "attendu": ""
+      },
+      {
+        "absente": false,
+        "entree": "  142.30  ",
+        "attendu": "142.30"
+      },
+      {
+        "absente": false,
+        "entree": true,
+        "attendu": "oui"
+      },
+      {
+        "absente": false,
+        "entree": false,
+        "attendu": "non"
+      },
+      {
+        "absente": false,
+        "entree": 42,
+        "attendu": "42"
+      },
+      {
+        "absente": false,
+        "entree": 0,
+        "attendu": "0"
+      },
+      {
+        "absente": false,
+        "entree": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "attendu": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz…"
+      },
+      {
+        "absente": false,
+        "entree": {
+          "a": 1,
+          "b": "deux"
+        },
+        "attendu": "{\"a\":1,\"b\":\"deux\"}"
+      },
+      {
+        "absente": false,
+        "entree": [
+          "x",
+          "y"
+        ],
+        "attendu": "[\"x\",\"y\"]"
+      },
+      {
+        "absente": false,
+        "entree": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "attendu": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      },
+      {
+        "absente": false,
+        "entree": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "attendu": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      },
+      {
+        "absente": false,
+        "entree": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "attendu": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz…"
+      },
+      {
+        "absente": false,
+        "entree": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+        "attendu": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé…"
+      }
+    ],
+    "moisDe": [
+      {
+        "segment": "0",
+        "attendu": "janvier"
+      },
+      {
+        "segment": "2",
+        "attendu": "mars"
+      },
+      {
+        "segment": "11",
+        "attendu": "décembre"
+      },
+      {
+        "segment": "12",
+        "attendu": null
+      },
+      {
+        "segment": "-1",
+        "attendu": null
+      },
+      {
+        "segment": "",
+        "attendu": "janvier"
+      },
+      {
+        "segment": "x",
+        "attendu": null
+      },
+      {
+        "segment": "1.5",
+        "attendu": null
+      }
+    ],
+    "labels": [
+      {
+        "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+        "avecLexique": "Duplex A › Dépenses › Électricité › mars",
+        "sansLexique": "pA › deductibles › Électricité › mars"
+      },
+      {
+        "chemin": "pA\u001frevenus\u001fColoc 1\u001f0",
+        "avecLexique": "Duplex A › Revenus › Coloc 1 › janvier",
+        "sansLexique": "pA › revenus › Coloc 1 › janvier"
+      },
+      {
+        "chemin": "pA\u001fcapital\u001fToiture",
+        "avecLexique": "Duplex A › Capital › Toiture",
+        "sansLexique": "pA › capital › Toiture"
+      },
+      {
+        "chemin": "lyft\u001f2\u001ftaxable",
+        "avecLexique": "Lyft › mars › Base taxable ($)",
+        "sansLexique": "Lyft › mars › taxable"
+      },
+      {
+        "chemin": "uber\u001frides_gross",
+        "avecLexique": "Uber › Tarifs bruts courses (Gross Fares)",
+        "sansLexique": "Uber › rides_gross"
+      },
+      {
+        "chemin": "config\u001fmodules\u001ftrips",
+        "avecLexique": "Configuration › Modules › trips",
+        "sansLexique": "Configuration › modules › trips"
+      },
+      {
+        "chemin": "trips\u001ft9",
+        "avecLexique": "Trajet › t9",
+        "sansLexique": "Trajet › t9"
+      },
+      {
+        "chemin": "trips\u001ft9\u001fkm",
+        "avecLexique": "Trajet › t9 › km",
+        "sansLexique": "Trajet › t9 › km"
+      },
+      {
+        "chemin": "trips\u001finconnu\u001fdestination",
+        "avecLexique": "Trajet › inconnu › destination",
+        "sansLexique": "Trajet › inconnu › destination"
+      },
+      {
+        "chemin": "vehicule\u001f2026\u001fkmTotalAnnuel",
+        "avecLexique": "Véhicule › kmTotalAnnuel",
+        "sansLexique": "Véhicule › kmTotalAnnuel"
+      },
+      {
+        "chemin": "settings\u001fmileageRate",
+        "avecLexique": "Réglages › Taux du kilométrage",
+        "sansLexique": "Réglages › mileageRate"
+      },
+      {
+        "chemin": "recurring\u001fpA\u001f3",
+        "avecLexique": "Montant récurrent › Duplex A › avril",
+        "sansLexique": "Montant récurrent › pA › avril"
+      },
+      {
+        "chemin": "recusIndex\u001fpA:deductibles:Taxes:3",
+        "avecLexique": "Reçu › pA:deductibles:Taxes:3",
+        "sansLexique": "Reçu › pA:deductibles:Taxes:3"
+      },
+      {
+        "chemin": "notes\u001fpA\u001f5",
+        "avecLexique": "Note › pA › 5",
+        "sansLexique": "Note › pA › 5"
+      },
+      {
+        "chemin": "closed",
+        "avecLexique": "Clôture de l'année",
+        "sansLexique": "Clôture de l'année"
+      },
+      {
+        "chemin": "closedHistory\u001f0",
+        "avecLexique": "Clôture de l'année",
+        "sansLexique": "Clôture de l'année"
+      },
+      {
+        "chemin": "inconnu\u001f2\u001fx",
+        "avecLexique": "inconnu › mars › x",
+        "sansLexique": "inconnu › mars › x"
+      },
+      {
+        "chemin": "sansSeparateur",
+        "avecLexique": "sansSeparateur",
+        "sansLexique": "sansSeparateur"
+      }
+    ],
+    "entrees": [
+      {
+        "nom": "une correction de montant",
+        "changements": [
+          {
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "avant": "142.30",
+            "apres": "150.00",
+            "genre": "maj"
+          }
+        ],
+        "ts": 5000,
+        "origine": "saisie",
+        "appareil": "Mac",
+        "prefixe": null,
+        "attendu": [
+          {
+            "ts": 5000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "142.30",
+            "apres": "150.00"
+          }
+        ]
+      },
+      {
+        "nom": "une première saisie est un ajout",
+        "changements": [
+          {
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "apres": "150.00",
+            "genre": "ajout"
+          }
+        ],
+        "ts": 5000,
+        "origine": "saisie",
+        "appareil": "Mac",
+        "prefixe": null,
+        "attendu": [
+          {
+            "ts": 5000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "150.00"
+          }
+        ]
+      },
+      {
+        "nom": "une catégorie retirée",
+        "changements": [
+          {
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité",
+            "genre": "suppression",
+            "apercu": [
+              "",
+              "",
+              "142.30"
+            ],
+            "feuilles": 12
+          }
+        ],
+        "ts": 6000,
+        "origine": "saisie",
+        "appareil": "Mac",
+        "prefixe": null,
+        "attendu": [
+          {
+            "ts": 6000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité",
+            "genre": "suppression",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "142.30",
+            "apres": "",
+            "feuilles": 12
+          }
+        ]
+      },
+      {
+        "nom": "un trajet supprimé garde son aperçu",
+        "changements": [
+          {
+            "chemin": "trips\u001ft9",
+            "genre": "suppression",
+            "apercu": [
+              "2026-03-02",
+              "Rona",
+              18
+            ],
+            "feuilles": 4
+          }
+        ],
+        "ts": 9000,
+        "origine": "saisie",
+        "appareil": "Mac",
+        "prefixe": null,
+        "attendu": [
+          {
+            "ts": 9000,
+            "chemin": "trips\u001ft9",
+            "genre": "suppression",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "2026-03-02, Rona, 18",
+            "apres": "",
+            "feuilles": 4
+          }
+        ]
+      },
+      {
+        "nom": "ce qui arrive par fusion",
+        "changements": [
+          {
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "avant": "142.30",
+            "apres": "150.00",
+            "genre": "maj"
+          }
+        ],
+        "ts": 6000,
+        "origine": "distant",
+        "appareil": "iPhone",
+        "prefixe": null,
+        "attendu": [
+          {
+            "ts": 6000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "distant",
+            "appareil": "iPhone",
+            "avant": "142.30",
+            "apres": "150.00"
+          }
+        ]
+      },
+      {
+        "nom": "une valeur écartée ne laisse rien",
+        "changements": [],
+        "ts": 6000,
+        "origine": "distant",
+        "appareil": "iPhone",
+        "prefixe": null,
+        "attendu": []
+      },
+      {
+        "nom": "de vide à vide : aucune ligne",
+        "changements": [
+          {
+            "chemin": "x",
+            "avant": "",
+            "apres": null,
+            "genre": "maj"
+          }
+        ],
+        "ts": 1,
+        "origine": "saisie",
+        "appareil": "Mac",
+        "prefixe": null,
+        "attendu": []
+      },
+      {
+        "nom": "une valeur très longue est coupée",
+        "changements": [
+          {
+            "chemin": "x",
+            "avant": "",
+            "apres": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+            "genre": "ajout"
+          }
+        ],
+        "ts": 1,
+        "origine": "saisie",
+        "appareil": "Mac",
+        "prefixe": null,
+        "attendu": [
+          {
+            "ts": 1,
+            "chemin": "x",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz…"
+          }
+        ]
+      },
+      {
+        "nom": "un préfixe est posé devant le chemin",
+        "changements": [
+          {
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "avant": "142.30",
+            "apres": "150.00",
+            "genre": "maj"
+          }
+        ],
+        "ts": 5000,
+        "origine": "distant",
+        "appareil": "iPhone",
+        "prefixe": "p1090",
+        "attendu": [
+          {
+            "ts": 5000,
+            "chemin": "p1090\u001fpA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "distant",
+            "appareil": "iPhone",
+            "avant": "142.30",
+            "apres": "150.00"
+          }
+        ]
+      },
+      {
+        "nom": "rien du tout",
+        "changements": [],
+        "ts": 1,
+        "origine": "saisie",
+        "appareil": "Mac",
+        "prefixe": null,
+        "attendu": []
+      }
+    ],
+    "lots": [
+      {
+        "nom": "120 valeurs reçues",
+        "changements": [
+          {
+            "chemin": "c0",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c1",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c2",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c3",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c4",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c5",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c6",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c7",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c8",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c9",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c10",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c11",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c12",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c13",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c14",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c15",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c16",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c17",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c18",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c19",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c20",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c21",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c22",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c23",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c24",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c25",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c26",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c27",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c28",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c29",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c30",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c31",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c32",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c33",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c34",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c35",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c36",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c37",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c38",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c39",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c40",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c41",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c42",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c43",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c44",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c45",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c46",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c47",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c48",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c49",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c50",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c51",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c52",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c53",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c54",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c55",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c56",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c57",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c58",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c59",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c60",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c61",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c62",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c63",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c64",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c65",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c66",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c67",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c68",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c69",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c70",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c71",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c72",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c73",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c74",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c75",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c76",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c77",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c78",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c79",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c80",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c81",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c82",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c83",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c84",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c85",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c86",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c87",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c88",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c89",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c90",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c91",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c92",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c93",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c94",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c95",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c96",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c97",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c98",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c99",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c100",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c101",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c102",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c103",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c104",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c105",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c106",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c107",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c108",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c109",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c110",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c111",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c112",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c113",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c114",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c115",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c116",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c117",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c118",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "c119",
+            "apres": "v",
+            "genre": "ajout"
+          }
+        ],
+        "ts": 1,
+        "appareil": "iPhone",
+        "seuil": null,
+        "attendu": {
+          "ts": 1,
+          "chemin": "",
+          "genre": "lot",
+          "origine": "distant",
+          "appareil": "iPhone",
+          "avant": "",
+          "apres": "",
+          "nb": 120,
+          "supprimes": 0
+        }
+      },
+      {
+        "nom": "une seule valeur reste détaillée",
+        "changements": [
+          {
+            "chemin": "c",
+            "avant": "",
+            "apres": "v",
+            "genre": "ajout"
+          }
+        ],
+        "ts": 1,
+        "appareil": "iPhone",
+        "seuil": null,
+        "attendu": null
+      },
+      {
+        "nom": "avec des suppressions, et un seuil abaissé",
+        "changements": [
+          {
+            "chemin": "a",
+            "apres": "v",
+            "genre": "ajout"
+          },
+          {
+            "chemin": "b",
+            "genre": "suppression",
+            "feuilles": 2
+          }
+        ],
+        "ts": 7000,
+        "appareil": "Mac",
+        "seuil": 2,
+        "attendu": null
+      }
+    ],
+    "ajouts": [
+      {
+        "nom": "première correction",
+        "journal": [],
+        "nouvelles": [
+          {
+            "ts": 1000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "142"
+          }
+        ],
+        "max": null,
+        "fenetre": null,
+        "attendu": [
+          {
+            "ts": 1000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "142"
+          }
+        ]
+      },
+      {
+        "nom": "deuxième correction rapprochée",
+        "journal": [
+          {
+            "ts": 1000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "142"
+          }
+        ],
+        "nouvelles": [
+          {
+            "ts": 2000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "142",
+            "apres": "1420"
+          }
+        ],
+        "max": null,
+        "fenetre": null,
+        "attendu": [
+          {
+            "ts": 2000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "1420"
+          }
+        ]
+      },
+      {
+        "nom": "troisième correction rapprochée",
+        "journal": [
+          {
+            "ts": 2000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "1420"
+          }
+        ],
+        "nouvelles": [
+          {
+            "ts": 3000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "1420",
+            "apres": "142.30"
+          }
+        ],
+        "max": null,
+        "fenetre": null,
+        "attendu": [
+          {
+            "ts": 3000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "142.30"
+          }
+        ]
+      },
+      {
+        "nom": "retour à la valeur de départ : la ligne disparaît",
+        "journal": [
+          {
+            "ts": 3000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "142.30"
+          }
+        ],
+        "nouvelles": [
+          {
+            "ts": 4000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "142.30",
+            "apres": ""
+          }
+        ],
+        "max": null,
+        "fenetre": null,
+        "attendu": []
+      },
+      {
+        "nom": "hors de la fenêtre de repli : deux lignes",
+        "journal": [
+          {
+            "ts": 1000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "142"
+          }
+        ],
+        "nouvelles": [
+          {
+            "ts": 121001,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "142",
+            "apres": "900"
+          }
+        ],
+        "max": null,
+        "fenetre": null,
+        "attendu": [
+          {
+            "ts": 1000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "142"
+          },
+          {
+            "ts": 121001,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "142",
+            "apres": "900"
+          }
+        ]
+      },
+      {
+        "nom": "plafond atteint : les plus vieilles tombent",
+        "journal": [],
+        "nouvelles": [
+          {
+            "ts": 1000,
+            "chemin": "c0",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "v"
+          },
+          {
+            "ts": 1001,
+            "chemin": "c1",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "v"
+          },
+          {
+            "ts": 1002,
+            "chemin": "c2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "v"
+          },
+          {
+            "ts": 1003,
+            "chemin": "c3",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "v"
+          },
+          {
+            "ts": 1004,
+            "chemin": "c4",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "v"
+          },
+          {
+            "ts": 1005,
+            "chemin": "c5",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "v"
+          },
+          {
+            "ts": 1006,
+            "chemin": "c6",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "v"
+          },
+          {
+            "ts": 1007,
+            "chemin": "c7",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "v"
+          },
+          {
+            "ts": 1008,
+            "chemin": "c8",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "v"
+          },
+          {
+            "ts": 1009,
+            "chemin": "c9",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "v"
+          }
+        ],
+        "max": 2,
+        "fenetre": null,
+        "attendu": [
+          {
+            "ts": 1008,
+            "chemin": "c8",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "v"
+          },
+          {
+            "ts": 1009,
+            "chemin": "c9",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "v"
+          }
+        ]
+      },
+      {
+        "nom": "la même suppression décrite deux fois",
+        "journal": [
+          {
+            "ts": 1000,
+            "chemin": "trips\u001ft9",
+            "genre": "suppression",
+            "origine": "distant",
+            "appareil": "iPhone",
+            "avant": "",
+            "apres": "",
+            "feuilles": 3
+          }
+        ],
+        "nouvelles": [
+          {
+            "ts": 1200,
+            "chemin": "trips\u001ft9",
+            "genre": "suppression",
+            "origine": "distant",
+            "appareil": "iPhone",
+            "avant": "",
+            "apres": "",
+            "feuilles": 3
+          }
+        ],
+        "max": null,
+        "fenetre": null,
+        "attendu": [
+          {
+            "ts": 1000,
+            "chemin": "trips\u001ft9",
+            "genre": "suppression",
+            "origine": "distant",
+            "appareil": "iPhone",
+            "avant": "",
+            "apres": "",
+            "feuilles": 3
+          }
+        ]
+      },
+      {
+        "nom": "fenêtre resserrée : plus de repli",
+        "journal": [
+          {
+            "ts": 1000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "142"
+          }
+        ],
+        "nouvelles": [
+          {
+            "ts": 2000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "142",
+            "apres": "1420"
+          }
+        ],
+        "max": null,
+        "fenetre": 1,
+        "attendu": [
+          {
+            "ts": 1000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "142"
+          },
+          {
+            "ts": 2000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "142",
+            "apres": "1420"
+          }
+        ]
+      },
+      {
+        "nom": "à la seconde près, le repli joue encore",
+        "journal": [
+          {
+            "ts": 1000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "142"
+          }
+        ],
+        "nouvelles": [
+          {
+            "ts": 121000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "142",
+            "apres": "777"
+          }
+        ],
+        "max": null,
+        "fenetre": null,
+        "attendu": [
+          {
+            "ts": 121000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "777"
+          }
+        ]
+      },
+      {
+        "nom": "une milliseconde plus tard, non",
+        "journal": [
+          {
+            "ts": 1000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "142"
+          }
+        ],
+        "nouvelles": [
+          {
+            "ts": 121001,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "142",
+            "apres": "777"
+          }
+        ],
+        "max": null,
+        "fenetre": null,
+        "attendu": [
+          {
+            "ts": 1000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "142"
+          },
+          {
+            "ts": 121001,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "142",
+            "apres": "777"
+          }
+        ]
+      },
+      {
+        "nom": "rien à ajouter",
+        "journal": [
+          {
+            "ts": 3000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "142.30"
+          }
+        ],
+        "nouvelles": [],
+        "max": null,
+        "fenetre": null,
+        "attendu": [
+          {
+            "ts": 3000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "ajout",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "",
+            "apres": "142.30"
+          }
+        ]
+      }
+    ],
+    "consultation": [
+      {
+        "ts": 1772377200000,
+        "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+        "genre": "maj",
+        "origine": "saisie",
+        "appareil": "Mac",
+        "avant": "1",
+        "apres": "2"
+      },
+      {
+        "ts": 1772395200000,
+        "chemin": "uber\u001ftolls",
+        "genre": "ajout",
+        "origine": "distant",
+        "appareil": "iPhone",
+        "avant": "",
+        "apres": "9"
+      },
+      {
+        "ts": 1772460000000,
+        "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+        "genre": "maj",
+        "origine": "saisie",
+        "appareil": "Mac",
+        "avant": "2",
+        "apres": "3"
+      }
+    ],
+    "filtres": [
+      {
+        "nom": "tout",
+        "filtre": {},
+        "attendu": [
+          {
+            "ts": 1772460000000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "2",
+            "apres": "3"
+          },
+          {
+            "ts": 1772395200000,
+            "chemin": "uber\u001ftolls",
+            "genre": "ajout",
+            "origine": "distant",
+            "appareil": "iPhone",
+            "avant": "",
+            "apres": "9"
+          },
+          {
+            "ts": 1772377200000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "1",
+            "apres": "2"
+          }
+        ]
+      },
+      {
+        "nom": "ce qui vient d'un autre appareil",
+        "filtre": {
+          "origine": "distant"
+        },
+        "attendu": [
+          {
+            "ts": 1772395200000,
+            "chemin": "uber\u001ftolls",
+            "genre": "ajout",
+            "origine": "distant",
+            "appareil": "iPhone",
+            "avant": "",
+            "apres": "9"
+          }
+        ]
+      },
+      {
+        "nom": "« tout » n'est pas une origine",
+        "filtre": {
+          "origine": "tout"
+        },
+        "attendu": [
+          {
+            "ts": 1772460000000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "2",
+            "apres": "3"
+          },
+          {
+            "ts": 1772395200000,
+            "chemin": "uber\u001ftolls",
+            "genre": "ajout",
+            "origine": "distant",
+            "appareil": "iPhone",
+            "avant": "",
+            "apres": "9"
+          },
+          {
+            "ts": 1772377200000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "1",
+            "apres": "2"
+          }
+        ]
+      },
+      {
+        "nom": "recherche sur le libellé lisible",
+        "filtre": {
+          "texte": "électricité",
+          "avecLexique": true
+        },
+        "attendu": [
+          {
+            "ts": 1772460000000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "2",
+            "apres": "3"
+          },
+          {
+            "ts": 1772377200000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "1",
+            "apres": "2"
+          }
+        ]
+      },
+      {
+        "nom": "recherche sans lexique ne trouve pas le libellé",
+        "filtre": {
+          "texte": "électricité"
+        },
+        "attendu": [
+          {
+            "ts": 1772460000000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "2",
+            "apres": "3"
+          },
+          {
+            "ts": 1772377200000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "1",
+            "apres": "2"
+          }
+        ]
+      },
+      {
+        "nom": "bornes de dates",
+        "filtre": {
+          "depuis": 1772395200000,
+          "jusqua": 1772460000000
+        },
+        "attendu": [
+          {
+            "ts": 1772460000000,
+            "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+            "genre": "maj",
+            "origine": "saisie",
+            "appareil": "Mac",
+            "avant": "2",
+            "apres": "3"
+          },
+          {
+            "ts": 1772395200000,
+            "chemin": "uber\u001ftolls",
+            "genre": "ajout",
+            "origine": "distant",
+            "appareil": "iPhone",
+            "avant": "",
+            "apres": "9"
+          }
+        ]
+      }
+    ],
+    "groupes": [
+      {
+        "jour": "2026-03-02",
+        "ts": [
+          1772460000000
+        ]
+      },
+      {
+        "jour": "2026-03-01",
+        "ts": [
+          1772395200000,
+          1772377200000
+        ]
+      }
+    ],
+    "jours": [
+      {
+        "jour": "2026-03-01",
+        "aujourdhui": 1772384400000,
+        "attendu": "Aujourd'hui"
+      },
+      {
+        "jour": "2026-03-01",
+        "aujourdhui": 1772470800000,
+        "attendu": "Hier"
+      },
+      {
+        "jour": "2026-03-01",
+        "aujourdhui": 1772730000000,
+        "attendu": "1 mars 2026"
+      },
+      {
+        "jour": "2026-12-31",
+        "aujourdhui": 1772730000000,
+        "attendu": "31 décembre 2026"
+      }
+    ],
+    "phrases": [
+      {
+        "entree": {
+          "ts": 5000,
+          "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+          "genre": "maj",
+          "origine": "saisie",
+          "appareil": "Mac",
+          "avant": "142.30",
+          "apres": "150.00"
+        },
+        "avecLexique": "Duplex A › Dépenses › Électricité › mars : 142.30 → 150.00",
+        "sansLexique": "pA › deductibles › Électricité › mars : 142.30 → 150.00"
+      },
+      {
+        "entree": {
+          "ts": 5000,
+          "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+          "genre": "ajout",
+          "origine": "saisie",
+          "appareil": "Mac",
+          "avant": "",
+          "apres": "150.00"
+        },
+        "avecLexique": "Duplex A › Dépenses › Électricité › mars : 150.00",
+        "sansLexique": "pA › deductibles › Électricité › mars : 150.00"
+      },
+      {
+        "entree": {
+          "ts": 9000,
+          "chemin": "trips\u001ft9",
+          "genre": "suppression",
+          "origine": "saisie",
+          "appareil": "Mac",
+          "avant": "2026-03-02, Rona, 18",
+          "apres": "",
+          "feuilles": 4
+        },
+        "avecLexique": "Trajet › t9 — retiré (4 cases : 2026-03-02, Rona, 18)",
+        "sansLexique": "Trajet › t9 — retiré (4 cases : 2026-03-02, Rona, 18)"
+      },
+      {
+        "entree": {
+          "ts": 1,
+          "chemin": "pA\u001fdeductibles\u001fÉlectricité\u001f2",
+          "genre": "maj",
+          "origine": "saisie",
+          "appareil": "Mac",
+          "avant": "142.30",
+          "apres": ""
+        },
+        "avecLexique": "Duplex A › Dépenses › Électricité › mars : 142.30 → (vide)",
+        "sansLexique": "pA › deductibles › Électricité › mars : 142.30 → (vide)"
+      },
+      {
+        "entree": {
+          "ts": 1,
+          "chemin": "trips\u001ft8",
+          "genre": "suppression",
+          "origine": "saisie",
+          "appareil": "Mac",
+          "avant": "Rona",
+          "apres": "",
+          "feuilles": 1
+        },
+        "avecLexique": "Trajet › t8 — retiré ( Rona)",
+        "sansLexique": "Trajet › t8 — retiré ( Rona)"
+      },
+      {
+        "entree": {
+          "ts": 1,
+          "chemin": "",
+          "genre": "lot",
+          "origine": "distant",
+          "appareil": "iPhone",
+          "avant": "",
+          "apres": "",
+          "nb": 120,
+          "supprimes": 0
+        },
+        "avecLexique": "120 valeurs reçues de iPhone",
+        "sansLexique": "120 valeurs reçues de iPhone"
+      }
+    ]
   }
 }

@@ -7,11 +7,11 @@
 # RELEVÉE sur la suite de modules de la PWA (npm run parite:export), et le Core
 # Swift la rejoue ici. Un écart d'un cent fait échouer le script.
 #
-# Pourquoi swiftc et non xcodebuild : le Core ne dépend que de Foundation — ni
+# Pourquoi swiftc et non xcodebuild : le noyau ne dépend que de Foundation — ni
 # UIKit, ni SwiftData, ni état d'application — et compile donc pour macOS en
-# deux secondes. `xcodebuild`, lui, échoue sur cette machine pour une raison
-# étrangère au code (le catalogue d'actifs demande un runtime iOS 26, voir
-# ios_2026/README.md), et le projet n'a pas encore de cible de tests.
+# deux secondes. `xcodebuild` sait construire l'application (vérifié le
+# 22 octobre 2026, appareil et simulateur), mais le projet n'a pas encore de
+# cible de tests : il n'aurait rien à exécuter.
 #
 # Usage :
 #   scripts/ios-parity.sh            → compile et exécute la suite
@@ -44,8 +44,7 @@ trap 'rm -rf "$SORTIE"' EXIT
 
 echo ""
 echo "── Compilation du Core (Foundation seul, cible macOS) ─────────────────"
-swiftc -swift-version 5 -O -o "$SORTIE/parite" \
-  "$CORE"/*.swift "$TESTS"/ParityReference.swift "$TESTS"/ParitySuite.swift "$TESTS"/main.swift
-echo "  ✔ $(ls "$CORE"/*.swift | wc -l | tr -d ' ') fichiers du Core + 3 de la suite"
+swiftc -swift-version 5 -O -o "$SORTIE/parite" "$CORE"/*.swift "$TESTS"/*.swift
+echo "  ✔ $(ls "$CORE"/*.swift | wc -l | tr -d ' ') fichiers du noyau + $(ls "$TESTS"/*.swift | wc -l | tr -d ' ') de la suite"
 
 "$SORTIE/parite" "$REF"

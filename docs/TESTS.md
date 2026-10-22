@@ -5,7 +5,7 @@ Campagne du 18 octobre 2026, sur les deux applications : PWA (`pwa_2026/`) et iO
 l'interface, et vérification à l'exécution des sorties remises au comptable (PDF, CSV,
 sauvegardes).
 
-**État au 22 octobre 2026, version 2.7.0** — trois suites et quatre vérifications de
+**État au 22 octobre 2026, version 2.8.0** — trois suites et quatre vérifications de
 fichiers, **toutes vertes**, exécutables **sans navigateur** par `npm test`, plus une
 quatrième suite qui compare le noyau Swift à la PWA (`npm run parite`) :
 
@@ -15,7 +15,7 @@ quatrième suite qui compare le noyau Swift à la PWA (`npm run parite`) :
 | `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **111 / 111** |
 | `tests/pwa_modules_suite.js` | les 20 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **297 / 297** |
 | `tests/pwa_sync_suite.js` | le raccordement à Firestore, contre un Firestore de pacotille (§ 2c) | **18 / 18** |
-| `ios_2026/Tests/Parity/` | le noyau Swift rend les mêmes nombres que la PWA (§ 4.5) | **57 / 57** |
+| `ios_2026/Tests/Parity/` | le noyau Swift rend les mêmes nombres **et les mêmes écritures** que la PWA (§ 4.5) | **94 / 94** |
 
 Dix défauts ont été corrigés et revérifiés depuis la campagne initiale : BUG-1, BUG-7
 (PWA + iOS), BUG-9, BUG-10, BUG-3, puis BUG-2 et les quatre défauts de la couche
@@ -602,10 +602,11 @@ SIMCTL_CHILD_PDF_SMOKE_TEST=1 xcrun simctl launch <device> com.ericfezeu.revenus
 
 ### 4.5 Parité du noyau Swift avec la PWA — `npm run parite`
 
-**57 / 57 assertions**, en deux secondes, sans simulateur. C'est la vérification qui rend
-le portage iOS tenable : les quatre fichiers de `ios_2026/RevenusDepenses/Core/`
-(`Socle`, `FiscalData`, `TaxService`, `CCAService`) ne dépendent que de Foundation, donc
-ils se compilent **pour macOS** et s'exécutent comme un programme en ligne de commande.
+**94 / 94 assertions**, en deux secondes, sans simulateur. C'est la vérification qui rend
+le portage iOS tenable : les sept fichiers de `ios_2026/RevenusDepenses/Core/`
+(`Socle`, `FiscalData`, `TaxService`, `CCAService`, `Valeur`, `SyncService`,
+`JournalService`) ne dépendent que de Foundation, donc ils se compilent **pour macOS** et
+s'exécutent comme un programme en ligne de commande.
 
 Le point important est la provenance des nombres attendus. Ils ne sont **pas retapés** :
 
@@ -617,17 +618,21 @@ Le point important est la provenance des nombres attendus. Ils ne sont **pas ret
 3. `npm run parite` compile le noyau et rejoue ce fichier côté Swift.
 
 Donc une divergence ne peut venir que d'un écart réel entre les deux implémentations, et
-la référence ne peut pas vieillir en silence : elle se régénère à partir de la PWA.
+la référence ne peut pas vieillir en silence : elle se régénère à partir de la PWA. Elle
+fait aujourd'hui 6 216 lignes (150,7 Ko) et porte 19 sections.
 
 | Famille | Ids | Ce qui est comparé |
 |---|---|---|
-| Parité | `P01`–`P28` | ce que la PWA a réellement produit |
-| Invariants | `M19`–`M33`, `M53`–`M63` | les invariants de la suite JS, revérifiés en Swift |
+| Parité du calcul fiscal | `P01`–`P28` | ce que la PWA a réellement produit, au cent près |
+| Parité de la fusion et du journal | `P29`–`P57` | ce que la PWA a réellement **écrit**, comparé en JSON canonique, clé par clé et dans l'ordre |
+| Invariants | `M19`–`M33`, `M53`–`M63`, `M267`, `M281`, `M299`, `M303`, `J07`, `J09`, `J11`, `J25` | les invariants des suites JS, revérifiés en Swift sous le même identifiant |
 
 `M06` (`escH`) et `M08`/`M09` (`readYear`/`writeYear`) sont **volontairement écartés** :
-échappement HTML et accès au `localStorage` n'ont pas d'équivalent dans le noyau.
+échappement HTML et accès au `localStorage` n'ont pas d'équivalent dans le noyau. De même
+`J06` (le nom de l'appareil : un iPhone doit se nommer « iPhone », pas se faire reconnaître
+à son `User-Agent`) et `J30` (le rendu de l'écran).
 
-Trois pièges de traduction, réglés et consignés ici parce qu'ils se reproduiront :
+#### Les pièges de traduction, consignés parce qu'ils se reproduiront
 
 - **`Infinity`** n'existe pas en JSON. Le dernier palier passe par `null` et redevient
   `.infinity` en Swift ; il est comparé **par égalité**, jamais par soustraction, puisque
@@ -636,10 +641,47 @@ Trois pièges de traduction, réglés et consignés ici parce qu'ils se reprodui
   ses propres assertions le voient, pas à la fin.
 - **`aujourd'hui` est figé dans la référence**, sinon `echue`, `jours` et `enRetard`
   changeraient de sens le lendemain d'une date d'échéance.
+- **La fusion compare des écritures, pas des valeurs** (2.8.0). `sync.js` décide de
+  l'identité de deux feuilles par `JSON.stringify(a) === JSON.stringify(b)`, et départage
+  deux écritures à la même milliseconde par un `>` sur ces deux mêmes textes. L'ordre des
+  clés, l'écriture d'un nombre (`1` et non `1.0`) et la différence entre une clé absente et
+  une clé à `null` font donc partie du comportement vérifié — d'où `Valeur.swift` et son
+  lecteur JSON écrit à la main, et d'où le fait que les sections `sync` et `journal` de la
+  référence ne sont **pas** décodées en types `Decodable` : un `Decodable` perdrait
+  exactement ces deux dernières distinctions. `ParityCodec.swift` fait la traduction.
+- **Swift trie les chaînes autrement que JavaScript** (2.8.0). Swift compare par
+  équivalence canonique, JS par unités de code UTF-16 : un emoji se trie avant un
+  caractère d'usage privé du plan de base en JS, et après lui avec `sorted()`. `triJS` et
+  `texteEstPlusGrandJS` comparent les unités UTF-16 ; `P42` le vérifie.
 
-Le harnais a été vérifié capable d'échouer : en corrompant 18 valeurs d'une copie du JSON,
-la suite est tombée à **40 / 57 avec 17 échecs distincts** et un code de sortie 1, chacun
-nommant le champ fautif.
+#### Le harnais est capable d'échouer, vérifié faute par faute
+
+Une suite de parité toujours verte ne prouve rien. Pour chaque vague, le harnais est mis à
+l'épreuve en injectant des défauts et en comptant ce qui rougit.
+
+- **Vague 1** : 18 valeurs corrompues dans une copie du JSON → **40 / 57 avec 17 échecs
+  distincts** et un code de sortie 1, chacun nommant le champ fautif.
+- **Vague 1 bis** : **onze défauts injectés un par un** dans `SyncService` et
+  `JournalService` — départage d'égalité inversé (6 rouges), arguments de
+  `texteEstPlusGrandJS` échangés (6), `tsD >= tsL` au lieu de `>` (7, dont `M299`),
+  tombales d'ancêtres oubliées (6), liste des clés ignorées vidée (2), longueur de
+  troncature (2), tri des filtres renversé (2), regroupement du journal effondré (1),
+  `triJS` remplacé par `sorted()` (1), largeur de l'aperçu d'une suppression (1), filtre
+  de l'`id` dans cet aperçu (2).
+
+Deux leçons, et ce sont elles qui justifient l'exercice :
+
+1. **Un vert qui ne vérifie rien est pire qu'un rouge.** Le premier passage affichait
+   93/93 alors qu'une section de la référence était mal nommée : l'assertion agrégée
+   comparait zéro paire et passait en silence. Une liste de cas vide est désormais un
+   échec — ce qui a immédiatement révélé la section manquante (93/94).
+2. **Trois des onze défauts ne rougissaient rien au premier essai** : le tri des chemins,
+   la largeur de l'aperçu d'une suppression, et les deux bornes du journal (plafond d'une
+   valeur inscrite, fenêtre de regroupement d'une rafale). Trois cas ont été ajoutés à la
+   référence pour les couvrir — des listes de chemins à emoji et caractères d'usage privé
+   (`P42`), la suppression d'un trajet à trois valeurs et d'une catégorie de douze cases
+   (`P31`, `P34`), et les valeurs juste en deçà, à la borne et juste au-delà
+   (`P46`, `P52`).
 
 `ios_2026/Tests/XCTest/CoreParityTests.swift` contient la même suite sous forme de test
 XCTest, prête à être rattachée dès qu'une cible de tests existera dans Xcode — le projet

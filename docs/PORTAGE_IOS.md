@@ -4,11 +4,13 @@
 Ce document ne raconte pas ce que fait l'application ; il dit, module par module, *ce qui
 doit être réécrit à l'identique*, *ce qui peut être repensé*, et *ce qui ne se porte pas*.
 
-**État au 22 octobre 2026** — PWA `pwa_2026/` : version 2.7.0, 20 fichiers dans `js/`,
+**État au 22 octobre 2026** — PWA `pwa_2026/` : version 2.8.0, 20 fichiers dans `js/`,
 dont 17 modules enregistrés. iOS `ios_2026/` : 23 fichiers Swift d'interface et de
-persistance, **plus un noyau de calcul de 4 fichiers** (`RevenusDepenses/Core/`) qui porte
-la vague 1 — le socle, les paramètres fiscaux, l'impôt et la DPA. Vérifié par 57 assertions
-de parité contre la PWA (`npm run parite`). L'écart restant porte sur les vagues 1 bis à 4.
+persistance, **plus un noyau de calcul de 7 fichiers** (`RevenusDepenses/Core/`) qui porte
+la vague 1 — le socle, les paramètres fiscaux, l'impôt, la DPA — et la vague 1 bis — la
+fusion champ par champ et le journal des modifications. Vérifié par 94 assertions de
+parité contre la PWA (`npm run parite`). L'écart restant est l'interface des vues Impôt et
+DPA, le raccordement Firestore, et les vagues 2 à 4.
 
 ---
 
@@ -126,7 +128,8 @@ reproduire au cent près ; le reste du fichier est du rendu.
 | `recus` | `recus.js` (273 l.) | `receipts` | `cleRecu()`, `parseCleRecu()`, `auditRecus()`, `extraireMontants()`, `extraireDate()` | **Vision** à la place de Tesseract | 4 |
 | `dossier` | `dossier.js` (307 l.) | `receipts`, `notes` | les six générateurs CSV (`registreKmCSV`, `rl31CSV`, `dpaCSV`, `coproCSV`, `impotCSV`, `taxesCSV`) | `CSVExportService` + `Archive` | 4 |
 | `cloture` | `cloture.js` (221 l.) | `closed`, `closedHistory` | `empreinteFiscale()`, `totauxCloture()`, `auditAvantCloture()` | `Services/YearLockService.swift` | 4 |
-| `journal` | `journal.js` (532 l.) | *(clé propre `depenses_journal_<année>`, hors `state`)* | `journalAppareil()`, `journalValeur()`, `journalLabel()`, `journalEntrees()`, `journalEntreeLot()`, `journalAjouter()` (regroupement), `journalFiltrer()`, `journalGrouper()`, `journalPhrase()` | `Services/ChangeLogService.swift` + vue Historique | 1 bis |
+| `journal` | `journal.js` (532 l.) | *(clé propre `depenses_journal_<année>`, hors `state`)* | `journalAppareil()`, `journalValeur()`, `journalLabel()`, `journalEntrees()`, `journalEntreeLot()`, `journalAjouter()` (regroupement), `journalFiltrer()`, `journalGrouper()`, `journalPhrase()` | **✅ `Core/JournalService.swift`** ; vue Historique à écrire | 1 bis |
+| *(pas un module : le moteur)* | `sync.js` (534 l.) | *(tout l'arbre)* | `syncAplatir()`, `syncDater()`, `syncFusionner()`, `syncEmpreinteEtat()`, `syncDoitRenvoyer()`, `syncResume()`, `syncMetaVide()`, `syncPathTexte()`, `syncTrancherEgalite()` | **✅ `Core/SyncService.swift`** + `Core/Valeur.swift` ; `FirestoreSync` à écrire | 1 bis |
 
 ---
 
@@ -137,8 +140,9 @@ reproduire au cent près ; le reste du fichier est du rendu.
 sans eux : la DPA alimente l'impôt, l'impôt alimente les acomptes, le tout alimente les
 recommandations.
 
-Les quatre fichiers de `RevenusDepenses/Core/` rendent **les mêmes nombres que la PWA**,
-vérifié par 57 assertions (§ 7). Ce qui reste de la vague 1 est de l'interface : les vues
+Les quatre fichiers livrés alors dans `RevenusDepenses/Core/` rendent **les mêmes nombres
+que la PWA**, vérifié par 57 assertions — la suite en compte 94 depuis la vague 1 bis
+(§ 7). Ce qui reste de la vague 1 est de l'interface : les vues
 Impôt et DPA, et le branchement de `DataService` sur `EntreesImpot` et
 `[BienAmortissable]`. Le calcul, lui, est fini et ne lit rien — c'est ce qui rend le reste
 mécanique.
@@ -149,21 +153,32 @@ mécanique.
 > peut pas aller chercher une donnée derrière le dos de son appelant. `AppConfig.swift`
 > importe UIKit : le noyau ne doit jamais en dépendre.
 
-**Vague 1 bis — la fusion et sa trace, dès que la saisie iOS compte.** `sync.js` est du
-calcul pur sur un arbre (`[String: Any]` en Swift, ou le `JSONValue` que vous préférez) :
-aucune dépendance à Firebase, aucune à `state`. Tant qu'il n'est pas porté, l'iPhone reste
-le seul appareil qui ne participe pas à la fusion — et un `syncPush` iOS écrit en
-remplacement **ré-introduirait** la perte de données que la 2.5.0 a éliminée côté PWA.
-Si le portage tarde, l'app iOS doit s'en tenir à l'import/export d'enveloppe (§ 2) et ne
-jamais écrire dans `users/<uid>/years/<année>`.
+**Vague 1 bis — la fusion et sa trace. ✅ Calcul livré le 22 octobre 2026 (2.8.0).**
+`sync.js` et `journal.js` sont portés : `Core/SyncService.swift`, `Core/JournalService.swift`
+et l'arbre `Core/Valeur.swift` sur lequel ils travaillent. **94 assertions** de parité
+(§ 7) vérifient que les deux moteurs rendent les mêmes écritures.
 
-`journal.js` se porte dans la même vague, et pour la même raison : c'est `syncDater()` et
-`syncFusionner()` qui produisent la matière du journal (`{chemin, avant, après, genre}`),
-alors un iPhone qui fusionne sans journaliser serait le seul appareil incapable de dire
-*pourquoi* un total a changé. Le fichier est volontairement autonome — il porte ses propres
-noms de mois et ne lit `state` que pour reconstituer le lexique à l'affichage — et son
-journal n'est **pas** synchronisé : chaque appareil garde le sien (§ 2.10 de
-[ARCHITECTURE.md](ARCHITECTURE.md)), donc rien à négocier côté Firestore.
+C'était la condition posée par la vague 1 : tant que la fusion n'était pas portée, un
+`syncPush` iOS écrit en remplacement **ré-introduisait** la perte de données que la 2.5.0 a
+éliminée côté PWA. Ce qui reste est le raccordement : un `FirestoreSync` qui lit le
+document distant, appelle `fusionner`, écrit le résultat et pose les entrées de journal.
+**Jusque-là, l'app iOS s'en tient à l'import/export d'enveloppe (§ 2) et n'écrit pas dans
+`users/<uid>/years/<année>`** — le moteur existe, il n'est pas encore branché.
+
+> **Ce que le portage a appris.** `sync.js` ne compare pas des valeurs, il compare des
+> *écritures* : l'identité de deux feuilles est `JSON.stringify(a) === JSON.stringify(b)`,
+> et deux écritures à la même milliseconde se départagent par un `>` sur ces deux mêmes
+> textes. Un `[String: Any]` Swift et `JSONSerialization` auraient donc suffi à faire
+> diverger deux appareils : les clés y sont réordonnées, et `1.0` ne s'écrit pas `1`.
+> `Valeur.swift` existe pour cela — ordre des clés préservé, clé absente distincte d'une
+> clé à `null`, lecteur JSON écrit à la main, `nombreJS`, comparaison de chaînes par unités
+> de code UTF-16 et tri à la `Array.prototype.sort()`. Voir le piège 13 au § 6.
+
+Le journal, lui, n'est **pas** synchronisé : chaque appareil garde le sien (§ 2.10 de
+[ARCHITECTURE.md](ARCHITECTURE.md)), donc rien à négocier côté Firestore. Deux attendus
+restent propres à la plateforme et n'ont pas d'équivalent Swift : `J06` (un iPhone doit se
+nommer « iPhone », pas se faire reconnaître à son `User-Agent`) et `J30` (le rendu de
+l'écran).
 
 **Vague 2 — la saisie courante.** `baux`, `taxes`, `vehicule-methodes`, `kilometrage`,
 `ventilation`, `import-bancaire`. C'est ce qu'on utilise plusieurs fois par mois, donc
@@ -253,16 +268,48 @@ Chacun a déjà produit un défaut réel dans ce projet ou en produirait un :
    arbitraire, donc avec des montants réclamés différents d'une exécution à l'autre.
    Comparez explicitement l'index d'origine en second critère.
 
+13. **`sync.js` compare des écritures, pas des valeurs.** L'identité de deux feuilles est
+   `JSON.stringify(a) === JSON.stringify(b)`, et deux écritures portant la même
+   milliseconde se départagent par un `>` sur ces deux mêmes textes. Tout ce qui change la
+   *façon d'écrire* change donc le résultat de la fusion. Trois conséquences, toutes
+   vérifiées : l'ordre des clés d'un objet doit être conservé (un `[String: Any]` Swift ne
+   le fait pas) ; un nombre doit s'écrire comme JS l'écrit (`1`, pas `1.0`, et `1e+21` à
+   partir de 10²¹) ; une clé absente n'est pas une clé à `null`. C'est tout
+   `Core/Valeur.swift` — 439 lignes dont un lecteur JSON écrit à la main, parce que
+   `JSONSerialization` réordonne les clés et perd la distinction. Ce n'est pas du
+   raffinement : sans cela, deux appareils ne convergent pas (`M299`).
+14. **Swift compare les chaînes par équivalence canonique ; JS les compare par unités de
+   code UTF-16.** `"a" < "b"` est d'accord des deux côtés, mais le tri d'une liste de
+   chemins ne l'est pas dès qu'un caractère hors du plan de base s'y trouve : un emoji
+   (`U+1F3E0`, écrit en UTF-16 par un couple de substituts commençant à `D83C`) se trie en
+   JS **avant** un caractère d'usage privé du plan de base (`U+F8FF`), et après lui avec
+   `sorted()`. Les chemins de ce projet sont des clés d'état, donc en pratique de l'ASCII
+   et de l'accentué latin — mais le tri ordonne les changements d'une fusion et le calcul
+   de l'empreinte d'un état, et un libellé d'immeuble saisi avec un emoji y entre.
+   `SyncService.triJS` et `Valeur.texteEstPlusGrandJS` comparent donc explicitement les
+   unités UTF-16 ; `P42` les vérifie sur des listes faites exprès pour ça. Le défaut avait
+   été injecté avant d'être couvert : remplacer `triJS` par `sorted()` ne faisait alors
+   rougir aucune assertion.
+15. **Deux clés que Swift croit égales, JS les distingue — et c'est un écart qui RESTE.**
+   `[String: V]` hache ses clés par forme normalisée : `"é"` composé (`U+00E9`) et `"é"`
+   décomposé (`U+0065 U+0301`) y sont **la même clé**, alors qu'en JavaScript ce sont deux
+   propriétés différentes. `Objet` garde l'ordre d'écriture de ses clés, mais s'appuie sur
+   un `Dictionary` pour les retrouver : deux catégories dont les noms ne diffèrent que par
+   la normalisation fusionneraient donc en une seule du seul côté Swift. Ce n'est pas
+   couvert par une assertion, et ce n'est pas un oubli : aucun clavier en usage ici ne
+   produit du décomposé, et le jour où il faudrait s'en protéger, c'est la **saisie** qui
+   doit normaliser — pas la fusion, qui doit rester le miroir exact de `sync.js`. À
+   relire avant d'accepter des clés venues d'un import tiers.
+
 ---
 
 ## 7. La parité des tests
 
 `tests/pwa_modules_suite.js` contient 297 assertions, dont la moitié porte sur du calcul
-pur — donc portable. Les 45 assertions de fusion (M260–M304) sont intégralement portables :
-`sync.js` ne touche à rien d'autre qu'un arbre et des dates. Les 30 assertions du journal
-(J01–J30) le sont presque toutes : seules celles qui nomment l'appareil (J06) et celles qui
-rendent l'écran (J30) demandent un attendu propre à la plateforme — un iPhone doit s'y
-nommer « iPhone », pas se faire reconnaître à son `User-Agent`.
+pur — donc portable. Les 45 assertions de fusion (M260–M304) et les 30 du journal
+(J01–J30) sont couvertes depuis la vague 1 bis ; seules celles qui nomment l'appareil
+(J06) et celles qui rendent l'écran (J30) demandent un attendu propre à la plateforme —
+un iPhone doit s'y nommer « iPhone », pas se faire reconnaître à son `User-Agent`.
 
 ### 7.1 Le mécanisme, livré avec la vague 1
 
@@ -297,17 +344,32 @@ Trois précautions, chacune apprise en écrivant la vague 1 :
 - **La date du jour est épinglée dans la référence.** Les acomptes en dépendent ;
   `calculAcomptes` accepte un `aujourdhui` injecté précisément pour cela. Sans quoi la
   parité aurait échoué au premier 15 décembre franchi, pour une raison étrangère au code.
+- **Une assertion qui ne compare rien doit rougir.** Ajoutée en vague 1 bis, celle-là :
+  une assertion agrégée affichait vert alors qu'une section de la référence était mal
+  nommée et qu'elle comparait donc zéro paire. Une liste de cas vide est désormais un
+  échec, et c'est ce qui a révélé la section manquante. Un vert qui ne vérifie rien est
+  pire qu'un rouge.
 
-### 7.2 Deux familles d'identifiants
+### 7.2 Les trois familles d’identifiants
 
 | Famille | Ce qu'elle vérifie | Exemple |
 |---|---|---|
-| `P01`–`P28` | **Parité.** La sortie Swift contre ce que la PWA a produit, au cent près. C'est le contrat : un écart ici veut dire que les deux applications déclareraient des montants différents pour un même dossier. | `P23` — `calculImpot()` : les 19 montants du calcul |
-| `M##` | **Invariants** de la suite JavaScript, repris **sous le même identifiant** et vérifiés sur la sortie Swift. Ils ne comparent rien à la PWA ; ils redisent en Swift la règle que le calcul doit respecter. | `M24` — classe distincte pour un bâtiment locatif ≥ 50 000 $ |
+| `P01`–`P28` | **Parité du calcul fiscal.** La sortie Swift contre ce que la PWA a produit, au cent près. C'est le contrat : un écart ici veut dire que les deux applications déclareraient des montants différents pour un même dossier. | `P23` — `calculImpot()` : les 19 montants du calcul |
+| `P29`–`P57` | **Parité de la fusion et du journal.** La sortie Swift contre celle de la PWA, comparée comme **texte JSON canonique**, clé par clé et dans l'ordre. Un écart ici veut dire que deux appareils ne convergeraient pas. | `P32` — `fusionner()` rend le même état sur 28 scénarios |
+| `M##` / `J##` | **Invariants** des suites JavaScript, repris **sous le même identifiant** et vérifiés sur la sortie Swift. Ils ne comparent rien à la PWA ; ils redisent en Swift la règle que le code doit respecter. | `M24` — classe distincte pour un bâtiment locatif ≥ 50 000 $ |
 
 Les identifiants d'assertion sont faits pour ça : une discussion sur « M24 » doit désigner
 la même règle des deux côtés. La vague 1 reprend ainsi `M19`–`M33` (DPA) et `M53`–`M63`
-(impôt et acomptes).
+(impôt et acomptes) ; la vague 1 bis ajoute `M267`, `M281`, `M299`, `M303` et
+`J07`/`J09`/`J11`/`J25`.
+
+**Pourquoi la vague 1 bis se compare en texte et non en nombres.** Les sections `sync` et
+`journal` de la référence ne sont pas décodées en types `Decodable` : ce sont des états,
+où l'ordre des clés et la différence entre une clé absente et une clé à `null` font partie
+de ce qui est vérifié (§ 6, piège 13), et un `Decodable` perdrait exactement ces deux
+choses. Elles sont donc relues par le lecteur du noyau lui-même (`Valeur.depuisJSON`) et
+comparées sous forme de JSON canonique — `ios_2026/Tests/Parity/ParityCodec.swift` est
+cette couche de traduction, et son en-tête dit pourquoi elle existe.
 
 **Trois assertions de la suite JS n'ont volontairement pas d'équivalent Swift**, et la
 raison est écrite dans l'en-tête de `ParitySuite.swift` pour qu'on ne les cherche pas :
@@ -328,7 +390,7 @@ en deux secondes. Deux raisons :
    demande Xcode, pas une ligne de commande.
 2. Le noyau ne dépend que de Foundation, et c'est une contrainte d'architecture, pas une
    commodité : un calcul qui ne peut pas importer UIKit ne peut pas non plus aller chercher
-   une donnée derrière le dos de son appelant. Quatre fichiers compilés pour macOS, aucun
+   une donnée derrière le dos de son appelant. Sept fichiers compilés pour macOS, aucun
    simulateur à démarrer, aucune application à lancer — la boucle de vérification tient
    dans le temps qu'il faut pour relire le diff.
 
@@ -343,7 +405,30 @@ compilant pas.
 > placé sous `RevenusDepenses/` entre automatiquement dans la cible de l'application. Le
 > lanceur en ligne de commande y aurait introduit un second point d'entrée.
 
-### 7.4 Ce qu'il faudra relancer
+### 7.4 Le harnais est capable d'échouer, et on l'a vérifié faute par faute
+
+Une suite de parité toujours verte ne prouve rien. Pour chaque vague, le harnais est donc
+mis à l'épreuve en **injectant des défauts** dans une copie du noyau et en comptant les
+assertions qui rougissent (le script d'injection ne vit pas dans le dépôt : il copie
+`Core/` et `Tests/Parity/` dans un répertoire temporaire, applique une substitution, et
+recompile).
+
+- Vague 1 : 18 valeurs corrompues dans une copie du JSON → **40/57, 17 échecs distincts**,
+  chacun nommant le champ fautif.
+- Vague 1 bis : **onze défauts injectés un par un** dans `SyncService` et
+  `JournalService` — départage d'égalité inversé, arguments de `texteEstPlusGrandJS`
+  échangés, `tsD >= tsL` au lieu de `>`, tombales d'ancêtres oubliées, liste des clés
+  ignorées vidée, longueur de troncature, tri des filtres renversé, regroupement du
+  journal effondré, `triJS` remplacé par `sorted()`, largeur de l'aperçu d'une
+  suppression, filtre de l'`id` dans cet aperçu. Chacun rougit de 1 à 7 assertions.
+
+**Trois de ces onze ne rougissaient rien au premier essai** : le tri des chemins, la
+largeur de l'aperçu et les deux bornes du journal (plafond d'une valeur inscrite, fenêtre
+de regroupement). C'est le vrai rendement de l'exercice — trois cas ont été ajoutés à la
+référence pour les couvrir (`P42`, `P31`/`P34`, `P46`/`P52`), et la couverture des bornes
+se fait maintenant par triplet : juste en deçà, à la borne, juste au-delà.
+
+### 7.5 Ce qu'il faudra relancer
 
 `npm run parite:export` puis `npm run parite`, dans cet ordre, dès que l'un de ces trois
 éléments change : un paramètre de `fiscal-data.js`, la fixture de la suite de modules, ou
