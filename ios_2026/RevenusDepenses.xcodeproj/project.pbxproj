@@ -260,6 +260,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Revenus & Dépenses";
 				INFOPLIST_KEY_NSCameraUsageDescription = "L'appareil photo sert à photographier vos reçus de dépenses.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Face ID déverrouille l'application pour que vos revenus et dépenses ne s'affichent pas sur un téléphone laissé déverrouillé.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "La photothèque sert à joindre des reçus à vos dépenses.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -293,6 +294,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Revenus & Dépenses";
 				INFOPLIST_KEY_NSCameraUsageDescription = "L'appareil photo sert à photographier vos reçus de dépenses.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Face ID déverrouille l'application pour que vos revenus et dépenses ne s'affichent pas sur un téléphone laissé déverrouillé.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "La photothèque sert à joindre des reçus à vos dépenses.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

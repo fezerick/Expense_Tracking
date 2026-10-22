@@ -15,6 +15,7 @@
 
 const fs = require('fs')
 const path = require('path')
+const { webcrypto } = require('crypto')
 
 const RACINE = path.resolve(__dirname, '..')
 const PWA = path.join(RACINE, 'pwa_2026')
@@ -72,6 +73,39 @@ function pagePreparee() {
   return { html, modules: n }
 }
 
+// ── Prothèse WebCrypto ─────────────────────────────────────────────────────
+// jsdom ne fournit pas `crypto.subtle`, dont js/verrou.js a besoin pour son
+// PBKDF2. Node l'a : on le prête à la page. Elle doit être posée AVANT que les
+// scripts tournent — `verrouInit()` interroge `verrouDisponible()` dès le
+// chargement — d'où `beforeParse` plutôt que la chaîne PROTHESES.
+//
+// Les tableaux traversent deux realms JavaScript, celui de Node et celui de
+// jsdom, et les contrôles de type de Node sont sensibles à cette frontière :
+// chaque tampon est donc recopié au passage plutôt que prêté.
+function prêterWebCrypto(window) {
+  const versNode = v => (v == null || !ArrayBuffer.isView(v)) ? v : Uint8Array.from(v)
+  const subtle = {
+    importKey: (format, cle, algo, exportable, usages) =>
+      webcrypto.subtle.importKey(format, versNode(cle), algo, exportable, usages),
+    deriveBits: (algo, cle, longueur) =>
+      webcrypto.subtle.deriveBits(
+        Object.assign({}, algo, { salt: versNode(algo && algo.salt) }), cle, longueur),
+    digest: (algo, donnees) => webcrypto.subtle.digest(algo, versNode(donnees))
+  }
+  const getRandomValues = tableau => {
+    const tampon = new Uint8Array(tableau.length)
+    webcrypto.getRandomValues(tampon)
+    for (let i = 0; i < tableau.length; i++) tableau[i] = tampon[i]
+    return tableau
+  }
+  // defineProperty et non affectation : selon la version de jsdom, `crypto` est
+  // un accesseur en lecture seule, et l'affectation échouerait en silence.
+  Object.defineProperty(window, 'crypto', {
+    value: { subtle, getRandomValues, randomUUID: () => webcrypto.randomUUID() },
+    configurable: true, writable: true
+  })
+}
+
 // Asynchrone pour une seule raison : la suite de synchronisation fait des
 // allers-retours `await` vers son Firestore de pacotille, et la fenêtre jsdom ne
 // doit pas se fermer avant qu'ils soient finis. Une suite synchrone passe par le
@@ -87,7 +121,8 @@ async function executer(fichierSuite) {
     url: 'http://localhost/index.html',   // une origine non opaque : localStorage disponible
     runScripts: 'dangerously',
     pretendToBeVisual: true,
-    virtualConsole: vc
+    virtualConsole: vc,
+    beforeParse: prêterWebCrypto
   })
 
   const w = dom.window
@@ -98,4 +133,4 @@ async function executer(fichierSuite) {
   return { res, erreurs, modules }
 }
 
-module.exports = { RACINE, PWA, pagePreparee, executer }
+module.exports = { RACINE, PWA, pagePreparee, executer, prêterWebCrypto }

@@ -41,7 +41,7 @@ nommer chaque cellule touchée, il restait à en garder la trace lisible.
 | D.3 Simulateur d'achat | ✅ livré | `js/simulateur.js` — Fiscal › Simulateur |
 | — Recommandations | ✅ livré (hors liste) | `js/recommandations.js` — Fiscal › Recommandations |
 | C.3 Historique des modifications | ✅ livré | `js/journal.js` — Fiscal › Clôture, sous l'état de clôture |
-| C.4 Verrou biométrique | ⏳ à faire | |
+| C.4 Verrou biométrique | ✅ livré | `js/verrou.js` — Réglages › Code d'accès ; iOS : `Services/BiometricLock.swift` + `Views/LockView.swift` (2.10.0) |
 | D.2 Widgets et raccourcis iOS | ⏳ à faire | iOS |
 | D.4 Synchronisation : avertir au lieu d'écraser | ✅ livré *(dépassé)* | `js/sync.js` — 2.5.0 : au lieu d'avertir, l'app **fusionne champ par champ**, et n'avertit que des vrais désaccords |
 
@@ -247,11 +247,38 @@ L'écran se consulte par jour, se filtre par origine et par texte, s'exporte en 
 l'avertissement de dérive de la clôture y renvoie directement : *« Voir les 7
 modification(s) inscrites depuis la clôture »*.
 
-### C.4 Verrou biométrique — S
+### C.4 Verrou biométrique — S — ✅ livré (2.10.0)
 
 Face ID / Touch ID côté iOS, code d'accès côté PWA. Les deux apps contiennent revenus,
 adresses, noms de copropriétaires et photos de factures, actuellement accessibles à
 quiconque ouvre l'appareil déverrouillé.
+
+**Livré** le 22 octobre 2026 dans la version 2.10.0, sur les deux plateformes.
+
+- **iOS** — `Services/BiometricLock.swift` et `Views/LockView.swift`. La politique demandée
+  est `.deviceOwnerAuthentication` et non la variante biométrique seule : elle retombe sur
+  le code de l'appareil quand Face ID échoue, là où la seconde enfermerait dehors. Le verrou
+  se pose dès que l'app devient *inactive*, pas seulement en arrière-plan, pour que la photo
+  du sélecteur d'applications montre l'écran de verrouillage et non les montants. L'écran
+  remplace la hiérarchie de vues au lieu de la recouvrir, sans quoi une feuille modale déjà
+  ouverte (réglages, arbitrage DPA) resterait visible au-dessus.
+- **PWA** — `js/verrou.js`, code de 4 à 8 chiffres, empreinte **PBKDF2-SHA-256 à 310 000
+  itérations** avec sel aléatoire de 16 octets, comparaison à temps constant, échecs freinés
+  par paliers (5 s, 15 s, 1 min, 5 min), et une sortie de secours qui ne contourne rien :
+  « j'ai oublié mon code » ré-authentifie le compte Google enregistré à l'activation.
+- **Le secret ne quitte pas l'appareil** : retiré de l'enveloppe de synchronisation comme le
+  thème, et retiré en plus des sauvegardes de fichier — une sauvegarde se transmet.
+
+**Ce que la fiche ne promet pas, et qu'il faut dire** : un verrou posé côté client est un
+écran de confidentialité, pas un chiffrement. Les données restent en clair dans
+`localStorage`, le sel et l'empreinte sont rangés juste à côté, et un code à quatre
+chiffres tombe hors ligne en une seconde pour qui sait ouvrir la console du navigateur.
+Chiffrer pour de vrai imposerait de faire connaître la clé à la synchronisation, au service
+worker, aux exports et à la restauration — et un code oublié effacerait définitivement le
+dossier fiscal. Le verrou protège contre le téléphone posé sur la table et l'onglet laissé
+ouvert sur le portable, ce qui est précisément le risque que la fiche nommait. Il ne protège
+pas contre un appareil volé et analysé ; sur iOS, c'est le chiffrement de l'appareil qui
+s'en charge, comme avant.
 
 ---
 
@@ -440,14 +467,14 @@ reste à écrire.
 *Les 15 fiches d'octobre 2026 et huit des neuf fiches du § E sont livrées. Par rendement,
 ce qui reste :*
 
-1. **La vague 1 du portage iOS** — `fiscal-data`, `impot`, `dpa` et les utilitaires.
-   C'est ce qui rendrait l'application mobile utile pour autre chose que la saisie, et
-   [PORTAGE_IOS.md](PORTAGE_IOS.md) en donne le contrat exact. À porter avec `sync.js`
-   **et `journal.js`**, sans quoi l'iPhone restera le seul appareil qui ne participe pas à
-   la fusion — et le seul qui écrirait dans le document commun sans en garder la trace.
-2. **C.4 Verrou biométrique** — les deux apps contiennent revenus, adresses et noms de
-   copropriétaires, et depuis la 2.5.0 chaque appareil connecté en porte une copie
-   complète. Le coût est faible, l'exposition ne l'est plus.
-3. **D.2 Widgets et raccourcis iOS** — peu de code pour un usage quotidien, mais il
-   attend la vague 1 : un widget « bénéfice net à ce jour » suppose le calcul fiscal porté
-   côté Swift.
+1. **Le raccordement Firestore de l'iPhone.** La vague 1 du portage est close (2.7.0 à
+   2.9.0) : `fiscal-data`, `impot`, `dpa`, `sync.js` et `journal.js` existent en Swift et
+   rendent les mêmes écritures que la PWA, vérifié par 94 assertions de parité. Ce qui
+   manque est le branchement : un `FirestoreSync` qui lit le document distant, appelle
+   `fusionner`, écrit le résultat et inscrit les entrées de journal. Tant qu'il n'existe
+   pas, l'iPhone reste le seul appareil qui ne participe pas à la fusion — et il ne doit
+   pas écrire dans `users/<uid>/years/<année>` avant.
+2. ~~**C.4 Verrou biométrique**~~ — livré en 2.10.0 sur les deux plateformes.
+3. **D.2 Widgets et raccourcis iOS** — peu de code pour un usage quotidien, et son
+   préalable est levé : la vague 1 est close, le calcul fiscal existe côté Swift, donc un
+   widget « bénéfice net à ce jour » n'attend plus rien.

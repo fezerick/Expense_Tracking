@@ -24,7 +24,7 @@ Le détail du mécanisme est au § 7 de [`../docs/PORTAGE_IOS.md`](../docs/PORTA
 RevenusDepenses/
 ├── App/
 │   ├── RevenusDepensesApp.swift   # Entrée ; container SwiftData (CloudKit → repli local)
-│   └── RootView.swift             # TabView 5 onglets, sélecteur d'année, réglages
+│   └── RootView.swift             # TabView 5 onglets ou LockView, sélecteur d'année, réglages
 ├── Core/                          # Noyau de calcul porté de la PWA — Foundation SEUL
 │   ├── Socle.swift                # num, fmt, money, csvCell/csvLigne, anneeDe, shortLabel
 │   ├── FiscalData.swift           # Paramètres fiscaux par année, 13 catégories de DPA
@@ -36,6 +36,7 @@ RevenusDepenses/
 │   └── JournalService.swift       # Historique des modifications (= js/journal.js)
 ├── Models/
 │   ├── AppConfig.swift            # Config centrale : propriétés, catégories, taux, couleurs
+│   ├── AppSetup.swift             # Modules activés, thème, verrou (UserDefaults, local)
 │   └── Models.swift               # FiscalYear, Trip, EntryAmount, UberValue, LyftMonth,
 │                                  # VehicleExpense, ChecklistItem, TaxInputs, CapitalAsset
 │                                  # (SwiftData, compatibles CloudKit)
@@ -45,7 +46,8 @@ RevenusDepenses/
 │   ├── PDFStatementParser.swift   # Import relevés PDF Uber/Lyft (bilingue FR/EN, PDFKit)
 │   ├── PDFReportGenerator.swift   # Rapport PDF comptable (UIGraphicsPDFRenderer)
 │   ├── CSVExportService.swift     # Export CSV du sommaire
-│   └── BackupService.swift        # Sauvegarde / restauration JSON complète
+│   ├── BackupService.swift        # Sauvegarde / restauration JSON complète
+│   └── BiometricLock.swift        # Verrou Face ID / Touch ID / code de l'appareil
 ├── Views/
 │   ├── HomeView.swift             # Accueil : cartes résumé + formulaire rapide de trajet
 │   ├── TripsView.swift            # Journal complet, par mois, groupé par propriété
@@ -54,7 +56,8 @@ RevenusDepenses/
 │   ├── SummaryView.swift          # Sommaire, exports PDF/CSV/JSON, checklist, liens fiscaux
 │   ├── TaxView.swift              # Impôt : provision, taux marginal, acomptes (= js/impot.js)
 │   ├── CCAView.swift              # DPA : catégories, registre des biens, arbitrage (= js/dpa.js)
-│   ├── SettingsView.swift         # Taux $/km, km annuel, véhicule, iCloud, effacement
+│   ├── SettingsView.swift         # Taux $/km, km annuel, véhicule, iCloud, verrou, effacement
+│   ├── LockView.swift             # Écran de verrouillage — vide de données, par principe
 │   ├── PDFImportReviewView.swift  # Écran de révision avant application d'un import PDF
 │   └── Components.swift           # Cartes, champs montant, navigateur de mois…
 ├── Resources/Assets.xcassets
@@ -75,6 +78,9 @@ Au démarrage, l'app tente CloudKit et se replie automatiquement sur le stockage
 
 - `NSCameraUsageDescription` — photographier les reçus.
 - `NSPhotoLibraryUsageDescription` — joindre des reçus depuis la photothèque.
+- `NSFaceIDUsageDescription` — déverrouiller l'app à l'ouverture. Déclarée dans **les deux**
+  configurations de build : une clé posée dans une seule donne une app qui marche en Debug
+  et plante en Release.
 - MapKit ne requiert aucune permission pour le calcul d'itinéraire entre deux adresses.
 
 ## Reste à faire manuellement
@@ -84,8 +90,8 @@ Au démarrage, l'app tente CloudKit et se replie automatiquement sur le stockage
 - [ ] Activer les capabilities iCloud/CloudKit (voir ci-dessus) pour la synchro.
 - [ ] Tester l'import PDF avec vos vrais relevés Uber/Lyft 2026 et ajuster les libellés dans `PDFStatementParser.swift` si un champ n'est pas détecté.
 - [ ] Écran de lancement personnalisé (optionnel — généré automatiquement pour l'instant).
-- [ ] Verrou biométrique (Face ID) à l'ouverture — chantier C.4.
 - [ ] Widgets d'écran d'accueil (provision d'impôt, bénéfice net) — chantier D.2.
+      Son préalable est levé : le calcul fiscal est porté et branché (2.9.0).
 - [ ] `FirestoreSync` : lire le document distant, appeler `SyncService.fusionner`, écrire le
       résultat et poser les entrées de journal. **Tant que ce n'est pas fait, l'app iOS
       n'écrit pas dans `users/<uid>/years/<année>`** — le moteur de fusion existe (2.8.0),
@@ -100,6 +106,13 @@ Au démarrage, l'app tente CloudKit et se replie automatiquement sur le stockage
 - Lyft net mensuel = taxable + primes + pourboires − frais.
 - Bénéfice global = bénéfice locatif net − déduction véhicule Uber − déduction véhicule Lyft.
 - Multi-année : chaque année fiscale a ses trajets, montants, relevés, réglages et checklist propres.
+- Verrou d'ouverture (2.10.0) : `BiometricLock` demande `.deviceOwnerAuthentication`, qui
+  retombe sur le code de l'appareil quand Face ID échoue — la variante biométrique seule
+  enfermerait dehors. Le verrou se pose dès que l'app devient *inactive*, pour que la photo
+  du sélecteur d'applications montre l'écran de verrouillage et non les montants, et
+  `RootView` **remplace** le TabView par `LockView` au lieu de le recouvrir, sinon une
+  feuille modale déjà ouverte resterait visible au-dessus. Le réglage est local à
+  l'appareil (`UserDefaults`), comme le thème, et n'est pas synchronisé.
 - Impôt estimé et acomptes : calculés par `Core/TaxService.swift`, à parité vérifiée avec
   `js/impot.js`. L'écran Impôt ne collecte que ce que l'app ne peut pas deviner — salaire,
   retenues à la source, case 26 du T4, acomptes versés.

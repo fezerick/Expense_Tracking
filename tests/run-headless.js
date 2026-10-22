@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ════════════════════════════════════════════════════════════════════════════
-// run-headless.js — exécute les deux suites de tests SANS navigateur (§ E.3)
+// run-headless.js — exécute les suites de tests SANS navigateur (§ E.3)
 //
 // Avant, il fallait servir l'app, l'ouvrir, et coller chaque suite dans la
 // console. Deux conséquences : les tests n'étaient jamais lancés « en passant »,
@@ -12,9 +12,11 @@
 // sortie exploitable par un CI.
 //
 // Usage :
-//   node tests/run-headless.js            → les deux suites
+//   node tests/run-headless.js            → toutes les suites
 //   node tests/run-headless.js socle      → pwa_suite.js seule
 //   node tests/run-headless.js modules    → pwa_modules_suite.js seule
+//   node tests/run-headless.js sync       → pwa_sync_suite.js seule
+//   node tests/run-headless.js verrou     → pwa_verrou_suite.js seule
 //   npm test                              → identique, après `npm install`
 //
 // Ce que ce lanceur NE remplace PAS : le parcours d'interface réel (gestes,
@@ -62,7 +64,8 @@ const suites = []
 if (!quoi || quoi === 'socle') suites.push(['socle (index.html)', 'pwa_suite.js'])
 if (!quoi || quoi === 'modules') suites.push(['modules (pwa_2026/js/)', 'pwa_modules_suite.js'])
 if (!quoi || quoi === 'sync') suites.push(['synchronisation (Firestore factice)', 'pwa_sync_suite.js'])
-if (!suites.length) { console.error('✖ Usage : node tests/run-headless.js [socle|modules|sync]'); process.exit(2) }
+if (!quoi || quoi === 'verrou') suites.push(['verrou d\'ouverture (PBKDF2)', 'pwa_verrou_suite.js'])
+if (!suites.length) { console.error('✖ Usage : node tests/run-headless.js [socle|modules|sync|verrou]'); process.exit(2) }
 
 let echecTotal = 0
 console.log('')

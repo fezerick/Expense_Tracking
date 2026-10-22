@@ -6,6 +6,7 @@ struct RootView: View {
     let cloudKitEnabled: Bool
 
     @Environment(\.modelContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("selectedYear") private var selectedYear = AppConfig.defaultYear
     @AppStorage(AppSetup.Keys.onboardingDone) private var onboardingDone = false
     @AppStorage(AppSetup.Keys.moduleTrips) private var moduleTrips = true
@@ -14,10 +15,35 @@ struct RootView: View {
     @State private var showSettings = false
     @State private var showNewYearAlert = false
     @State private var newYearText = ""
+    /// Le verrou vit ici et non dans l'App : RootView n'est jamais recréée,
+    /// donc son état survit aux allers-retours en arrière-plan.
+    @State private var lock = BiometricLock()
 
     @Query(sort: \FiscalYear.year) private var fiscalYears: [FiscalYear]
 
     var body: some View {
+        // Verrou posé : on ne SUPERPOSE pas l'écran de déverrouillage, on retire
+        // le contenu de la hiérarchie. Une simple surimpression laisserait
+        // visible une feuille modale déjà ouverte (réglages, arbitrage DPA),
+        // que UIKit présente au-dessus de tout. Retirer le contenu la referme.
+        Group {
+            if lock.etat == .ouvert {
+                onglets
+            } else {
+                LockView(lock: lock)
+            }
+        }
+        .appliesAppearance()
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active: lock.revenuAuPremierPlan()
+            case .inactive, .background: lock.quitteLePremierPlan()
+            @unknown default: break
+            }
+        }
+    }
+
+    private var onglets: some View {
         TabView {
             tabWrapper { HomeView(year: selectedYear) }
                 .tabItem { Label("Accueil", systemImage: "house.fill") }
@@ -41,9 +67,8 @@ struct RootView: View {
                 .tabItem { Label("Sommaire", systemImage: "chart.bar.fill") }
         }
         .tint(AppConfig.Palette.blue)
-        .appliesAppearance()
         .sheet(isPresented: $showSettings) {
-            SettingsView(year: selectedYear, cloudKitEnabled: cloudKitEnabled)
+            SettingsView(year: selectedYear, cloudKitEnabled: cloudKitEnabled, lock: lock)
                 .appliesAppearance()
         }
         .fullScreenCover(isPresented: Binding(

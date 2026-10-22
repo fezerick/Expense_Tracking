@@ -31,10 +31,11 @@ normal ; le mode console des § 2 et § 2b reste utile pour déboguer en regarda
 
 ```bash
 npm install     # une seule fois : jsdom, la seule dépendance, et seulement pour les tests
-npm test        # les trois suites + les quatre vérifications de version
+npm test        # les quatre suites + les quatre vérifications de version
 npm run test:socle      # une seule suite
 npm run test:modules
 npm run test:sync
+npm run test:verrou
 
 npm run parite:export   # relève les valeurs de la PWA dans une référence JSON
 npm run parite          # compile le noyau Swift et le confronte à cette référence
@@ -53,7 +54,7 @@ Quatre vérifications portent sur les fichiers plutôt que sur le code exécuté
 |---|---|
 | V1 | `const CACHE` de `sw.js` porte la version courante |
 | V2 | `manifest.json` porte la version courante |
-| V3 | les 20 balises de module portent `?v=<version>` |
+| V3 | les 21 balises de module portent `?v=<version>` (le compte est lu dans `index.html`, pas écrit en dur) |
 | V4 | `package.json` porte la version courante |
 
 Deux garanties qui méritent d'être dites : le `localStorage` de jsdom est **en mémoire**,
@@ -476,6 +477,83 @@ C'est la seule suite **asynchrone** : chaque envoi est un aller-retour `await`, 
 sécurité, ni la latence, ni un échec de transaction pour cause de conflit, ni le mode hors
 ligne du vrai SDK. Elle prouve que *notre* code appelle le bon chemin avec le bon contenu
 et réagit correctement aux événements ; le reste se vérifie en production, à deux appareils.
+
+---
+
+## 2d. Suite du verrou d'ouverture — `tests/pwa_verrou_suite.js`
+
+**64 assertions, 64 réussies.** Ajoutée le 22 octobre 2026 avec la version 2.10.0
+(fiche C.4). Elle couvre `js/verrou.js` : le code d'accès de la PWA, son empreinte PBKDF2,
+son écran et — en premier — la **non-divulgation du secret**.
+
+**L'ordre des familles suit le coût d'un défaut**, pas l'ordre du fichier. Un sel ou une
+empreinte qui partirait dans Firestore ou dans une pièce jointe est irréparable : on ne
+rappelle pas un fichier envoyé au comptable. Un faux positif de freinage ne coûte qu'une
+attente.
+
+| Assertions | Ce qui est verrouillé |
+|---|---|
+| S1–S9 | **confidentialité** : `setupPourSync` ne porte pas `verrou` (et toujours pas `theme`), la sauvegarde de fichier non plus, **le sel et l'empreinte sont introuvables par recherche littérale dans le JSON de sauvegarde**, et une configuration reçue du cloud ne remplace pas le verrou local |
+| N1–N9 | normalisation d'une configuration douteuse : `actif` ne vaut vrai que si le sel **et** l'empreinte existent, les itérations et le délai retombent sur leur défaut, un objet nul ou mal formé ne jette pas |
+| C1–C7 | format du code : 4 à 8 chiffres, ni lettres, ni espaces, ni code à 3 chiffres, ni valeur non textuelle |
+| D1–D7 | décision de reverrouiller : au délai nul, immédiatement ; sinon à l'échéance exactement, pas une milliseconde avant ; un `dernierActif` absent ou absurde ne verrouille pas |
+| T1–T7 | freinage : rien aux deux premiers échecs, puis 5 s, 15 s, 1 min, 5 min, et le dernier palier ne grandit plus |
+| E1–E6 | comparaison à temps constant : égalité vraie, longueurs différentes, un seul caractère différent, chaîne vide, valeur nulle |
+| P1–P11 | **PBKDF2** : la même entrée rend la même empreinte, deux sels différents rendent deux empreintes, un code différent aussi, le sel fait 16 octets, la sortie 256 bits, et un **aller-retour complet aux 310 000 itérations réelles** se vérifie (les assertions de comportement tournent à 1 000 itérations pour que la suite reste rapide) |
+| U1–U6 | l'écran : il se pose et se lève, la page reçoit `inert`, `<html>` reçoit la classe de blocage du défilement, et les deux disparaissent à la levée |
+| M1–M2 | le module est enregistré, et **sans `label`** — donc il n'ajoute pas de sous-onglet fiscal et ne change pas le nombre de modules affiché dans les réglages |
+
+**Deux particularités du harnais.**
+
+- **jsdom ne fournit pas `crypto.subtle`**, dont le PBKDF2 a besoin. Node l'a : `prêterWebCrypto`
+  (dans `tests/page-jsdom.js`) le prête à la page. La prothèse est posée par `beforeParse`
+  et non dans la chaîne `PROTHESES` injectée dans `<head>`, parce que `verrouInit()`
+  interroge `verrouDisponible()` dès le chargement — trop tôt pour un script de page.
+  Chaque tampon est **recopié** au passage : les tableaux traversent deux realms
+  JavaScript, celui de Node et celui de jsdom, et les contrôles de type de Node sont
+  sensibles à cette frontière.
+- **C'est la première suite écrite comme une fonction asynchrone** (`await` sur chaque
+  dérivation). `executer()` de `page-jsdom.js` était déjà `async` pour la suite de
+  synchronisation ; il a suffi d'attendre la valeur rendue.
+
+### Le défaut que cette suite n'a PAS trouvé
+
+L'écran de verrouillage **pouvait être fait défiler par-dessous à la molette**. L'attribut
+`inert` interdit d'atteindre la page derrière au clavier et au lecteur d'écran, et les
+assertions le vérifiaient — mais il n'empêche pas de faire glisser le document. Dans un
+vrai navigateur à 390 px de large, `window.scrollBy(0, 400)` déplaçait la page de 121,5 px
+derrière un écran qui ne mesurait que 375 px : les montants réapparaissaient sur le bord,
+le long de la barre de défilement.
+
+Trouvé par le parcours en navigateur, pas par les suites, et pour une raison instructive :
+jsdom n'a pas de mise en page, donc aucune assertion sur le DOM ne pouvait voir qu'un
+élément `position:fixed` laissait une bande découverte. Corrigé par une classe `verrou-pose`
+sur `<html>` qui bloque `overflow`, puis couvert par U3 et U5 — qui vérifient désormais la
+règle CSS et la classe, les deux seules traces qu'une page sans mise en page puisse montrer.
+Revérifié dans le navigateur : largeur 390, défilement bloqué à 0, et le coin droit de la
+fenêtre touche l'écran de verrouillage.
+
+### Parcours en navigateur (version 2.10.0)
+
+Fait à la main dans Chrome, à 390 × 844 px, après désinscription des service workers et
+purge des caches — une précaution devenue nécessaire : un `verrou.js` corrigé mais servi
+depuis le cache du service worker a donné pendant plusieurs minutes l'illusion que le
+correctif ne marchait pas.
+
+| | Vérifié |
+|---|---|
+| 1 | `verrouDisponible()` rend vrai sur `http://localhost` (origine sécurisée) |
+| 2 | une dérivation PBKDF2 à 310 000 itérations prend **38 ms** |
+| 3 | la section « 🔒 Code d'accès » s'affiche dans les réglages, entre l'apparence et les modules |
+| 4 | l'activation demande le code deux fois et refuse deux saisies différentes |
+| 5 | l'écran se pose au rechargement, et la page derrière est inerte et non défilable |
+| 6 | un code faux affiche l'erreur et ne lève pas l'écran |
+| 7 | le bon code lève l'écran, et l'application est complète derrière |
+| 8 | trois codes faux de suite déclenchent l'attente de 5 s, annoncée à l'écran |
+| 9 | « J'ai oublié mon code » sans compte lié explique la situation au lieu d'offrir un contournement |
+| 10 | `setupPourSync(setup)` et le JSON de sauvegarde ne contiennent ni le sel ni l'empreinte |
+
+Le verrou d'essai a été retiré du `localStorage` à la fin du parcours.
 
 ---
 

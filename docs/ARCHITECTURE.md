@@ -181,7 +181,7 @@ par feuille** et la fusion garde, pour chaque valeur terminale, la plus récente
 | Chemin | Contenu |
 |---|---|
 | `years/<année>` | `{ data, meta, year, updatedAt, device }` — une année de saisie |
-| `config/setup` | la configuration, **thème exclu** (il reste propre à l'appareil) |
+| `config/setup` | la configuration, **thème et verrou exclus** (ils restent propres à l'appareil — `setupPourSync`) |
 | `recus/<année>_<clé encodée>` | une photo de reçu par document |
 
 Les **photos de reçus** passent par des documents et non par Firebase Storage : le
@@ -300,7 +300,7 @@ function notifyModulesYearChange()// appelé par switchYear()   — puis m.onYea
 Les erreurs d'un module sont attrapées et journalisées (`console.error('[module <id>] init', e)`) :
 un module cassé ne doit pas empêcher l'application de démarrer.
 
-**Chargement.** 20 balises `<script src="js/<module>.js?v=<version>">` en fin de `<body>`,
+**Chargement.** 21 balises `<script src="js/<module>.js?v=<version>">` en fin de `<body>`,
 donc des **scripts classiques** et non des modules ES. Conséquence structurante :
 tout ce qui est déclaré au niveau supérieur d'un fichier (`function`, `const`, `let`)
 vit dans la portée lexicale globale partagée. Un module appelle donc `state`, `setup`,
@@ -331,6 +331,7 @@ débogage doit les évaluer par leur nom nu.
 | `cloture.js` | 221 | `cloture` | clôture d'année verrouillée + empreinte des chiffres déclarés |
 | `journal.js` | 532 | `journal` | historique des modifications : qui, quand, quelle cellule, ancienne → nouvelle valeur (§ 2.10) |
 | `dossier.js` | 307 | `dossier` | dossier comptable complet en un ZIP |
+| `verrou.js` | 516 | `verrou` *(sans `label`)* | code d'accès à l'ouverture : PBKDF2-SHA-256 310 000 itérations, écran opaque, reverrouillage par délai (§ 2.11) |
 
 **Le 6ᵉ onglet.** `FISCAL_SUBS` (index.html:1994) décrit les 10 sous-onglets dans
 leur ordre d'affichage ; `showFiscalSub(id)` les rend. Un `si: () => …` conditionne
@@ -467,6 +468,78 @@ l'historique — ce qu'on désigne est la cellule, pas le mot qui la nommait ce 
 
 ---
 
+### 2.11 Verrou d'ouverture (`js/verrou.js`)
+
+Depuis la 2.10.0, fiche C.4 de [FEATURES.md](FEATURES.md). Pendant du verrou biométrique
+iOS (§ 3.7).
+
+**Ce qu'il est, et ce qu'il n'est pas.** Un écran opaque posé au-dessus de l'application
+au chargement et au retour d'arrière-plan, levé par un code de 4 à 8 chiffres. Il empêche
+de **lire** l'application sur un appareil déjà déverrouillé. Il ne **chiffre** rien : les
+données restent en clair dans `localStorage`, et le sel comme l'empreinte du code sont
+rangés juste à côté. Chiffrer pour de vrai ferait dériver la clé du code, donc la
+synchronisation, le service worker, les exports et la restauration devraient tous la
+connaître — et un code oublié effacerait définitivement le dossier fiscal. Cette limite est
+écrite en tête du module et dans le pied de la section des réglages, parce qu'un utilisateur
+qui croirait ses données chiffrées prendrait des risques qu'il ne prendrait pas autrement.
+
+**L'empreinte.** PBKDF2-SHA-256, **310 000 itérations** (l'ordre de grandeur recommandé par
+l'OWASP), sel aléatoire de 16 octets, sortie de 256 bits en base64. Mesuré à **38 ms** dans
+un vrai navigateur. Le code en clair n'est écrit nulle part. Ce que l'empreinte achète est
+modeste et réel : le code n'apparaît ni dans une sauvegarde, ni dans un export, ni sur une
+capture d'écran du stockage, et il ne voyage jamais vers Firestore.
+
+**`crypto.subtle` n'existe que sur une origine sécurisée** (https ou localhost). Hors de
+là, `verrouDisponible()` rend faux et l'application **refuse d'activer le verrou** plutôt
+que de retomber sur une empreinte faible : une fausse sécurité est pire que pas de verrou.
+En production, Firebase Hosting sert l'app en HTTPS.
+
+**La résistance aux essais répétés** tient à trois choses : la comparaison est à temps
+constant (`verrouEgalConstant`, un `|=` sur le XOR de chaque unité de code), les échecs
+sont freinés par paliers (rien aux deux premiers, puis 5 s, 15 s, 1 min, 5 min), et le
+compte d'échecs vit en mémoire — donc un rechargement de page ne le remet pas à zéro tant
+que l'onglet vit, mais ne prétend pas non plus être inviolable.
+
+**Le secret est une donnée d'appareil**, au même titre que le thème et pour une raison plus
+forte :
+
+| Chemin de sortie | Ce qui s'applique |
+|---|---|
+| Firestore (`config/setup`) | `setupPourSync` retire `verrou` **et** `theme` |
+| Sauvegarde JSON (fichier) | `setupSansVerrou` retire `verrou` — une sauvegarde se transmet, et l'empreinte d'un code n'a rien à faire dans une pièce jointe |
+| Configuration reçue du cloud | `syncAppliquerSetup` **réinstalle** le verrou local après application |
+| Restauration d'un fichier | le verrou de l'appareil est **préservé**, celui du fichier ignoré (il n'y est pas) |
+
+Conséquence voulue : **chaque appareil a son propre code**. Un code commun supposerait de
+le synchroniser, donc de l'exposer à qui ouvre la console sur n'importe lequel des
+appareils connectés.
+
+**La sortie de secours ne contourne rien.** « J'ai oublié mon code » exige le compte Google
+enregistré au moment de l'activation : `reauthenticateWithPopup` si une session est
+ouverte, `signInWithPopup` sinon, puis comparaison des adresses sans égard à la casse. En
+cas de succès le verrou est **retiré**, pas simplement levé pour une fois. Sans compte lié,
+le message le dit franchement — il reste la sauvegarde JSON et l'effacement des données.
+Un bouton de contournement aurait annulé l'intérêt du verrou.
+
+**L'écran.** Injecté avec sa feuille de style, `position:fixed`, `z-index:100000`. Le reste
+de la page reçoit l'attribut `inert`, qui interdit de l'atteindre au clavier et au lecteur
+d'écran — mais **pas** de la faire défiler à la molette, ce qu'un essai en navigateur a
+montré et que les suites n'avaient pas vu. D'où la classe `verrou-pose` sur `<html>`, qui
+bloque le défilement : sans elle, les montants glissaient derrière l'écran de verrouillage
+et la barre de défilement laissait une bande non couverte sur le bord.
+
+**Le reverrouillage.** `visibilitychange` enregistre l'instant où la page disparaît ; au
+retour, `verrouDoitVerrouiller(dernierActif, maintenant, delaiMinutes)` décide. Au réglage
+« immédiatement » (le défaut), l'écran se pose **au départ** et non au retour, pour qu'un
+aperçu d'onglet ne montre pas les montants. Les délais offerts sont 0, 1, 5, 15 et
+60 minutes — les mêmes qu'iOS, et la même fonction de décision des deux côtés.
+
+**Le module n'a pas de `label`**, parce qu'il n'a pas d'écran à lui : il n'apparaît donc
+pas parmi les sous-onglets fiscaux, et `renderVersion()` ne compte que les modules
+étiquetés — le nombre affiché reste **17 modules fiscaux**.
+
+---
+
 ## 3. iOS (`ios_2026/`)
 
 ### 3.1 Structure
@@ -477,17 +550,19 @@ ios_2026/RevenusDepenses/
 │               Valeur.swift (439)        FiscalData.swift (360)
 │               TaxService.swift (321)    CCAService.swift (314)
 │               Socle.swift (121)                                ← § 3.6
-├── App/        RevenusDepensesApp.swift (54)   RootView.swift (133)
+├── App/        RevenusDepensesApp.swift (54)   RootView.swift (158)
 ├── Models/     AppConfig.swift (306)  Models.swift (288)
-│               RentalProperty.swift (167)  AppSetup.swift (102)
+│               RentalProperty.swift (167)  AppSetup.swift (135)
 ├── Services/   DataService.swift (623)        PDFReportGenerator.swift (607)
 │               BackupService.swift (595)      PDFStatementParser.swift (178)
-│               CSVExportService.swift (82)    DistanceService.swift (53)
+│               BiometricLock.swift (227)       CSVExportService.swift (82)
+│               DistanceService.swift (53)
 │               DebugPDFSmokeTest.swift (165)  ← harnais DEBUG
 └── Views/      PropertiesView (499)  CCAView (498)  OnboardingView (384)
                 TaxView (357)  PropertyEditorView (350)  SummaryView (330)
                 HomeView (323)  RideshareView (316)  Components (273)
-                SettingsView (202)  TripsView (102)  PDFImportReviewView (85)
+                SettingsView (281)  TripsView (102)  LockView (90)
+                PDFImportReviewView (85)
 ```
 
 ### 3.2 Persistance
@@ -537,6 +612,7 @@ l'assistant (`OnboardingView`) ou l'éditeur (`PropertyEditorView`).
 | `PDFStatementParser` | lecture des relevés Uber/Lyft en PDF |
 | `CSVExportService` | export 4 colonnes séparées par `;` |
 | `DistanceService` | distances domicile → immeuble |
+| `BiometricLock` | verrou Face ID / Touch ID / code de l'appareil, délai de reverrouillage (§ 3.7) |
 | `DebugPDFSmokeTest` | harnais de test activé par variables d'environnement |
 
 Le Snapshot v2 transporte `year`, les immeubles avec `ownershipPct` et `coOwners`, et les
@@ -620,6 +696,61 @@ partagé sans effacer le travail de la PWA.
 sous lui, et le `main.swift` du lanceur deviendrait un second point d'entrée de
 l'application. La variante XCTest (`Tests/XCTest/CoreParityTests.swift`) attend qu'une
 cible de tests existe dans le projet.
+
+---
+
+### 3.7 Verrou biométrique (`Services/BiometricLock.swift`)
+
+Depuis la 2.10.0, fiche C.4 de [FEATURES.md](FEATURES.md). Pendant du code d'accès de la
+PWA (§ 2.11), avec les mêmes délais de reverrouillage et la même fonction de décision.
+
+`@MainActor @Observable final class BiometricLock` : trois états (`ouvert`, `ferme`,
+`enCours`), la disponibilité (`faceID`, `touchID`, `opticID`, `codeAppareil`, ou
+`aucune(raison)`), et l'authentification. `init()` pose l'état sur `.ferme` quand le verrou
+est actif, pour que l'application n'ouvre jamais sur les données avant de se couvrir.
+
+**La politique est `.deviceOwnerAuthentication`, pas `.deviceOwnerAuthenticationWithBiometrics`.**
+La première retombe sur le code de l'appareil quand la biométrie échoue — un masque, des
+lunettes de soleil, trois tentatives ratées, un capteur mouillé. La seconde enfermerait
+dehors, et le pire moment pour le découvrir est la veille du 15 mars.
+
+**L'écran remplace la hiérarchie de vues, il ne la recouvre pas.** `RootView` rend soit le
+`TabView`, soit `LockView` — jamais les deux superposés. UIKit présente les feuilles
+modales au-dessus de tout : une surimpression laisserait visible une feuille déjà ouverte
+(réglages, arbitrage DPA) avec ses montants. Retirer le contenu de la hiérarchie la referme.
+Le verrou vit dans `RootView` et non dans l'`App` : `RootView` n'est jamais recréée, donc
+son état survit aux allers-retours en arrière-plan.
+
+**`LockView` est volontairement vide de données** : c'est aussi elle qu'iOS photographie
+pour le sélecteur d'applications. Elle déclenche l'authentification d'elle-même à
+l'affichage — un verrou qui exige d'abord un appui ajoute un geste sans ajouter de
+sécurité. Quand la biométrie est indisponible, elle affiche la raison **et** un bouton
+« Désactiver le verrou et continuer » : laisser l'écran sans issue serait enfermer
+l'utilisateur hors de ses propres données.
+
+**Deux pièges, consignés parce qu'ils ne se voient pas à la lecture :**
+
+- Le verrou se pose sur `.inactive` autant que sur `.background`, parce que c'est à cet
+  instant qu'iOS prend la photo du sélecteur d'applications. Mais **la feuille Face ID rend
+  elle-même l'application inactive** : sans la garde `etat != .enCours` dans
+  `quitteLePremierPlan`, demander le déverrouillage reposerait le verrou, et l'app
+  tournerait en rond.
+- `deverrouiller` restaure l'état **d'avant** en cas d'échec, et ne force pas `.ferme` :
+  une authentification annulée depuis les réglages ne doit pas fermer la porte derrière
+  quelqu'un qui était déjà entré.
+
+**La configuration est locale à l'appareil**, comme dans la PWA : deux clés `UserDefaults`
+(`setup.verrou.actif`, `setup.verrou.delaiMinutes`), hors de SwiftData et donc hors de
+CloudKit. `verrouActif` lit `defaults.bool(forKey:)` et **non** le helper `bool(_:)` de
+`AppSetup`, qui vaut vrai par défaut pour que les modules restent visibles chez les
+utilisateurs existants — un verrou à vrai par défaut enfermerait tout le monde dehors à la
+mise à jour.
+
+**L'activation exige l'authentification avant de poser le verrou**, et la désactivation
+aussi. Sinon on découvrirait que Face ID ne fonctionne pas au moment précis où il garde la
+porte. `INFOPLIST_KEY_NSFaceIDUsageDescription` est déclaré dans **les deux**
+configurations de build : une clé posée dans une seule donne une app qui marche en Debug
+et plante en Release.
 
 ---
 

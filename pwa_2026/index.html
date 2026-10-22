@@ -891,6 +891,8 @@ html.theme-dark .onb-section{background:#1a222d}
       <div style="font-size:11px;color:var(--text2);margin-top:4px">« Auto » suit le réglage clair/sombre de l'appareil.</div>
     </div>
     <hr>
+    <div class="field" id="settings-verrou"></div>
+    <hr>
     <div class="field">
       <label>🧩 Modules affichés</label>
       <label style="display:flex;align-items:center;gap:8px;font-size:14px;padding:6px 0;cursor:pointer">
@@ -964,26 +966,27 @@ html.theme-dark .onb-section{background:#1a222d}
      moment du chargement. L'ordre est significatif : données fiscales, socle,
      puis les modules. Le paramètre ?v= force le service worker à reprendre le
      fichier après un déploiement. -->
-<script src="js/fiscal-data.js?v=2.9.0"></script>
-<script src="js/app-modules.js?v=2.9.0"></script>
-<script src="js/sync.js?v=2.9.0"></script>
-<script src="js/baux.js?v=2.9.0"></script>
-<script src="js/dpa.js?v=2.9.0"></script>
-<script src="js/impot.js?v=2.9.0"></script>
-<script src="js/tps-tvq.js?v=2.9.0"></script>
-<script src="js/vehicule-methodes.js?v=2.9.0"></script>
-<script src="js/coproprietaires.js?v=2.9.0"></script>
-<script src="js/ventilation.js?v=2.9.0"></script>
-<script src="js/recus.js?v=2.9.0"></script>
-<script src="js/kilometrage.js?v=2.9.0"></script>
-<script src="js/import-bancaire.js?v=2.9.0"></script>
-<script src="js/cloture.js?v=2.9.0"></script>
-<script src="js/journal.js?v=2.9.0"></script>
-<script src="js/dossier.js?v=2.9.0"></script>
-<script src="js/tableau-bord.js?v=2.9.0"></script>
-<script src="js/simulateur.js?v=2.9.0"></script>
-<script src="js/vente.js?v=2.9.0"></script>
-<script src="js/recommandations.js?v=2.9.0"></script>
+<script src="js/fiscal-data.js?v=2.10.0"></script>
+<script src="js/app-modules.js?v=2.10.0"></script>
+<script src="js/sync.js?v=2.10.0"></script>
+<script src="js/baux.js?v=2.10.0"></script>
+<script src="js/dpa.js?v=2.10.0"></script>
+<script src="js/impot.js?v=2.10.0"></script>
+<script src="js/tps-tvq.js?v=2.10.0"></script>
+<script src="js/vehicule-methodes.js?v=2.10.0"></script>
+<script src="js/coproprietaires.js?v=2.10.0"></script>
+<script src="js/ventilation.js?v=2.10.0"></script>
+<script src="js/recus.js?v=2.10.0"></script>
+<script src="js/kilometrage.js?v=2.10.0"></script>
+<script src="js/import-bancaire.js?v=2.10.0"></script>
+<script src="js/cloture.js?v=2.10.0"></script>
+<script src="js/journal.js?v=2.10.0"></script>
+<script src="js/dossier.js?v=2.10.0"></script>
+<script src="js/tableau-bord.js?v=2.10.0"></script>
+<script src="js/simulateur.js?v=2.10.0"></script>
+<script src="js/vente.js?v=2.10.0"></script>
+<script src="js/recommandations.js?v=2.10.0"></script>
+<script src="js/verrou.js?v=2.10.0"></script>
 
 <script>
 // ════════════════════════════════════════════════════════════
@@ -1002,7 +1005,7 @@ html.theme-dark .onb-section{background:#1a222d}
 //   MAJEUR   — changement du format des donnees qui demande une migration
 //   MINEUR   — nouvelle fonctionnalite
 //   CORRECTIF— correction sans nouvelle fonctionnalite
-const APP_VERSION = '2.9.0'
+const APP_VERSION = '2.10.0'
 const APP_BUILD   = '2026-10-22'
 const APP_NOM     = 'Mon Plex'
 
@@ -1432,9 +1435,13 @@ function saveMapsKey() {
 // Stockée dans une clé localStorage séparée (depenses_setup), indépendante des
 // données fiscales. Elle est synchronisée entre appareils depuis la 2.5.0 — un
 // immeuble créé sur le téléphone doit exister sur l'ordinateur, sinon ses
-// revenus arrivent sans savoir à quoi les rattacher — à UNE exception près :
-// le THÈME. Il décrit l'appareil (un téléphone en mode sombre, un portable en
-// clair), pas le dossier fiscal, et reste donc purement local.
+// revenus arrivent sans savoir à quoi les rattacher — à DEUX exceptions près,
+// qui décrivent l'appareil et non le dossier fiscal :
+//   • le THÈME (un téléphone en mode sombre, un portable en clair) ;
+//   • le VERROU (chantier C.4). Son sel et l'empreinte de son code sont un
+//     identifiant local : les envoyer à Firestore les exposerait à qui ouvre
+//     la console du navigateur sur n'importe quel appareil connecté, et
+//     imposerait le même code partout. Chaque appareil a le sien.
 // ════════════════════════════════════════════════════════════
 const SETUP_KEY = 'depenses_setup'
 
@@ -1444,7 +1451,9 @@ function defaultSetup() {
     theme: 'system',                       // system | light | dark
     modules: { trips: true, props: true, rideshare: true },
     // Liste des immeubles configurés (null = pas encore migrée depuis LEGACY_PROPS).
-    propsList: null
+    propsList: null,
+    // Verrou d'ouverture : null = jamais configuré. Voir js/verrou.js.
+    verrou: null
   }
 }
 
@@ -1462,9 +1471,17 @@ let setup = (() => {
 
 const SETUP_META_KEY = 'depenses_setup_meta'
 
-// Tout sauf le thème : voir le commentaire de section.
+// Le verrou ne sort pas de l'appareil : ni vers le cloud, ni dans un fichier
+// de sauvegarde — une sauvegarde se transmet, et l'empreinte d'un code d'accès
+// n'a rien à faire dans une pièce jointe.
+function setupSansVerrou(s) {
+  const { verrou, ...rest } = (s || setup)
+  return rest
+}
+
+// Tout sauf le thème et le verrou : voir le commentaire de section.
 function setupPourSync(s) {
-  const { theme, ...rest } = (s || setup)
+  const { theme, ...rest } = setupSansVerrou(s)
   return rest
 }
 
@@ -3216,7 +3233,7 @@ function exportCSV(opts) {
 // ramenait le % de propriété à 100 %, perdait les copropriétaires et affichait les
 // immeubles créés par l'utilisateur comme « Immeuble importé ».
 function backupPayload() {
-  return { format: 'pwa-depenses', version: 3, year: activeYear, setup, state }
+  return { format: 'pwa-depenses', version: 3, year: activeYear, setup: setupSansVerrou(setup), state }
 }
 
 /// Restaure une sauvegarde webapp : enveloppe v3 (configuration + année) ou ancien
@@ -3238,7 +3255,10 @@ function restoreFromBackup(data) {
   }
   if (env && env.setup) {
     const d = defaultSetup()
-    setup = { ...d, ...env.setup, modules: { ...d.modules, ...(env.setup.modules || {}) } }
+    // Le verrou reste celui de cet appareil : une sauvegarde n'en porte pas,
+    // et l'écraser par `undefined` ouvrirait l'app à la restauration.
+    setup = { ...d, ...env.setup, modules: { ...d.modules, ...(env.setup.modules || {}) },
+              verrou: setup.verrou }
     saveSetup()
     applyTheme()
     applyModules()
@@ -3889,7 +3909,10 @@ function showSettingsSheet() {
 function renderVersion() {
   const el = document.getElementById('settings-version')
   if (!el) return
-  const nbModules = (typeof APP_MODULES !== 'undefined') ? APP_MODULES.length : 0
+  // Seuls les modules qui portent un libellé ont un écran à eux : le verrou
+  // en est dépourvu et n'a pas à gonfler le compte des modules fiscaux.
+  const nbModules = (typeof APP_MODULES !== 'undefined')
+    ? APP_MODULES.filter(m => m && m.label).length : 0
   const date = new Date(APP_BUILD + 'T12:00:00').toLocaleDateString('fr-CA',
     { day: 'numeric', month: 'long', year: 'numeric' })
   const sw = ('serviceWorker' in navigator) && navigator.serviceWorker.controller
@@ -4193,12 +4216,13 @@ function syncArreter() {
   setSyncStatus('idle')
 }
 
-// ── Configuration (tout sauf le thème) ─────────────────────────────────────
+// ── Configuration (tout sauf le thème et le verrou) ────────────────────────
 function syncAppliquerSetup(res) {
-  const theme = setup.theme
+  const theme  = setup.theme
+  const verrou = setup.verrou
   const d = defaultSetup()
   const recu = res.state || {}
-  setup = { ...d, ...recu, modules: { ...d.modules, ...(recu.modules || {}) }, theme }
+  setup = { ...d, ...recu, modules: { ...d.modules, ...(recu.modules || {}) }, theme, verrou }
   setupMeta   = res.meta
   _setupPhoto = JSON.stringify(setupPourSync(setup))
   try { localStorage.setItem(SETUP_KEY, JSON.stringify(setup)) } catch(e) {}

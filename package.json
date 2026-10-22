@@ -1,6 +1,6 @@
 {
   "name": "mon-plex",
-  "version": "2.9.0",
+  "version": "2.10.0",
   "private": true,
   "description": "Mon Plex — suites de tests de la PWA. L'application elle-même n'a AUCUNE dépendance et aucune étape de compilation : jsdom ne sert qu'à exécuter les tests hors navigateur.",
   "scripts": {
@@ -8,6 +8,7 @@
     "test:socle": "node tests/run-headless.js socle",
     "test:modules": "node tests/run-headless.js modules",
     "test:sync": "node tests/run-headless.js sync",
+    "test:verrou": "node tests/run-headless.js verrou",
     "parite": "scripts/ios-parity.sh",
     "parite:export": "node tests/export-parite.js"
   },

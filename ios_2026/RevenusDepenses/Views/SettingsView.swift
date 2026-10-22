@@ -5,6 +5,7 @@ import SwiftData
 struct SettingsView: View {
     let year: Int
     let cloudKitEnabled: Bool
+    let lock: BiometricLock
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -14,6 +15,8 @@ struct SettingsView: View {
     @AppStorage(AppSetup.Keys.moduleProperties) private var moduleProperties = true
     @AppStorage(AppSetup.Keys.moduleRideshare) private var moduleRideshare = true
     @AppStorage(AppSetup.Keys.onboardingDone) private var onboardingDone = false
+    @AppStorage(AppSetup.Keys.verrouActif) private var verrouActif = false
+    @AppStorage(AppSetup.Keys.verrouDelaiMinutes) private var verrouDelaiMinutes = 0
 
     @Query(sort: [SortDescriptor(\RentalProperty.sortOrder), SortDescriptor(\RentalProperty.createdAt)])
     private var allProperties: [RentalProperty]
@@ -22,8 +25,82 @@ struct SettingsView: View {
     @State private var eraseDone = false
     @State private var editingDraft: PropertyDraft?
     @State private var addingProperty = false
+    @State private var verrouDispo = BiometricLock.disponibilite()
+    @State private var verrouErreur: String?
 
     private var data: DataService { DataService(context: context, year: year) }
+
+    // MARK: - Verrou de l'application (chantier C.4)
+
+    private var sectionVerrou: some View {
+        Section {
+            Toggle(isOn: Binding(get: { verrouActif }, set: { basculerVerrou($0) })) {
+                Label("Verrouiller l'application", systemImage: verrouDispo.icone)
+            }
+            .disabled(!verrouDispo.utilisable)
+
+            if verrouActif {
+                Picker("Reverrouiller", selection: $verrouDelaiMinutes) {
+                    ForEach(AppSetup.verrouDelaisOfferts, id: \.self) { minutes in
+                        Text(AppSetup.verrouDelaiLabel(minutes)).tag(minutes)
+                    }
+                }
+                Button {
+                    lock.verrouiller()
+                    dismiss()
+                } label: {
+                    Label("Verrouiller maintenant", systemImage: "lock.fill")
+                }
+            }
+
+            if case .aucune(let raison) = verrouDispo {
+                Text(raison)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let verrouErreur {
+                Text(verrouErreur)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        } header: {
+            Text("Verrou")
+        } footer: {
+            // Ce que le verrou fait, et ce qu'il ne fait pas. L'écrire ici
+            // plutôt que de laisser croire à un chiffrement.
+            Text("\(verrouDispo.utilisable ? "Demande \(verrouDispo.libelle) à l'ouverture de l'app" : "Indisponible") — pour que revenus, adresses et copropriétaires ne s'affichent pas sur un téléphone déjà déverrouillé. Le verrou ne chiffre rien de plus : vos données restent protégées par le chiffrement de l'appareil, comme avant.")
+        }
+    }
+
+    private func basculerVerrou(_ vouluActif: Bool) {
+        verrouErreur = nil
+        verrouDispo = BiometricLock.disponibilite()
+        guard verrouDispo.utilisable else {
+            if case .aucune(let raison) = verrouDispo { verrouErreur = raison }
+            return
+        }
+        Task {
+            let reussi: Bool
+            if vouluActif {
+                // On exige l'authentification AVANT d'activer : sinon on
+                // découvrirait que Face ID ne marche pas au moment précis où
+                // il garde la porte.
+                await lock.deverrouiller(raison: "Activer le verrou de l'application")
+                reussi = lock.etat == .ouvert
+                if reussi { verrouActif = true }
+            } else {
+                reussi = await lock.desactiverApresAuthentification()
+                if reussi { verrouActif = false }
+            }
+            if !reussi {
+                let echec = lock.dernierEchec ?? ""
+                verrouErreur = echec.isEmpty
+                    ? "Authentification annulée : le réglage n'a pas changé."
+                    : echec
+            }
+        }
+    }
 
     private var iCloudAccountAvailable: Bool {
         FileManager.default.ubiquityIdentityToken != nil
@@ -114,6 +191,8 @@ struct SettingsView: View {
                     Toggle("Synchronisation automatique", isOn: $syncPreferred)
                         .disabled(!cloudKitEnabled)
                 }
+
+                sectionVerrou
 
                 if moduleProperties {
                     Section {

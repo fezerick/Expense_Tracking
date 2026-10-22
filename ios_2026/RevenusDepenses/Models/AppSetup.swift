@@ -17,6 +17,8 @@ enum AppSetup {
         static let moduleProperties = "setup.module.properties"
         static let moduleRideshare = "setup.module.rideshare"
         static let appearance = "setup.appearance"
+        static let verrouActif = "setup.verrou.actif"
+        static let verrouDelaiMinutes = "setup.verrou.delaiMinutes"
     }
 
     private static var defaults: UserDefaults { .standard }
@@ -47,6 +49,37 @@ enum AppSetup {
     static var moduleRideshare: Bool {
         get { bool(Keys.moduleRideshare) }
         set { defaults.set(newValue, forKey: Keys.moduleRideshare) }
+    }
+
+    // MARK: - Verrou de l'application (chantier C.4)
+
+    /// Défaut : faux. Contrairement aux modules, on ne devine pas qu'un
+    /// utilisateur veut un verrou — et `bool(_:)` ci-dessus, qui vaut vrai par
+    /// défaut, enfermerait dehors tout le monde à la mise à jour.
+    static var verrouActif: Bool {
+        get { defaults.bool(forKey: Keys.verrouActif) }
+        set { defaults.set(newValue, forKey: Keys.verrouActif) }
+    }
+
+    /// Délai de grâce avant que le verrou se repose, en minutes. 0 = immédiat.
+    static var verrouDelaiMinutes: Int {
+        get { defaults.integer(forKey: Keys.verrouDelaiMinutes) }
+        set { defaults.set(newValue, forKey: Keys.verrouDelaiMinutes) }
+    }
+
+    /// Le même délai en secondes, forme attendue par `BiometricLock`.
+    static var verrouDelai: TimeInterval { TimeInterval(verrouDelaiMinutes * 60) }
+
+    /// Les choix offerts dans les réglages, du plus strict au plus souple.
+    static let verrouDelaisOfferts: [Int] = [0, 1, 5, 15, 60]
+
+    static func verrouDelaiLabel(_ minutes: Int) -> String {
+        switch minutes {
+        case ..<1: "Immédiatement"
+        case 1: "Après 1 minute"
+        case 60: "Après 1 heure"
+        default: "Après \(minutes) minutes"
+        }
     }
 
     // MARK: - Apparence

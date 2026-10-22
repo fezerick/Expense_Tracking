@@ -18,6 +18,94 @@ La version est écrite aux six endroits par `scripts/version.sh`, seul outil aut
 
 ---
 
+## 2.10.0 — 22 octobre 2026
+
+**Les deux apps se ferment à clé.** Face ID ou Touch ID sur l'iPhone, code d'accès à quatre
+à huit chiffres dans la PWA. C'est la fiche **C.4** de [FEATURES.md](FEATURES.md), montée en
+tête de liste depuis la 2.5.0 pour une raison précise : les deux applications contiennent
+des revenus, des adresses, des noms de copropriétaires et des photos de factures, et depuis
+que la synchronisation existe, **chaque appareil connecté en porte une copie complète**. Le
+coût du verrou est faible ; l'exposition ne l'était plus.
+
+Ce que ce verrou fait, et ce qu'il ne fait pas, est écrit en tête de `js/verrou.js` et de
+`Services/BiometricLock.swift`, dans les deux écrans de réglages, et plus bas dans cette
+entrée. En un mot : **il empêche de lire, il ne chiffre pas.**
+
+### Ajouté — PWA
+- **`js/verrou.js`** (516 l.) — vingt-et-unième module. Un écran opaque posé au-dessus de
+  l'application au chargement et au retour d'arrière-plan, un champ de code, et le réglage
+  **« Reverrouiller »** (immédiatement, 1, 5, 15 minutes, 1 heure).
+- **L'empreinte du code est un PBKDF2-SHA-256 à 310 000 itérations**, sel aléatoire de
+  16 octets, sortie de 256 bits en base64 — l'ordre de grandeur recommandé par l'OWASP.
+  Mesuré à **38 ms** dans un vrai navigateur : imperceptible à la saisie, coûteux en masse.
+  Le code lui-même n'est écrit nulle part.
+- **La comparaison est à temps constant** (`verrouEgalConstant`) et **les échecs sont
+  freinés** : rien aux deux premiers, puis 5 s, 15 s, 1 min, 5 min.
+- **« J'ai oublié mon code »** ne contourne rien : il réclame le compte Google enregistré
+  au moment de l'activation, le ré-authentifie auprès de Firebase, compare les adresses, et
+  **retire le verrou** en cas de succès. Sans compte lié, le message le dit franchement —
+  il reste la sauvegarde JSON et l'effacement des données.
+- **Le verrou ne quitte pas l'appareil.** Il rejoint le thème parmi les réglages locaux que
+  `setupPourSync` retire avant d'écrire dans Firestore, et il est en plus retiré des
+  **sauvegardes de fichier** (`setupSansVerrou`) : une sauvegarde se transmet, et
+  l'empreinte d'un code d'accès n'a rien à faire dans une pièce jointe. Une configuration
+  reçue du cloud ou relue d'un fichier **ne remplace pas** le verrou de l'appareil.
+
+### Ajouté — iOS
+- **`Services/BiometricLock.swift`** (227 l.) — le moteur : disponibilité (Face ID,
+  Touch ID, Optic ID, code de l'appareil, ou l'explication de l'indisponibilité), état
+  (`ouvert`, `ferme`, `enCours`), délai de reverrouillage, et l'authentification elle-même.
+- **`Views/LockView.swift`** (90 l.) — l'écran de couverture, **volontairement vide de
+  données** : c'est aussi lui qu'iOS photographie pour le sélecteur d'applications.
+  L'authentification se déclenche d'elle-même à l'affichage ; un verrou qui exige d'abord un
+  appui ajoute un geste sans ajouter de sécurité.
+- **La section « Verrou » des réglages** — l'activation **exige l'authentification avant**
+  de poser le verrou : on ne découvre pas que Face ID ne fonctionne pas au moment précis où
+  il garde la porte. La désactivation l'exige aussi.
+- **`NSFaceIDUsageDescription`** dans les deux configurations de build, et deux clés
+  `UserDefaults` (`setup.verrou.actif`, `setup.verrou.delaiMinutes`) — **à défaut faux**,
+  contrairement aux modules.
+
+### Vérifié
+- **Quatrième suite automatisée : `tests/pwa_verrou_suite.js`, 64 assertions** — la première
+  suite asynchrone du dépôt. Elle commence par la confidentialité (le secret est absent de
+  l'enveloppe de synchronisation **et** de la sauvegarde, vérifié par recherche littérale du
+  sel et de l'empreinte dans le JSON), puis la normalisation, le format du code, la décision
+  de reverrouiller, le freinage, la comparaison à temps constant, le PBKDF2 (aller-retour
+  réel aux 310 000 itérations), l'écran et son inertie. `npm test` rend **4 + 111 + 297 +
+  18 + 64**, toutes vertes.
+- **Un défaut que les suites n'ont pas trouvé, le navigateur oui** : l'écran de verrouillage
+  pouvait être **fait défiler par-dessous** à la molette. L'attribut `inert` interdit de
+  l'atteindre au clavier et au lecteur d'écran, mais pas de faire glisser la page derrière.
+  Corrigé par une classe de blocage sur `<html>`, et désormais couvert par deux assertions.
+- Les **94 assertions de parité** du noyau Swift et les deux cibles `xcodebuild`
+  (simulateur et appareil) restent vertes. Aucun calcul n'est touché.
+
+### Notes
+- **Ce verrou est un écran de confidentialité, pas un chiffrement.** Les données restent en
+  clair dans `localStorage`, le sel et l'empreinte sont rangés juste à côté, et un code à
+  quatre chiffres tombe hors ligne en une seconde pour qui sait ouvrir la console du
+  navigateur. Chiffrer pour de vrai aurait un prix qu'on refuse de payer : la clé dériverait
+  du code, donc la synchronisation, le service worker, les exports et la restauration
+  devraient tous la connaître — et **un code oublié effacerait définitivement le dossier
+  fiscal**. Sur iOS, les données restent protégées par le chiffrement de l'appareil, comme
+  avant.
+- **Le verrou se pose dès que l'app devient inactive**, et pas seulement en arrière-plan :
+  c'est à cet instant qu'iOS prend la photo du sélecteur d'applications, et c'est l'écran de
+  verrouillage qui doit y figurer, pas les montants.
+- **iOS demande `.deviceOwnerAuthentication`, pas la variante biométrique seule** : la
+  première retombe sur le code de l'appareil quand Face ID échoue — un masque, des lunettes
+  de soleil, trois tentatives ratées. La seconde enfermerait dehors, et le pire moment pour
+  le découvrir est la veille du 15 mars.
+- **La PWA refuse le verrou si `crypto.subtle` est absent** (origine non sécurisée) plutôt
+  que de retomber sur une empreinte faible : une fausse sécurité est pire que pas de verrou
+  du tout. En production, l'app est servie en HTTPS par Firebase Hosting.
+- Le nombre de **modules fiscaux affichés dans les réglages reste 17** : `renderVersion()`
+  ne compte désormais que les modules porteurs d'un `label`, et `verrou` n'en a pas — il n'a
+  pas d'écran à lui.
+
+---
+
 ## 2.9.0 — 22 octobre 2026
 
 **L'impôt et l'amortissement s'utilisent sur l'iPhone.** Les deux moteurs portés par la
