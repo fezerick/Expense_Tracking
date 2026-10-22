@@ -59,6 +59,57 @@
   const RATE = 0.72
   const ANNEES_TEST = [ANNEE_TEST_VOISINE, ANNEE_TEST_VOISINE + 1, 2028]
 
+  // ── Référence de parité pour le portage iOS (docs/PORTAGE_IOS.md § 7) ─────
+  // Les valeurs sont relevées sur la fixture AU MOMENT où les assertions
+  // ci-dessous les vérifient, puis écrites dans
+  // ios_2026/Tests/Parity/parite-vague1.json par `npm run parite:export`.
+  // La suite Swift les rejoue : elle ne compare donc pas le portage à des
+  // nombres retapés à la main, mais à ce que la PWA produit vraiment.
+  const PARITE = { annee: FIX_YEAR, aujourdhui: new Date().toISOString().slice(0, 10) }
+
+  // JSON ne connaît pas Infinity : le dernier plafond d'un barème sort à `null`,
+  // et le côté Swift le relit en `.infinity`.
+  const sansInfini = p => p.map(([plafond, taux]) => [isFinite(plafond) ? plafond : null, taux])
+  const paramsJSON = y => {
+    const f = fiscal(y)
+    return {
+      verifie: f.verifie,
+      km: { paliers: sansInfini(f.km.paliers), territoires: f.km.territoires },
+      fed: { paliers: sansInfini(f.fed.paliers), bpa: f.fed.bpa, bpaMin: f.fed.bpaMin,
+             bpaSeuilReduction: f.fed.bpaSeuilReduction, abattementQc: f.fed.abattementQc,
+             tauxCreditBase: f.fed.tauxCreditBase },
+      qc: { paliers: sansInfini(f.qc.paliers), bpa: f.qc.bpa, tauxCreditBase: f.qc.tauxCreditBase },
+      rrq: f.rrq, rqap: f.rqap, fss: f.fss, auto: f.auto, taxes: f.taxes,
+      acomptes: f.acomptes, tauxInclusionGainCapital: f.gainCapital.tauxInclusion,
+      mutation: { paliers: sansInfini(f.mutation.paliers), seuilMunicipal: f.mutation.seuilMunicipal,
+                  tauxMaxMunicipal: f.mutation.tauxMaxMunicipal,
+                  creditPremierAcheteur: f.mutation.creditPremierAcheteur }
+    }
+  }
+  // Les biens sortent avec des montants déjà convertis : `state` les garde en
+  // chaînes, Swift les attend en Double. C'est `num()` qui fait la conversion
+  // des deux côtés, donc la frontière est au même endroit.
+  const bienJSON = b => ({
+    id: b.id, propId: b.propId, categorie: String(b.categorie),
+    dateAcquisition: b.dateAcquisition || '', cout: num(b.cout), coutTerrain: num(b.coutTerrain),
+    lie: !!b.lie,
+    fnaccOuverture: (b.fnaccOuverture === '' || b.fnaccOuverture == null) ? null : num(b.fnaccOuverture),
+    dpa: Object.keys(b.dpa || {}).reduce((o, k) => { o[k] = num(b.dpa[k]); return o }, {}),
+    dispositionDate: b.dispositionDate || '', dispositionProduit: num(b.dispositionProduit)
+  })
+  const poolJSON = p => ({
+    cle: p.cle, categorie: p.categorie, locatif: p.locatif, libelle: p.libelle, nomProp: p.nomProp,
+    ouverture: p.ouverture, reportee: p.reportee, ajouts: p.ajouts, ajoutsAII: p.ajoutsAII,
+    ajoutsDemi: p.ajoutsDemi, dispositions: p.dispositions, reduction: p.reduction,
+    base: p.base, taux: p.taux, dpaMax: p.dpaMax, reclamee: p.reclamee,
+    fermeture: p.fermeture, distincte: p.distincte
+  })
+  const dpaJSON = (year, biensListe, calc) => ({
+    year, biens: biensListe.map(bienJSON), plafondLocatif: calc.plafondLocatif,
+    pools: calc.pools.map(poolJSON),
+    total: calc.total, totalLocatif: calc.totalLocatif, maxLocatif: calc.maxLocatif
+  })
+
   let erreurFatale = null
   try {
     // ── Fixture ────────────────────────────────────────────────────────────────
@@ -167,6 +218,16 @@
     eq('M09', 'readYear() sur une année inexistante retourne null',
        null, readYear(2097))
 
+    // Relevé de parité : barèmes, catégories, et les fonctions pures du socle.
+    PARITE.params = { 2026: paramsJSON(2026), 2025: paramsJSON(2025) }
+    PARITE.categoriesDPA = DPA_CATEGORIES.map(c => ({ code: c.code, taux: c.taux, batiment: !!c.batiment }))
+    PARITE.num = ['1 234,56 $', '(123,45)', '1,234.56', '2,500', '', 'abc', '-42',
+                  '12.3.4', '1 000', '0,5', '  48 ', '-1 234,50 $']
+      .map(e => ({ entree: e, attendu: num(e) }))
+    PARITE.csv = [['Tremblay, Marie', '100'], ['sans virgule', '2'], ['a"b', 'c;d'], ['x\ny', '']]
+      .map(c => ({ cellules: c, attendu: csvLigne(c) }))
+    PARITE.immeubles = setup.propsList.reduce((o, p) => { o[p.id] = p.label; return o }, {})
+
     // ══ B. VERROU DE CLÔTURE (cloture.js) ═════════════════════════════════════
     const empA = empreinteFiscale(state)
     eq('M10', 'empreinteFiscale() est stable sur un état inchangé', empA, empreinteFiscale(state))
@@ -249,6 +310,7 @@
        150000, pool2028.reduction)
     eq('M27', 'Hors IIA (2028) : DPA max = (300 000 − 150 000) × 4 %',
        6000, pool2028.dpaMax)
+    PARITE.dpaHorsAII = dpaJSON(anneeApresAII, state.biens, dpa2028)
     try { localStorage.removeItem(STORE_PREFIX + anneeApresAII) } catch (e) {}
     state.biens[0].dateAcquisition = FIX_YEAR + '-02-01'
 
@@ -277,6 +339,7 @@
     eq('M30', 'FNACC de clôture = ouverture + ajouts − dispositions − DPA réclamée',
        0 + 300000 - 0 - 5000, poolBat.fermeture)
     eq('M31', 'La DPA réclamée est reprise dans le total locatif', 5000, dpa.totalLocatif)
+    PARITE.dpaCourant = dpaJSON(FIX_YEAR, state.biens, dpa)
 
     // Report automatique de la FNACC d'une année à l'autre. L'année source doit
     // décrire SON année : acquisition en ANNEE_TEST_VOISINE et DPA réclamée pour
@@ -298,6 +361,13 @@
        295000, poolSuiv ? poolSuiv.ouverture : -1)
     check('M33', 'Le report de FNACC est signalé comme tel (et non saisi à la main)',
           true, poolSuiv ? poolSuiv.reportee : null, !!(poolSuiv && poolSuiv.reportee))
+    // Deux années : la source porte l'acquisition et la DPA réclamée, la suivante
+    // n'a que le report. C'est le seul endroit du calcul où une année en lit une autre.
+    PARITE.dpaReport = {
+      annee: ANNEE_TEST_VOISINE + 1,
+      biensAnneePrecedente: stPrec.biens.map(bienJSON),
+      ...dpaJSON(ANNEE_TEST_VOISINE + 1, stSuiv.biens, dpaSuiv)
+    }
     try {
       localStorage.removeItem(STORE_PREFIX + (ANNEE_TEST_VOISINE + 1))
     } catch (e) {}
@@ -345,6 +415,32 @@
           'anomalie présente', coherenceKm().anomalies.length,
           coherenceKm().anomalies.some(a => a.includes('dépassent')))
     state.settings.kmTotalAnnuel = kmSauve
+
+    // Relevé de parité : les fonctions à barème de fiscal-data.js, sur des
+    // valeurs choisies de part et d'autre de chaque seuil.
+    PARITE.km = [0, 1000, 5000, 6000, 30000].map(k => {
+      const i = kmIndemnite(k, FIX_YEAR)
+      return { km: k, montant: i.montant, tauxMoyen: i.tauxMoyen, tranches: i.detail.length }
+    })
+    PARITE.paliers = [0, 30000, 58523, 60000, 120000, 300000].map(r => ({
+      revenu: r,
+      fed: impotParPaliers(r, fiscal(FIX_YEAR).fed.paliers),
+      qc: impotParPaliers(r, fiscal(FIX_YEAR).qc.paliers)
+    }))
+    PARITE.fss = [0, 18500, 20000, 33500, 50000, 70000, 200000]
+      .map(r => { const c = cotisationFSS(r, FIX_YEAR); return { revenu: r, montant: c.montant, palier: c.palier } })
+    PARITE.rrq = [[0, 0], [10000, 0], [40000, 0], [40000, 60000], [90000, 0], [120000, 0]]
+      .map(([ent, emploi]) => {
+        const c = cotisationRRQ(ent, emploi, FIX_YEAR)
+        return { entreprise: ent, emploi, base: c.base, supp: c.supp, total: c.total,
+                 deductible: c.deductible, credit: c.credit }
+      })
+    PARITE.rqap = [0, 10000, 120000].map(r => {
+      const c = cotisationRQAP(r, FIX_YEAR)
+      return { revenu: r, montant: c.montant, assiette: c.assiette }
+    })
+    PARITE.bpaFed = [0, 100000, 181440, 220000, 258482, 400000]
+      .map(r => ({ revenuNet: r, bpa: bpaFederal(r, FIX_YEAR) }))
 
     // ══ E. TPS / TVQ (tps-tvq.js) ═════════════════════════════════════════════
     const ct = contenuTaxes(114.975, FIX_YEAR)
@@ -433,6 +529,57 @@
           'requis ssi net > seuil',
           [ac.requisFed, ac.netFed > fiscal(FIX_YEAR).acomptes.seuilFed].join('/'),
           ac.requisFed === (ac.netFed > fiscal(FIX_YEAR).acomptes.seuilFed))
+
+    // Relevé de parité : les entrées agrégées que TaxService.swift reçoit, et
+    // tout ce que le calcul en tire. Les acomptes sortent avec la date du jour,
+    // que le côté Swift réinjecte — sans quoi la référence changerait de sens
+    // chaque fois que le 15 mars passe.
+    const usageDPA = dpaReclameeParUsage()
+    const saisieImpot = donneesImpot()
+    PARITE.impot = {
+      entrees: {
+        moduleProps: !!setup.modules.props, moduleRideshare: !!setup.modules.rideshare,
+        revenuLocatif: activeProps().reduce((s, p) => s + propTotals(p.id).rev, 0),
+        depensesLocatives: activeProps().reduce((s, p) => s + propTotals(p.id).dep, 0),
+        uberNet: uberNetIncome(), lyftNet: lyftNetIncome(),
+        depensesVehicule: VEH_CATS.reduce((s, c) => s + num(state.vehicule.depenses[c]), 0),
+        kmTotalAnnuel: num(state.settings.kmTotalAnnuel),
+        kmUber: num(state.uber.km_online), kmLyft: getLyftKmTotal(),
+        dpaLocative: usageDPA.locatif, dpaEntreprise: usageDPA.entreprise,
+        revenuT4: num(saisieImpot.revenuT4), autresRevenus: num(saisieImpot.autresRevenus),
+        autresDeductions: num(saisieImpot.autresDeductions), gainsRRQCotises: num(saisieImpot.gainsRRQCotises),
+        impotRetenuFed: num(saisieImpot.impotRetenuFed), impotRetenuQc: num(saisieImpot.impotRetenuQc),
+        acomptesFed: saisieImpot.acomptesFed.map(num), acomptesQc: saisieImpot.acomptesQc.map(num)
+      },
+      assiettes: {
+        revLoc: a.revLoc, depLoc: a.depLoc, netLocAvantDPA: a.netLocAvantDPA, netLoc: a.netLoc,
+        dpaLoc: a.dpaLoc, revEnt: a.revEnt, depEnt: a.depEnt, netEnt: a.netEnt, dpaEnt: a.dpaEnt,
+        vehUber: a.veh.uber, vehLyft: a.veh.lyft, vehTotal: a.veh.total,
+        t4: a.t4, autres: a.autres, rrqTotal: a.rrq.total, rrqDeductible: a.rrq.deductible,
+        rrqCredit: a.rrq.credit, rqap: a.rqap.montant, fss: a.fss.montant,
+        deductionsCotisations: a.deductionsCotisations, revenuTotal: a.revenuTotal,
+        revenuNet: a.revenuNet
+      },
+      calcul: {
+        fedBrut: ci.fedBrut.impot, fedMarginal: ci.fedBrut.marginal, bpaFed: ci.bpaFed,
+        creditsFed: ci.creditsFed, fedApresCredits: ci.fedApresCredits,
+        abattement: ci.abattement, fedNet: ci.fedNet,
+        qcBrut: ci.qcBrut.impot, qcMarginal: ci.qcBrut.marginal, creditsQc: ci.creditsQc,
+        qcNet: ci.qcNet, cotisations: ci.cotisations, retenues: ci.retenues,
+        acomptesVerses: ci.acomptesVerses, totalAvantRetenues: ci.totalAvantRetenues,
+        solde: ci.solde, marginal: ci.marginal, provision: ci.provision,
+        tauxEffectif: ci.tauxEffectif
+      },
+      acomptes: {
+        requisFed: ac.requisFed, requisQc: ac.requisQc, netFed: ac.netFed, netQc: ac.netQc,
+        seuil: ac.seuil, manqueTotal: ac.manqueTotal, joursAvantProchain: ac.joursAvantProchain,
+        versements: ac.versements.map(v => ({
+          date: v.date, echue: v.echue, fed: v.fed, qc: v.qc,
+          manqueFed: v.manqueFed, manqueQc: v.manqueQc, jours: v.jours, enRetard: v.enRetard
+        }))
+      },
+      tauxMarginalEstime: tauxMarginalEstime()
+    }
 
     // ══ G. ÉTAT PAR COPROPRIÉTAIRE ════════════════════════════════════════════
     const etat = etatParCoproprietaire()
@@ -1421,6 +1568,8 @@ ${FIX_YEAR}-04-12,QUINCAILLERIE TEST,-45.00`
     pass,
     fail: results.length - pass,
     echecs: results.filter(r => r.statut === 'FAIL'),
-    tous: results
+    tous: results,
+    // Lue par tests/export-parite.js seulement ; run-headless.js l'ignore.
+    parite: PARITE
   }
 })()

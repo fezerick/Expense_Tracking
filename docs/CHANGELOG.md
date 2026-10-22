@@ -18,6 +18,55 @@ La version est écrite aux six endroits par `scripts/version.sh`, seul outil aut
 
 ---
 
+## 2.7.0 — 22 octobre 2026
+
+**L'application iOS commence à calculer, et elle calcule juste.** La vague 1 du portage
+(voir [PORTAGE_IOS.md](PORTAGE_IOS.md) § 5) est livrée : les paramètres fiscaux, l'impôt,
+les acomptes et la déduction pour amortissement existent en Swift. Rien de visible dans la
+PWA, dont le comportement est inchangé — seul le numéro de version et le nom du cache le
+sont.
+
+### Ajouté
+- **Un noyau de calcul Swift** (`ios_2026/RevenusDepenses/Core/`, 4 fichiers) : `Socle.swift`
+  (`num`, `fmt`, `money`, `csvCell`/`csvLigne`, `anneeDe`, `shortLabel`), `FiscalData.swift`
+  (les paramètres 2025 et 2026, les 13 catégories de DPA, l'indemnité kilométrique, RRQ,
+  RQAP, FSS, le montant personnel de base fédéral), `CCAService.swift` (mise en commun,
+  classe distincte de l'art. 1101(1ac), plafond du par. 1100(11), demi-taux suspendu par
+  l'IIA, catégorie 10.1, réclamation du maximum, renonciation) et `TaxService.swift`
+  (assiettes, impôt combiné, provision, quatre acomptes et leurs retards).
+- **Une suite de parité** (`npm run parite`) : **57 assertions** qui comparent la sortie du
+  noyau Swift à celle de la PWA, sur la fixture de `tests/pwa_modules_suite.js`.
+
+### Interne
+- **La référence de parité est relevée, pas retapée.** `npm run parite:export` exécute la
+  vraie suite de modules sous jsdom et écrit ce qu'elle a mesuré au passage dans
+  `ios_2026/Tests/Parity/parite-vague1.json`. Retaper les attendus dans une suite Swift
+  aurait créé une troisième vérité, à corriger trois fois à chaque budget du Québec. La
+  référence refuse d'être relevée si une seule des 297 assertions est en échec.
+- **Deux familles d'identifiants dans la suite Swift.** `P01`–`P28` comparent au cent près
+  ce que la PWA a réellement produit ; `M19`–`M33` et `M53`–`M63` reprennent, sous le même
+  identifiant que la suite JavaScript, les invariants que le calcul doit respecter. Une
+  discussion sur « M24 » désigne donc la même règle des deux côtés.
+- **Deux différences d'architecture, assumées et documentées dans le code.** Là où `dpa.js`
+  lit `localStorage` pour reporter la FNACC de l'année précédente, `CCAService` reçoit un
+  *fournisseur* injecté — l'assertion P21 vérifie qu'en son absence rien n'est reporté. Là
+  où `impot.js` lit `state`, `TaxService` reçoit des agrégats déjà totalisés (`EntreesImpot`)
+  et ne lit rien : c'est ce qui permet d'exécuter la parité hors simulateur.
+- **`aujourdhui` est épinglé dans la référence.** Les acomptes dépendent de la date du jour ;
+  sans cela, `echue`, `jours` et `enRetard` auraient changé de sens au premier 15 décembre
+  franchi, et la parité aurait échoué pour une raison étrangère au code.
+- `tests/page-jsdom.js` (nouveau) : le montage de la page jsdom, extrait de
+  `run-headless.js` dès qu'un second outil en a eu besoin. Deux copies des prothèses de
+  navigateur auraient fini par décrire deux pages subtilement différentes.
+- `scripts/ios-parity.sh` compile le noyau pour **macOS** avec `swiftc` et exécute la suite
+  en deux secondes. C'est possible parce que le noyau ne dépend que de Foundation — ni
+  UIKit, ni SwiftData, ni état d'application — et c'est pour cela qu'il en est ainsi.
+  `ios_2026/Tests/XCTest/CoreParityTests.swift` appellera la même
+  `ParitySuite.executer()` le jour où le projet aura une cible de tests.
+- Suites : 111 + 297 + 18, plus 57 assertions de parité iOS.
+
+---
+
 ## 2.6.0 — 20 octobre 2026
 
 ### Ajouté

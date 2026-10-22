@@ -1,0 +1,1022 @@
+{
+  "_genere": "tests/export-parite.js — NE PAS MODIFIER À LA MAIN",
+  "_source": "tests/pwa_modules_suite.js (champ `parite`), 297 assertions vertes",
+  "_date": "2026-10-22",
+  "annee": 2026,
+  "aujourdhui": "2026-10-22",
+  "params": {
+    "2025": {
+      "verifie": "2026-10-20",
+      "km": {
+        "paliers": [
+          [
+            5000,
+            0.72
+          ],
+          [
+            null,
+            0.66
+          ]
+        ],
+        "territoires": 0.04
+      },
+      "fed": {
+        "paliers": [
+          [
+            57375,
+            0.15
+          ],
+          [
+            114750,
+            0.205
+          ],
+          [
+            177882,
+            0.26
+          ],
+          [
+            253414,
+            0.29
+          ],
+          [
+            null,
+            0.33
+          ]
+        ],
+        "bpa": 16129,
+        "bpaMin": 14538,
+        "bpaSeuilReduction": [
+          177882,
+          253414
+        ],
+        "abattementQc": 0.165,
+        "tauxCreditBase": 0.15
+      },
+      "qc": {
+        "paliers": [
+          [
+            53255,
+            0.14
+          ],
+          [
+            106495,
+            0.19
+          ],
+          [
+            129590,
+            0.24
+          ],
+          [
+            null,
+            0.2575
+          ]
+        ],
+        "bpa": 18571,
+        "tauxCreditBase": 0.14
+      },
+      "rrq": {
+        "mga": 71300,
+        "msga": 81200,
+        "exemption": 3500,
+        "tauxAutonome": 0.128,
+        "tauxAutonome2": 0.08,
+        "maxBase": 8678.4,
+        "maxSupp": 792
+      },
+      "rqap": {
+        "taux": 0.00878,
+        "max": 1012,
+        "mga": 115300
+      },
+      "fss": {
+        "seuil": 18130,
+        "plafondPremierPalier": 33130,
+        "plancher": 150,
+        "seuilSecondPalier": 63060,
+        "plafondSecondPalier": 148060,
+        "max": 1000
+      },
+      "auto": {
+        "plafondCat101": 38000,
+        "loyerMensuelMax": 1100,
+        "interetMensuelMax": 350,
+        "avantageKm": 0.34
+      },
+      "taxes": {
+        "tps": 0.05,
+        "tvq": 0.09975
+      },
+      "acomptes": {
+        "seuilFed": 1800,
+        "seuilQc": 1800,
+        "dates": [
+          "03-15",
+          "06-15",
+          "09-15",
+          "12-15"
+        ]
+      },
+      "tauxInclusionGainCapital": 0.5,
+      "mutation": {
+        "paliers": [
+          [
+            61500,
+            0.005
+          ],
+          [
+            307800,
+            0.01
+          ],
+          [
+            null,
+            0.015
+          ]
+        ],
+        "seuilMunicipal": 500000,
+        "tauxMaxMunicipal": 0.03,
+        "creditPremierAcheteur": 5000
+      }
+    },
+    "2026": {
+      "verifie": "2026-10-20",
+      "km": {
+        "paliers": [
+          [
+            5000,
+            0.73
+          ],
+          [
+            null,
+            0.67
+          ]
+        ],
+        "territoires": 0.04
+      },
+      "fed": {
+        "paliers": [
+          [
+            58523,
+            0.14
+          ],
+          [
+            117045,
+            0.205
+          ],
+          [
+            181440,
+            0.26
+          ],
+          [
+            258482,
+            0.29
+          ],
+          [
+            null,
+            0.33
+          ]
+        ],
+        "bpa": 16452,
+        "bpaMin": 14829,
+        "bpaSeuilReduction": [
+          181440,
+          258482
+        ],
+        "abattementQc": 0.165,
+        "tauxCreditBase": 0.14
+      },
+      "qc": {
+        "paliers": [
+          [
+            54345,
+            0.14
+          ],
+          [
+            108680,
+            0.19
+          ],
+          [
+            132245,
+            0.24
+          ],
+          [
+            null,
+            0.2575
+          ]
+        ],
+        "bpa": 18952,
+        "tauxCreditBase": 0.14
+      },
+      "rrq": {
+        "mga": 74600,
+        "msga": 85000,
+        "exemption": 3500,
+        "tauxAutonome": 0.126,
+        "tauxAutonome2": 0.08,
+        "maxBase": 8958.6,
+        "maxSupp": 832
+      },
+      "rqap": {
+        "taux": 0.00764,
+        "max": 786.92,
+        "mga": 103000
+      },
+      "fss": {
+        "seuil": 18500,
+        "plafondPremierPalier": 33500,
+        "plancher": 150,
+        "seuilSecondPalier": 64355,
+        "plafondSecondPalier": 149355,
+        "max": 1000
+      },
+      "auto": {
+        "plafondCat101": 39000,
+        "loyerMensuelMax": 1100,
+        "interetMensuelMax": 350,
+        "avantageKm": 0.34
+      },
+      "taxes": {
+        "tps": 0.05,
+        "tvq": 0.09975
+      },
+      "acomptes": {
+        "seuilFed": 1800,
+        "seuilQc": 1800,
+        "dates": [
+          "03-15",
+          "06-15",
+          "09-15",
+          "12-15"
+        ]
+      },
+      "tauxInclusionGainCapital": 0.5,
+      "mutation": {
+        "paliers": [
+          [
+            62900,
+            0.005
+          ],
+          [
+            315000,
+            0.01
+          ],
+          [
+            null,
+            0.015
+          ]
+        ],
+        "seuilMunicipal": 500000,
+        "tauxMaxMunicipal": 0.03,
+        "creditPremierAcheteur": 5000
+      }
+    }
+  },
+  "categoriesDPA": [
+    {
+      "code": "1",
+      "taux": 0.04,
+      "batiment": true
+    },
+    {
+      "code": "1-6",
+      "taux": 0.06,
+      "batiment": true
+    },
+    {
+      "code": "1-10",
+      "taux": 0.1,
+      "batiment": true
+    },
+    {
+      "code": "3",
+      "taux": 0.05,
+      "batiment": true
+    },
+    {
+      "code": "6",
+      "taux": 0.1,
+      "batiment": true
+    },
+    {
+      "code": "8",
+      "taux": 0.2,
+      "batiment": false
+    },
+    {
+      "code": "10",
+      "taux": 0.3,
+      "batiment": false
+    },
+    {
+      "code": "10.1",
+      "taux": 0.3,
+      "batiment": false
+    },
+    {
+      "code": "12",
+      "taux": 1,
+      "batiment": false
+    },
+    {
+      "code": "13",
+      "taux": 0,
+      "batiment": false
+    },
+    {
+      "code": "14.1",
+      "taux": 0.05,
+      "batiment": false
+    },
+    {
+      "code": "43",
+      "taux": 0.3,
+      "batiment": false
+    },
+    {
+      "code": "50",
+      "taux": 0.55,
+      "batiment": false
+    }
+  ],
+  "num": [
+    {
+      "entree": "1 234,56 $",
+      "attendu": 1234.56
+    },
+    {
+      "entree": "(123,45)",
+      "attendu": -123.45
+    },
+    {
+      "entree": "1,234.56",
+      "attendu": 1234.56
+    },
+    {
+      "entree": "2,500",
+      "attendu": 2500
+    },
+    {
+      "entree": "",
+      "attendu": 0
+    },
+    {
+      "entree": "abc",
+      "attendu": 0
+    },
+    {
+      "entree": "-42",
+      "attendu": -42
+    },
+    {
+      "entree": "12.3.4",
+      "attendu": 12.3
+    },
+    {
+      "entree": "1 000",
+      "attendu": 1000
+    },
+    {
+      "entree": "0,5",
+      "attendu": 0.5
+    },
+    {
+      "entree": "  48 ",
+      "attendu": 48
+    },
+    {
+      "entree": "-1 234,50 $",
+      "attendu": -1234.5
+    }
+  ],
+  "csv": [
+    {
+      "cellules": [
+        "Tremblay, Marie",
+        "100"
+      ],
+      "attendu": "\"Tremblay, Marie\",100"
+    },
+    {
+      "cellules": [
+        "sans virgule",
+        "2"
+      ],
+      "attendu": "sans virgule,2"
+    },
+    {
+      "cellules": [
+        "a\"b",
+        "c;d"
+      ],
+      "attendu": "\"a\"\"b\",\"c;d\""
+    },
+    {
+      "cellules": [
+        "x\ny",
+        ""
+      ],
+      "attendu": "\"x\ny\","
+    }
+  ],
+  "immeubles": {
+    "pA": "Duplex A (test)",
+    "pB": "Triplex B (test)"
+  },
+  "dpaHorsAII": {
+    "year": 2028,
+    "biens": [
+      {
+        "id": "b1",
+        "propId": "pA",
+        "categorie": "1",
+        "dateAcquisition": "2028-03-01",
+        "cout": 400000,
+        "coutTerrain": 100000,
+        "lie": false,
+        "fnaccOuverture": null,
+        "dpa": {},
+        "dispositionDate": "",
+        "dispositionProduit": 0
+      }
+    ],
+    "plafondLocatif": null,
+    "pools": [
+      {
+        "cle": "pA|1|b1",
+        "categorie": "1",
+        "locatif": true,
+        "libelle": "Duplex A — cat. 1 (4 %)",
+        "nomProp": "Duplex A",
+        "ouverture": 0,
+        "reportee": false,
+        "ajouts": 300000,
+        "ajoutsAII": 0,
+        "ajoutsDemi": 300000,
+        "dispositions": 0,
+        "reduction": 150000,
+        "base": 150000,
+        "taux": 0.04,
+        "dpaMax": 6000,
+        "reclamee": 0,
+        "fermeture": 300000,
+        "distincte": true
+      }
+    ],
+    "total": 0,
+    "totalLocatif": 0,
+    "maxLocatif": 6000
+  },
+  "dpaCourant": {
+    "year": 2026,
+    "biens": [
+      {
+        "id": "b1",
+        "propId": "pA",
+        "categorie": "1",
+        "dateAcquisition": "2026-02-01",
+        "cout": 400000,
+        "coutTerrain": 100000,
+        "lie": false,
+        "fnaccOuverture": null,
+        "dpa": {
+          "2026": 5000
+        },
+        "dispositionDate": "",
+        "dispositionProduit": 0
+      },
+      {
+        "id": "b2",
+        "propId": "__veh",
+        "categorie": "10.1",
+        "dateAcquisition": "2026-05-01",
+        "cout": 70000,
+        "coutTerrain": 0,
+        "lie": false,
+        "fnaccOuverture": null,
+        "dpa": {},
+        "dispositionDate": "",
+        "dispositionProduit": 0
+      }
+    ],
+    "plafondLocatif": 14892,
+    "pools": [
+      {
+        "cle": "pA|1|b1",
+        "categorie": "1",
+        "locatif": true,
+        "libelle": "Duplex A — cat. 1 (4 %)",
+        "nomProp": "Duplex A",
+        "ouverture": 0,
+        "reportee": false,
+        "ajouts": 300000,
+        "ajoutsAII": 300000,
+        "ajoutsDemi": 0,
+        "dispositions": 0,
+        "reduction": 0,
+        "base": 300000,
+        "taux": 0.04,
+        "dpaMax": 12000,
+        "reclamee": 5000,
+        "fermeture": 295000,
+        "distincte": true
+      },
+      {
+        "cle": "__veh|10.1",
+        "categorie": "10.1",
+        "locatif": false,
+        "libelle": "Véhicule / entreprise — cat. 10.1 (30 %)",
+        "nomProp": "Véhicule / entreprise",
+        "ouverture": 0,
+        "reportee": false,
+        "ajouts": 44840.25,
+        "ajoutsAII": 0,
+        "ajoutsDemi": 44840.25,
+        "dispositions": 0,
+        "reduction": 22420.125,
+        "base": 22420.125,
+        "taux": 0.3,
+        "dpaMax": 6726.037499999999,
+        "reclamee": 0,
+        "fermeture": 44840.25,
+        "distincte": false
+      }
+    ],
+    "total": 5000,
+    "totalLocatif": 5000,
+    "maxLocatif": 12000
+  },
+  "dpaReport": {
+    "annee": 2099,
+    "biensAnneePrecedente": [
+      {
+        "id": "b1",
+        "propId": "pA",
+        "categorie": "1",
+        "dateAcquisition": "2098-02-01",
+        "cout": 400000,
+        "coutTerrain": 100000,
+        "lie": false,
+        "fnaccOuverture": null,
+        "dpa": {
+          "2098": 5000
+        },
+        "dispositionDate": "",
+        "dispositionProduit": 0
+      },
+      {
+        "id": "b2",
+        "propId": "__veh",
+        "categorie": "10.1",
+        "dateAcquisition": "2026-05-01",
+        "cout": 70000,
+        "coutTerrain": 0,
+        "lie": false,
+        "fnaccOuverture": null,
+        "dpa": {},
+        "dispositionDate": "",
+        "dispositionProduit": 0
+      }
+    ],
+    "year": 2099,
+    "biens": [
+      {
+        "id": "b1",
+        "propId": "pA",
+        "categorie": "1",
+        "dateAcquisition": "2000-01-01",
+        "cout": 400000,
+        "coutTerrain": 100000,
+        "lie": false,
+        "fnaccOuverture": null,
+        "dpa": {},
+        "dispositionDate": "",
+        "dispositionProduit": 0
+      },
+      {
+        "id": "b2",
+        "propId": "__veh",
+        "categorie": "10.1",
+        "dateAcquisition": "2000-01-01",
+        "cout": 70000,
+        "coutTerrain": 0,
+        "lie": false,
+        "fnaccOuverture": null,
+        "dpa": {},
+        "dispositionDate": "",
+        "dispositionProduit": 0
+      }
+    ],
+    "plafondLocatif": null,
+    "pools": [
+      {
+        "cle": "pA|1|b1",
+        "categorie": "1",
+        "locatif": true,
+        "libelle": "Duplex A — cat. 1 (4 %)",
+        "nomProp": "Duplex A",
+        "ouverture": 295000,
+        "reportee": true,
+        "ajouts": 0,
+        "ajoutsAII": 0,
+        "ajoutsDemi": 0,
+        "dispositions": 0,
+        "reduction": 0,
+        "base": 295000,
+        "taux": 0.04,
+        "dpaMax": 11800,
+        "reclamee": 0,
+        "fermeture": 295000,
+        "distincte": true
+      },
+      {
+        "cle": "__veh|10.1",
+        "categorie": "10.1",
+        "locatif": false,
+        "libelle": "Véhicule / entreprise — cat. 10.1 (30 %)",
+        "nomProp": "Véhicule / entreprise",
+        "ouverture": 0,
+        "reportee": true,
+        "ajouts": 0,
+        "ajoutsAII": 0,
+        "ajoutsDemi": 0,
+        "dispositions": 0,
+        "reduction": 0,
+        "base": 0,
+        "taux": 0.3,
+        "dpaMax": 0,
+        "reclamee": 0,
+        "fermeture": 0,
+        "distincte": false
+      }
+    ],
+    "total": 0,
+    "totalLocatif": 0,
+    "maxLocatif": 11800
+  },
+  "km": [
+    {
+      "km": 0,
+      "montant": 0,
+      "tauxMoyen": 0,
+      "tranches": 0
+    },
+    {
+      "km": 1000,
+      "montant": 730,
+      "tauxMoyen": 0.73,
+      "tranches": 1
+    },
+    {
+      "km": 5000,
+      "montant": 3650,
+      "tauxMoyen": 0.73,
+      "tranches": 1
+    },
+    {
+      "km": 6000,
+      "montant": 4320,
+      "tauxMoyen": 0.72,
+      "tranches": 2
+    },
+    {
+      "km": 30000,
+      "montant": 20400,
+      "tauxMoyen": 0.68,
+      "tranches": 2
+    }
+  ],
+  "paliers": [
+    {
+      "revenu": 0,
+      "fed": {
+        "impot": 0,
+        "marginal": 0
+      },
+      "qc": {
+        "impot": 0,
+        "marginal": 0
+      }
+    },
+    {
+      "revenu": 30000,
+      "fed": {
+        "impot": 4200,
+        "marginal": 0.14
+      },
+      "qc": {
+        "impot": 4200,
+        "marginal": 0.14
+      }
+    },
+    {
+      "revenu": 58523,
+      "fed": {
+        "impot": 8193.220000000001,
+        "marginal": 0.14
+      },
+      "qc": {
+        "impot": 8402.12,
+        "marginal": 0.19
+      }
+    },
+    {
+      "revenu": 60000,
+      "fed": {
+        "impot": 8496.005000000001,
+        "marginal": 0.205
+      },
+      "qc": {
+        "impot": 8682.750000000002,
+        "marginal": 0.19
+      }
+    },
+    {
+      "revenu": 120000,
+      "fed": {
+        "impot": 20958.53,
+        "marginal": 0.26
+      },
+      "qc": {
+        "impot": 20648.75,
+        "marginal": 0.24
+      }
+    },
+    {
+      "revenu": 300000,
+      "fed": {
+        "impot": 72976.05,
+        "marginal": 0.33
+      },
+      "qc": {
+        "impot": 66784.4625,
+        "marginal": 0.2575
+      }
+    }
+  ],
+  "fss": [
+    {
+      "revenu": 0,
+      "montant": 0,
+      "palier": "sous le seuil"
+    },
+    {
+      "revenu": 18500,
+      "montant": 0,
+      "palier": "sous le seuil"
+    },
+    {
+      "revenu": 20000,
+      "montant": 15,
+      "palier": "1 % du revenu excedant le seuil"
+    },
+    {
+      "revenu": 33500,
+      "montant": 150,
+      "palier": "1 % du revenu excedant le seuil"
+    },
+    {
+      "revenu": 50000,
+      "montant": 150,
+      "palier": "cotisation plancher"
+    },
+    {
+      "revenu": 70000,
+      "montant": 206.45,
+      "palier": "plancher + 1 % de l’excedent"
+    },
+    {
+      "revenu": 200000,
+      "montant": 1000,
+      "palier": "cotisation maximale"
+    }
+  ],
+  "rrq": [
+    {
+      "entreprise": 0,
+      "emploi": 0,
+      "base": 0,
+      "supp": 0,
+      "total": 0,
+      "deductible": 0,
+      "credit": 0
+    },
+    {
+      "entreprise": 10000,
+      "emploi": 0,
+      "base": 819,
+      "supp": 0,
+      "total": 819,
+      "deductible": 409.5,
+      "credit": 409.5
+    },
+    {
+      "entreprise": 40000,
+      "emploi": 0,
+      "base": 4599,
+      "supp": 0,
+      "total": 4599,
+      "deductible": 2299.5,
+      "credit": 2299.5
+    },
+    {
+      "entreprise": 40000,
+      "emploi": 60000,
+      "base": 1839.6,
+      "supp": 832,
+      "total": 2671.6,
+      "deductible": 1751.8,
+      "credit": 919.8
+    },
+    {
+      "entreprise": 90000,
+      "emploi": 0,
+      "base": 8958.6,
+      "supp": 832,
+      "total": 9790.6,
+      "deductible": 5311.3,
+      "credit": 4479.3
+    },
+    {
+      "entreprise": 120000,
+      "emploi": 0,
+      "base": 8958.6,
+      "supp": 832,
+      "total": 9790.6,
+      "deductible": 5311.3,
+      "credit": 4479.3
+    }
+  ],
+  "rqap": [
+    {
+      "revenu": 0,
+      "montant": 0,
+      "assiette": 0
+    },
+    {
+      "revenu": 10000,
+      "montant": 76.4,
+      "assiette": 10000
+    },
+    {
+      "revenu": 120000,
+      "montant": 786.92,
+      "assiette": 103000
+    }
+  ],
+  "bpaFed": [
+    {
+      "revenuNet": 0,
+      "bpa": 16452
+    },
+    {
+      "revenuNet": 100000,
+      "bpa": 16452
+    },
+    {
+      "revenuNet": 181440,
+      "bpa": 16452
+    },
+    {
+      "revenuNet": 220000,
+      "bpa": 15639.678409179409
+    },
+    {
+      "revenuNet": 258482,
+      "bpa": 14829
+    },
+    {
+      "revenuNet": 400000,
+      "bpa": 14829
+    }
+  ],
+  "impot": {
+    "entrees": {
+      "moduleProps": true,
+      "moduleRideshare": true,
+      "revenuLocatif": 28800,
+      "depensesLocatives": 13908,
+      "uberNet": 30000,
+      "lyftNet": 5000,
+      "depensesVehicule": 10000,
+      "kmTotalAnnuel": 20000,
+      "kmUber": 4000,
+      "kmLyft": 1000,
+      "dpaLocative": 5000,
+      "dpaEntreprise": 0,
+      "revenuT4": 60000,
+      "autresRevenus": 0,
+      "autresDeductions": 0,
+      "gainsRRQCotises": 0,
+      "impotRetenuFed": 6000,
+      "impotRetenuQc": 7000,
+      "acomptesFed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "acomptesQc": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "assiettes": {
+      "revLoc": 28800,
+      "depLoc": 13908,
+      "netLocAvantDPA": 14892,
+      "netLoc": 9892,
+      "dpaLoc": 5000,
+      "revEnt": 35000,
+      "depEnt": 2500,
+      "netEnt": 32500,
+      "dpaEnt": 0,
+      "vehUber": 2000,
+      "vehLyft": 500,
+      "vehTotal": 2500,
+      "t4": 60000,
+      "autres": 0,
+      "rrqTotal": 3654,
+      "rrqDeductible": 1827,
+      "rrqCredit": 1827,
+      "rqap": 248.3,
+      "fss": 150,
+      "deductionsCotisations": 2075.3,
+      "revenuTotal": 102392,
+      "revenuNet": 100316.7
+    },
+    "calcul": {
+      "fedBrut": 16760.9285,
+      "fedMarginal": 0.205,
+      "bpaFed": 16452,
+      "creditsFed": 2559.0600000000004,
+      "fedApresCredits": 14201.8685,
+      "abattement": 2343.3083025,
+      "fedNet": 11858.5601975,
+      "qcBrut": 16342.923,
+      "qcMarginal": 0.19,
+      "creditsQc": 2909.0600000000004,
+      "qcNet": 13433.863000000001,
+      "cotisations": 4052.3,
+      "retenues": 13000,
+      "acomptesVerses": 0,
+      "totalAvantRetenues": 29344.7231975,
+      "solde": 16344.7231975,
+      "marginal": 0.361175,
+      "provision": 18144.3278225,
+      "tauxEffectif": 0.29252081854267536
+    },
+    "acomptes": {
+      "requisFed": true,
+      "requisQc": true,
+      "netFed": 5858.560197500001,
+      "netQc": 10486.163,
+      "seuil": 1800,
+      "manqueTotal": 12258.54,
+      "joursAvantProchain": 54,
+      "versements": [
+        {
+          "date": "2026-03-15",
+          "echue": true,
+          "fed": 1464.6400493750002,
+          "qc": 2621.54075,
+          "manqueFed": 1464.64,
+          "manqueQc": 2621.54,
+          "jours": -221,
+          "enRetard": true
+        },
+        {
+          "date": "2026-06-15",
+          "echue": true,
+          "fed": 1464.6400493750002,
+          "qc": 2621.54075,
+          "manqueFed": 1464.64,
+          "manqueQc": 2621.54,
+          "jours": -129,
+          "enRetard": true
+        },
+        {
+          "date": "2026-09-15",
+          "echue": true,
+          "fed": 1464.6400493750002,
+          "qc": 2621.54075,
+          "manqueFed": 1464.64,
+          "manqueQc": 2621.54,
+          "jours": -37,
+          "enRetard": true
+        },
+        {
+          "date": "2026-12-15",
+          "echue": false,
+          "fed": 1464.6400493750002,
+          "qc": 2621.54075,
+          "manqueFed": 1464.64,
+          "manqueQc": 2621.54,
+          "jours": 54,
+          "enRetard": false
+        }
+      ]
+    },
+    "tauxMarginalEstime": 0.361175
+  }
+}

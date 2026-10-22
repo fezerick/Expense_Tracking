@@ -7,7 +7,16 @@ Application iOS native (iOS 17+) de préparation de la déclaration de revenus :
 1. Ouvrir `RevenusDepenses.xcodeproj` dans Xcode 16 ou plus récent.
 2. Sélectionner un simulateur iPhone (ou votre appareil) et lancer (⌘R).
 
-Le projet compile tel quel. **Note pour cette machine** : les runtimes simulateur installés datent d'iOS 17.x alors que Xcode 26 attend son runtime iOS 26 pour compiler le catalogue d'assets (icône). Installer le runtime via *Xcode → Settings → Components* (ou brancher un iPhone réel) et tout passera ; le code Swift lui-même compile sans erreur.
+Le projet compile tel quel : vérifié le 22 octobre 2026 avec le SDK iOS 27.0, pour l'appareil (`-sdk iphoneos`) comme pour le simulateur (`-sdk iphonesimulator`), **BUILD SUCCEEDED et zéro avertissement**. (Une note antérieure signalait ici un conflit entre le catalogue d'assets et les runtimes simulateur installés ; il n'existe plus.)
+
+**Le noyau de calcul se vérifie sans Xcode.** `RevenusDepenses/Core/` ne dépend que de Foundation — ni UIKit, ni SwiftData, ni état d'application — et rend les mêmes nombres que la PWA, vérifié par 57 assertions :
+
+```bash
+cd ..               # à la racine du dépôt
+npm run parite      # compile le noyau pour macOS et rejoue la référence de la PWA
+```
+
+Le détail du mécanisme est au § 7 de [`../docs/PORTAGE_IOS.md`](../docs/PORTAGE_IOS.md).
 
 ## Architecture
 

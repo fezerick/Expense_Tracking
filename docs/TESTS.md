@@ -5,8 +5,9 @@ Campagne du 18 octobre 2026, sur les deux applications : PWA (`pwa_2026/`) et iO
 l'interface, et vérification à l'exécution des sorties remises au comptable (PDF, CSV,
 sauvegardes).
 
-**État au 20 octobre 2026, version 2.6.0** — trois suites et quatre vérifications de
-fichiers, **toutes vertes**, exécutables **sans navigateur** par `npm test` :
+**État au 22 octobre 2026, version 2.7.0** — trois suites et quatre vérifications de
+fichiers, **toutes vertes**, exécutables **sans navigateur** par `npm test`, plus une
+quatrième suite qui compare le noyau Swift à la PWA (`npm run parite`) :
 
 | Suite | Portée | Résultat |
 |---|---|---|
@@ -14,6 +15,7 @@ fichiers, **toutes vertes**, exécutables **sans navigateur** par `npm test` :
 | `tests/pwa_suite.js` | socle `index.html` (écrans 1 à 5, exports, sauvegardes) | **111 / 111** |
 | `tests/pwa_modules_suite.js` | les 20 fichiers de `pwa_2026/js/` (§ 2.8 de l'architecture) | **297 / 297** |
 | `tests/pwa_sync_suite.js` | le raccordement à Firestore, contre un Firestore de pacotille (§ 2c) | **18 / 18** |
+| `ios_2026/Tests/Parity/` | le noyau Swift rend les mêmes nombres que la PWA (§ 4.5) | **57 / 57** |
 
 Dix défauts ont été corrigés et revérifiés depuis la campagne initiale : BUG-1, BUG-7
 (PWA + iOS), BUG-9, BUG-10, BUG-3, puis BUG-2 et les quatre défauts de la couche
@@ -33,6 +35,9 @@ npm test        # les trois suites + les quatre vérifications de version
 npm run test:socle      # une seule suite
 npm run test:modules
 npm run test:sync
+
+npm run parite:export   # relève les valeurs de la PWA dans une référence JSON
+npm run parite          # compile le noyau Swift et le confronte à cette référence
 ```
 
 `tests/run-headless.js` monte `index.html` dans jsdom, retire les trois balises Firebase,
@@ -48,7 +53,7 @@ Quatre vérifications portent sur les fichiers plutôt que sur le code exécuté
 |---|---|
 | V1 | `const CACHE` de `sw.js` porte la version courante |
 | V2 | `manifest.json` porte la version courante |
-| V3 | les 18 balises de module portent `?v=<version>` |
+| V3 | les 20 balises de module portent `?v=<version>` |
 | V4 | `package.json` porte la version courante |
 
 Deux garanties qui méritent d'être dites : le `localStorage` de jsdom est **en mémoire**,
@@ -503,7 +508,19 @@ Chaque étape exécutée dans le navigateur, sur l'application réelle.
 ### 4.1 Compilation
 
 `xcodebuild` sur le schéma `RevenusDepenses`, SDK iOS 27.0 : **BUILD SUCCEEDED, zéro
-avertissement du compilateur**.
+avertissement du compilateur**. Revérifié le 22 octobre 2026, avec le noyau `Core/` de la
+vague 1 inclus, pour les deux SDK :
+
+```bash
+xcodebuild -project ios_2026/RevenusDepenses.xcodeproj -scheme RevenusDepenses \
+  -sdk iphoneos -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project ios_2026/RevenusDepenses.xcodeproj -scheme RevenusDepenses \
+  -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build
+```
+
+Les deux rendent `** BUILD SUCCEEDED **`, zéro `warning:`. (Une note de `ios_2026/README.md`
+annonçait un conflit entre le catalogue d'actifs et les runtimes simulateur installés ; il
+n'existe plus, la note a été retirée.)
 
 ### 4.2 Import PWA → iOS, à l'exécution
 
@@ -580,6 +597,55 @@ SIMCTL_CHILD_PDF_SMOKE_TEST=1 xcrun simctl launch <device> com.ericfezeu.revenus
 - Page 5 : répartition 9 800 km Uber (44,5 %), 3 280 km Lyft (14,9 %), 1 654,8 km locatif
   (7,5 %) = 664,8 + 990 km, cohérent avec l'annexe A.
 - `−`, `→`, `×` et tous les accents s'affichent correctement : **BUG-8 est propre à la PWA**.
+
+---
+
+### 4.5 Parité du noyau Swift avec la PWA — `npm run parite`
+
+**57 / 57 assertions**, en deux secondes, sans simulateur. C'est la vérification qui rend
+le portage iOS tenable : les quatre fichiers de `ios_2026/RevenusDepenses/Core/`
+(`Socle`, `FiscalData`, `TaxService`, `CCAService`) ne dépendent que de Foundation, donc
+ils se compilent **pour macOS** et s'exécutent comme un programme en ligne de commande.
+
+Le point important est la provenance des nombres attendus. Ils ne sont **pas retapés** :
+
+1. `tests/pwa_modules_suite.js` relève ses propres valeurs mesurées, **à l'endroit même où
+   ses assertions les vérifient**, dans un champ `parite`.
+2. `npm run parite:export` exécute cette suite sous jsdom et écrit
+   `ios_2026/Tests/Parity/parite-vague1.json` — en **refusant d'écrire** si une seule des
+   297 assertions est rouge.
+3. `npm run parite` compile le noyau et rejoue ce fichier côté Swift.
+
+Donc une divergence ne peut venir que d'un écart réel entre les deux implémentations, et
+la référence ne peut pas vieillir en silence : elle se régénère à partir de la PWA.
+
+| Famille | Ids | Ce qui est comparé |
+|---|---|---|
+| Parité | `P01`–`P28` | ce que la PWA a réellement produit |
+| Invariants | `M19`–`M33`, `M53`–`M63` | les invariants de la suite JS, revérifiés en Swift |
+
+`M06` (`escH`) et `M08`/`M09` (`readYear`/`writeYear`) sont **volontairement écartés** :
+échappement HTML et accès au `localStorage` n'ont pas d'équivalent dans le noyau.
+
+Trois pièges de traduction, réglés et consignés ici parce qu'ils se reproduiront :
+
+- **`Infinity`** n'existe pas en JSON. Le dernier palier passe par `null` et redevient
+  `.infinity` en Swift ; il est comparé **par égalité**, jamais par soustraction, puisque
+  `∞ − ∞` vaut `NaN` et qu'une tolérance l'accepterait.
+- **La fixture change en cours de suite.** Chaque scénario de DPA est donc relevé là où
+  ses propres assertions le voient, pas à la fin.
+- **`aujourd'hui` est figé dans la référence**, sinon `echue`, `jours` et `enRetard`
+  changeraient de sens le lendemain d'une date d'échéance.
+
+Le harnais a été vérifié capable d'échouer : en corrompant 18 valeurs d'une copie du JSON,
+la suite est tombée à **40 / 57 avec 17 échecs distincts** et un code de sortie 1, chacun
+nommant le champ fautif.
+
+`ios_2026/Tests/XCTest/CoreParityTests.swift` contient la même suite sous forme de test
+XCTest, prête à être rattachée dès qu'une cible de tests existera dans Xcode — le projet
+n'en a pas encore, et `ios_2026/Tests/` est volontairement **hors** du groupe synchronisé
+`RevenusDepenses` pour que le `main.swift` du lanceur ne devienne pas un second point
+d'entrée de l'application.
 
 ---
 

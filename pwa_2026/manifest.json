@@ -2,7 +2,7 @@
   "name": "Mon Plex",
   "short_name": "Mon Plex",
   "description": "Revenus et dépenses de vos immeubles locatifs et de votre revenu de covoiturage, et l'impôt qui en découle — Québec et fédéral",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

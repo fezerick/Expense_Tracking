@@ -465,6 +465,8 @@ l'historique — ce qu'on désigne est la cellule, pas le mot qui la nommait ce 
 
 ```
 ios_2026/RevenusDepenses/
+├── Core/       Socle.swift (121)       FiscalData.swift (360)
+│               TaxService.swift (321)  CCAService.swift (314)   ← § 3.6
 ├── App/        RevenusDepensesApp.swift (52)   RootView.swift (133)
 ├── Models/     AppConfig.swift (306)  Models.swift (175)
 │               RentalProperty.swift (167)  AppSetup.swift (102)
@@ -539,6 +541,41 @@ Utilisable sans interface :
 ```bash
 SIMCTL_CHILD_PDF_SMOKE_TEST=1 xcrun simctl launch <device> com.ericfezeu.revenusdepenses
 ```
+
+### 3.6 Noyau de calcul (`Core/`) et parité avec la PWA
+
+Depuis la 2.7.0. `Core/` est le portage Swift des modules de calcul de la PWA — la
+**vague 1** de [PORTAGE_IOS.md](PORTAGE_IOS.md) :
+
+| Fichier Swift | Vient de | Contenu |
+|---|---|---|
+| `Socle.swift` | `js/utils.js` | `num`, `fmt`, `shortLabel`, `csvLigne`… |
+| `FiscalData.swift` | `js/fiscal-data.js` | paramètres fiscaux par année, catégories de DPA |
+| `TaxService.swift` | `js/impot.js` | assiettes, impôt des deux paliers, acomptes |
+| `CCAService.swift` | `js/dpa.js` | pools de DPA, demi-taux, 1100(11), FNACC reportée |
+
+**Une règle, et c'est la seule qui compte ici : `Core/` n'importe que Foundation.** Ni
+UIKit, ni SwiftUI, ni SwiftData, ni état d'application. Deux conséquences, l'une
+architecturale et l'autre pratique :
+
+- un calcul qui ne peut pas importer UIKit ne peut pas non plus aller chercher une donnée
+  derrière le dos de son appelant : tout entre par les paramètres, tout sort par la valeur
+  de retour. `CCAService.calculer` reçoit ainsi la FNACC de l'année précédente par une
+  fermeture `fournisseur:` plutôt qu'en interrogeant SwiftData ;
+- le noyau se compile **pour macOS**, donc se vérifie en deux secondes sans simulateur.
+
+C'est ce que fait `npm run parite`. Les nombres attendus ne sont pas retapés : la suite JS
+relève ses propres valeurs mesurées là où ses assertions les vérifient,
+`npm run parite:export` les écrit dans `ios_2026/Tests/Parity/parite-vague1.json` — en
+refusant d'écrire si une assertion est rouge — et `scripts/ios-parity.sh` compile le noyau
+avec `swiftc` dans un répertoire temporaire pour rejouer ce fichier. **57 assertions**, le
+détail est au § 4.5 de [TESTS.md](TESTS.md).
+
+`ios_2026/Tests/` vit **hors** du groupe `RevenusDepenses` : ce groupe est un
+`PBXFileSystemSynchronizedRootGroup`, qui embarque automatiquement tout `.swift` placé
+sous lui, et le `main.swift` du lanceur deviendrait un second point d'entrée de
+l'application. La variante XCTest (`Tests/XCTest/CoreParityTests.swift`) attend qu'une
+cible de tests existe dans le projet.
 
 ---
 
